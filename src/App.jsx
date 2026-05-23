@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
-import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong } from './lib/supabase';
+import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, requestDeleteSong, rejectDeleteSong } from './lib/supabase';
 import { findSongData, searchSongCandidates } from './lib/scraper';
 
 /* ─── CSS ───────────────────────────────────────────────────── */
@@ -24,13 +24,13 @@ html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
 .gL0{background:rgba(255,255,255,.2);backdrop-filter:blur(30px) saturate(160%) brightness(1.1);-webkit-backdrop-filter:blur(30px) saturate(160%) brightness(1.1);border:1px solid rgba(255,255,255,.4);box-shadow:inset 0 1px 1px rgba(255,255,255,.6), inset 0 -1px 1px rgba(255,255,255,.1);}
 .gL1{background:rgba(255,255,255,.25);backdrop-filter:blur(40px) saturate(180%) brightness(1.1);-webkit-backdrop-filter:blur(40px) saturate(180%) brightness(1.1);border:1px solid rgba(255,255,255,.3);box-shadow:inset 0 1px 1px rgba(255,255,255,.7), 0 8px 32px rgba(31,38,135,.07);}
 .gL2{background:rgba(255,255,255,.45);backdrop-filter:blur(50px) saturate(180%) brightness(1.15);-webkit-backdrop-filter:blur(50px) saturate(180%) brightness(1.15);border-top:1px solid rgba(255,255,255,.6);box-shadow:inset 0 1px 1px rgba(255,255,255,.8), 0 -12px 56px rgba(31,38,135,.1);}
-.gNav{background:rgba(255,255,255,.65);backdrop-filter:blur(30px) saturate(180%) brightness(1.1);-webkit-backdrop-filter:blur(30px) saturate(180%) brightness(1.1);border:1px solid rgba(255,255,255,.5);box-shadow:inset 0 1px 0 rgba(255,255,255,.8), 0 10px 40px -10px rgba(0,0,0,.15);}
+.gNav{background:rgba(255,255,255,.15);backdrop-filter:blur(12px) saturate(200%) brightness(1.2);-webkit-backdrop-filter:blur(12px) saturate(200%) brightness(1.2);border-top:1px solid rgba(255,255,255,.6);border-bottom:1px solid rgba(0,0,0,.05);border-left:1px solid rgba(255,255,255,.2);border-right:1px solid rgba(255,255,255,.2);box-shadow:inset 0 1px 1px rgba(255,255,255,.4), 0 8px 32px rgba(0,0,0,.15);}
 .gIn{background:rgba(255,255,255,.15);backdrop-filter:blur(24px) saturate(150%) brightness(1.05);-webkit-backdrop-filter:blur(24px) saturate(150%) brightness(1.05);border:1px solid rgba(79,70,229,.15);border-radius:var(--r-lg);transition:border .2s,box-shadow .2s;box-shadow:inset 0 1px 2px rgba(0,0,0,.03);}
 .gIn:focus-within{border-color:var(--c-i);box-shadow:inset 0 1px 2px rgba(0,0,0,.02), 0 0 0 3px rgba(79,70,229,.15);}
 .dark .gL0{background:rgba(10,15,30,.25);border:1px solid rgba(255,255,255,.05);box-shadow:inset 0 1px 1px rgba(255,255,255,.1), inset 0 -1px 1px rgba(255,255,255,.02);}
 .dark .gL1{background:rgba(14,18,44,.4);border:1px solid rgba(255,255,255,.05);box-shadow:inset 0 1px 1px rgba(255,255,255,.12), 0 4px 32px rgba(0,0,0,.4);}
 .dark .gL2{background:rgba(6,10,24,.6);border-top:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 1px rgba(255,255,255,.15), 0 -12px 56px rgba(0,0,0,.5);}
-.dark .gNav{background:rgba(5,8,22,.45);border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 10px 40px -10px rgba(0,0,0,.6);}
+.dark .gNav{background:rgba(15,23,42,.3);border-top:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(0,0,0,.5);border-left:1px solid rgba(255,255,255,.05);border-right:1px solid rgba(255,255,255,.05);box-shadow:inset 0 1px 1px rgba(255,255,255,.1), 0 8px 32px rgba(0,0,0,.5);}
 .dark .gIn{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.08);box-shadow:inset 0 1px 2px rgba(0,0,0,.2);}
 .dark .gIn:focus-within{border-color:var(--c-id);box-shadow:inset 0 1px 2px rgba(0,0,0,.2), 0 0 0 3px rgba(129,140,248,.15);}
 .aC-jubilo{border-left:3.5px solid #10B981;}.aC-adoracao{border-left:3.5px solid #4F46E5;}
@@ -501,9 +501,22 @@ const Treinamento = memo(({dark, profile})=>{
 });
 
 /* ─── PAINEL ADMIN ──────────────────────────────────────────── */
-const PainelAdmin = memo(({dark, events, members, profile})=>{
+const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
+  
+  const pendingDeletes = songs?.filter(s => s.delete_requested_by) || [];
+
+  const handleApproveDelete = async (songId) => {
+    if(!window.confirm('Aprovar e EXCLUIR definitivamente esta música?')) return;
+    setSongs(s=>s.filter(x=>x.id!==songId));
+    dbDelSong(songId).catch(console.error);
+  };
+
+  const handleRejectDelete = async (songId) => {
+    setSongs(s=>s.map(x=>x.id===songId?{...x, delete_requested_by:null}:x));
+    rejectDeleteSong(songId).catch(console.error);
+  };
   
   if(!profile?.is_admin) return <div style={{padding:40,textAlign:'center',color:t2}}>Acesso Restrito</div>;
 
@@ -530,6 +543,25 @@ const PainelAdmin = memo(({dark, events, members, profile})=>{
          <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,textTransform:'uppercase'}}>Ministrações</div>
       </div>
     </div>
+
+    {pendingDeletes.length > 0 && <div className={`${gc} aUp`} style={{...CS, border:'1px solid rgba(239,68,68,.2)'}}>
+       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'#EF4444',marginBottom:10,textTransform:'uppercase'}}>Solicitações de Exclusão</div>
+       <div style={{display:'flex',flexDirection:'column',gap:10}}>
+         {pendingDeletes.map(s => {
+            const reqBy = members.find(m => m.id === s.delete_requested_by)?.name || 'Usuário';
+            return <div key={s.id} style={{padding:12, background:'rgba(239,68,68,.05)', borderRadius:'var(--r-md)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+               <div>
+                  <div style={{fontWeight:800,color:tc}}>{s.title}</div>
+                  <div style={{fontSize:'var(--fs-xs)',color:t2}}>Pedida por: {reqBy}</div>
+               </div>
+               <div style={{display:'flex',gap:6}}>
+                  <button onClick={()=>handleRejectDelete(s.id)} style={{padding:'6px 12px',borderRadius:100,border:'1px solid rgba(239,68,68,.3)',background:'transparent',color:'#EF4444',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Recusar</button>
+                  <button onClick={()=>handleApproveDelete(s.id)} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#EF4444',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Aprovar (Excluir)</button>
+               </div>
+            </div>
+         })}
+       </div>
+    </div>}
     
     <div className={`${gc} aUp`} style={CS}>
        <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12}}>Comprometimento (Últimos Eventos)</div>
@@ -1932,9 +1964,18 @@ export default function LouveSync() {
   }
 
   function handleDeleteSong(id){
-    if(!window.confirm('Excluir esta música do repertório?'))return;
-    setSongs(s=>s.filter(x=>x.id!==id));setSelSong(null);
-    dbDelSong(id).catch(console.error);
+    if(profile?.is_admin){
+      if(!window.confirm('Excluir esta música DEFINITIVAMENTE do repertório?'))return;
+      setSongs(s=>s.filter(x=>x.id!==id));setSelSong(null);
+      dbDelSong(id).catch(console.error);
+    } else {
+      if(!window.confirm('Você não é administrador. Deseja ENVIAR UM PEDIDO de exclusão desta música para a liderança?'))return;
+      setSongs(s=>s.map(x=>x.id===id?{...x, delete_requested_by: profile.id}:x));
+      setSelSong(null);
+      requestDeleteSong(id, profile.id).then(()=>{
+        alert('Pedido de exclusão enviado aos administradores.');
+      }).catch(console.error);
+    }
   }
 
   function handleSaveEvent(evs){
@@ -2059,7 +2100,7 @@ export default function LouveSync() {
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
             {tab==='treinamento'&&!inCifra&&<Treinamento dark={dark} profile={profile}/>}
             {tab==='biblia'&&!inCifra&&<Biblia dark={dark}/>}
-            {tab==='admin'&&!inCifra&&<PainelAdmin dark={dark} profile={profile} events={events} members={allMembers}/>}
+            {tab==='admin'&&!inCifra&&<PainelAdmin dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs}/>}
           </>}
         </div>
 

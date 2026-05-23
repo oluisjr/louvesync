@@ -62,6 +62,23 @@ export async function deleteSong(id) {
   if (error) throw error;
 }
 
+export async function requestDeleteSong(songId, userId) {
+  if (!supabase) return null;
+  const { error } = await supabase
+    .from('songs')
+    .update({ delete_requested_by: userId })
+    .eq('id', songId);
+  if (error) throw error;
+}
+
+export async function rejectDeleteSong(songId) {
+  if (!supabase) return null;
+  const { error } = await supabase
+    .from('songs')
+    .update({ delete_requested_by: null })
+    .eq('id', songId);
+  if (error) throw error;
+}
 export async function setPresence(eventId, memberId, confirmed) {
   if (!supabase) return null;
   const { error } = await supabase
