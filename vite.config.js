@@ -35,6 +35,55 @@ const localScraperPlugin = () => ({
   }
 });
 
+import { VitePWA } from 'vite-plugin-pwa'
+
 export default defineConfig({
-  plugins: [react(), localScraperPlugin()],
+  plugins: [
+    react(), 
+    localScraperPlugin(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      manifest: {
+        name: 'LouveSync',
+        short_name: 'LouveSync',
+        description: 'App de Gestão para Ministérios de Louvor',
+        theme_color: '#4F46E5',
+        icons: [
+          {
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          }
+        ]
+      },
+      workbox: {
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/supabase\.co\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'supabase-api-cache',
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 }, // 1 week
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }, // 1 year
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          }
+        ]
+      }
+    })
+  ],
 })

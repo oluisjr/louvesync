@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
-import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, requestDeleteSong, rejectDeleteSong } from './lib/supabase';
+import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, requestDeleteSong, rejectDeleteSong, supabase } from './lib/supabase';
 import { findSongData, searchSongCandidates } from './lib/scraper';
 
 /* ─── CSS ───────────────────────────────────────────────────── */
@@ -180,7 +180,7 @@ function fDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('pt-BR',{w
 function today(){return new Date().toISOString().slice(0,10);}
 function isSundaySecond(dateStr){const d=new Date(dateStr+'T12:00:00');const dom=d.getDate();const dow=d.getDay();return dow===0&&dom>=8&&dom<=14;}
 function parseLine(line){const segs=[];const parts=line.split(/(\[[^\]]+\])/);let i=0;while(i<parts.length){if(parts[i]?.startsWith('[')&&parts[i]?.endsWith(']')){const ch=parts[i].slice(1,-1);const nx=parts[i+1];const ly=(nx&&!nx.startsWith('['))?nx:'';segs.push({ch,ly});i+=(nx&&!nx.startsWith('['))?2:1;}else{if(parts[i])segs.push({ch:'',ly:parts[i]});i++;}}return segs;}
-function normalizeEvent(ev){const sorted=[...(ev.event_songs||[])].sort((a,b)=>a.order_index-b.order_index);return{id:ev.id,date:ev.date,type:ev.type,label:ev.label,time:ev.time,theme:ev.theme,songs:sorted.map(es=>es.song_id),members:(ev.event_members||[]).map(em=>em.member_id),confirmations:Object.fromEntries((ev.event_members||[]).map(em=>[em.member_id,em.confirmed])),singerBySong:Object.fromEntries(sorted.map(es=>[es.song_id,es.singer_member_id])),requested_songs:ev.requested_songs||[],santa_ceia_song:ev.santa_ceia_song||null};}
+function normalizeEvent(ev){const sorted=[...(ev.event_songs||[])].sort((a,b)=>a.order_index-b.order_index);return{id:ev.id,date:ev.date,type:ev.type,label:ev.label,time:ev.time,theme:ev.theme,songs:sorted.filter(es=>es.item_type!=='note').map(es=>es.song_id),items:sorted.map(es=>({id:es.id,type:es.item_type||'song',song_id:es.song_id,text:es.note_text})),members:(ev.event_members||[]).map(em=>em.member_id),confirmations:Object.fromEntries((ev.event_members||[]).map(em=>[em.member_id,em.confirmed])),singerBySong:Object.fromEntries(sorted.filter(es=>es.item_type!=='note').map(es=>[es.song_id,es.singer_member_id])),requested_songs:ev.requested_songs||[],santa_ceia_song:ev.santa_ceia_song||null};}
 
 function useDraggableScroll(ref) {
   useEffect(() => {
@@ -914,6 +914,21 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
   const curKey=getKey(song.key,tr);
   const beats=parseInt(song.time_signature?.split('/')[0])||4;
   
+  const getEmbedUrl = (url) => {
+    if(!url) return null;
+    if(url.includes('youtube.com/watch?v=')) {
+        const v = new URLSearchParams(new URL(url).search).get('v');
+        return `https://www.youtube.com/embed/${v}`;
+    }
+    if(url.includes('youtu.be/')) {
+        const v = url.split('youtu.be/')[1].split('?')[0];
+        return `https://www.youtube.com/embed/${v}`;
+    }
+    if(url.includes('spotify.com/track/')) return url.replace('spotify.com/track/', 'open.spotify.com/embed/track/');
+    return null;
+  };
+  const embedUrl = getEmbedUrl(song.media_url);
+  
   const [seqStr, setSeqStr] = useState(event?.sequenceBySong?.[song.id] || '');
   useEffect(() => {
      if(event) setSeqStr(event.sequenceBySong?.[song.id] || '');
@@ -939,6 +954,11 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
         </div>
       </div>
     </div>
+
+    {/* Media Player */}
+    {embedUrl && <div className={`${gc} aUp`} style={{...CS, padding:0, overflow:'hidden', marginBottom:12, height: song.media_url.includes('spotify') ? 80 : 200}}>
+       <iframe src={embedUrl} width="100%" height="100%" frameBorder="0" allow="encrypted-media; picture-in-picture" allowFullScreen></iframe>
+    </div>}
 
     {/* Transposer */}
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.07s'}}>
@@ -1290,7 +1310,7 @@ const AddSong = memo(({dark,onSave,onClose})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1';
   const [step,setStep]=useState(1);
-  const [form,setForm]=useState({title:'',artist:'',cat:'adoracao',key:'C',bpm:'80',timeSignature:'4/4',lyrics:'',tags:'',rawLyrics:'',sequence:''});
+  const [form,setForm]=useState({title:'',artist:'',cat:'adoracao',key:'C',bpm:'80',timeSignature:'4/4',lyrics:'',tags:'',rawLyrics:'',sequence:'',media_url:''});
   const [candidates,setCandidates]=useState([]);
   const [searchLoading,setSearchLoading]=useState(false);
   const [selLoading,setSelLoading]=useState(false);
@@ -1402,7 +1422,7 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
 
   function save(){
     if(!form.title||!form.lyrics)return;
-    onSave({id:'local_'+Date.now(),title:form.title,artist:form.artist||'Ministério',cat:form.cat,key:form.key,bpm:parseInt(form.bpm)||80,time_signature:form.timeSignature,lyrics:form.lyrics,tags:form.tags.split(',').map(t=>t.trim()).filter(Boolean)});
+    onSave({id:'local_'+Date.now(),title:form.title,artist:form.artist||'Ministério',cat:form.cat,key:form.key,bpm:parseInt(form.bpm)||80,time_signature:form.timeSignature,lyrics:form.lyrics,tags:form.tags.split(',').map(t=>t.trim()).filter(Boolean),media_url:form.media_url});
   }
 
   const busy=selLoading||genLoad;
@@ -1525,6 +1545,11 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
           <div style={{fontSize:'var(--fs-sm)',color:t2,fontWeight:700}}>Use [G], [Em], [C7] para acordes</div>
           <div className="gIn" style={{borderRadius:'var(--r-lg)'}}>
             <textarea className="fi" value={form.lyrics} onChange={e=>setForm(f=>({...f,lyrics:e.target.value}))} placeholder={'Verso:\n[G]Letra com [D]acordes\n\nCoro:\n[C]Continue a[G]qui...'} style={{color:tc,minHeight:200,fontFamily:"'JetBrains Mono',monospace",fontSize:'var(--fs-sm)',lineHeight:1.8}}/>
+          </div>
+          <div style={{fontSize:'var(--fs-sm)',color:t2,fontWeight:700,marginTop:10}}>Áudio de Referência (Opcional)</div>
+          <div className="gIn" style={{borderRadius:'var(--r-lg)',display:'flex',alignItems:'center',padding:'0 12px'}}>
+             <div style={{color:t2}}>🔗</div>
+             <input className="fi" value={form.media_url} onChange={e=>setForm(f=>({...f,media_url:e.target.value}))} placeholder="Link do YouTube ou Spotify" style={{color:tc}}/>
           </div>
           {form.lyrics&&<div className={gc} style={{borderRadius:'var(--r-md)',padding:14}}>
             <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Preview</div>
@@ -1697,6 +1722,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,onSave,onClose}
 const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,spawnConfetti})=>{
   if(!ev)return null;
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const evItems=(ev.items||[]).map(it=>it.type==='song'?{...it,song:songs.find(s=>s.id===it.song_id)}:it).filter(it=>it.type==='note'||it.song);
   const evS=ev.songs.map(id=>songs.find(s=>s.id===id)).filter(Boolean);
   const evM=ev.members.map(id=>members.find(m=>m.id===id)).filter(Boolean);
   const myConf=ev.confirmations[profile?.id];
@@ -1722,11 +1748,15 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           <button onClick={()=>onConfirm(ev.id,false)} style={{flex:1,padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===false?'#EF4444':'rgba(239,68,68,.08)',color:myConf===false?'#fff':'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX/>Recusar</button>
         </div>}
         <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Setlist</div>
-        {evS.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evS.map((s,i)=><div key={s.id} onClick={()=>onSelectSong(s)} style={{display:'flex',alignItems:'center',gap:11,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)',cursor:'pointer'}}>
-          <span style={{width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
-          <div style={{flex:1}}><div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
-          <KeyChip k={s.key} size={10}/>
-        </div>)}
+        {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map((it,i)=>{
+          if(it.type==='note') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:'#D97706', borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
+          const s = it.song;
+          return <div key={it.id} onClick={()=>onSelectSong(s)} style={{display:'flex',alignItems:'center',gap:11,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)',cursor:'pointer'}}>
+            <span style={{width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
+            <div style={{flex:1}}><div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
+            <KeyChip k={s.key} size={10}/>
+          </div>
+        })}
         <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',margin:'16px 0 10px'}}>Equipe ({evM.length})</div>
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
           {evM.map(m=>{const conf=ev.confirmations[m.id];return <div key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:'var(--r-md)',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
@@ -1902,6 +1932,27 @@ export default function LouveSync() {
       setDataLoading(false);
     }
     loadData();
+
+    // ── Supabase Realtime ──
+    if(!supabase) return;
+    const channel = supabase.channel('louvesync_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, payload => {
+         loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_songs' }, payload => {
+         loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_members' }, payload => {
+         loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, payload => {
+         loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   },[profile]);
   
   // Persist data locally automatically
