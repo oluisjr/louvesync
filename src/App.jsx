@@ -447,7 +447,7 @@ const Devocional = memo(({dark})=>{
 
     {content.map((c,i)=><div key={i} className={`${gc} aUp`} style={{...CS,animationDelay:`${i*.1}s`, padding: c.type==='video'?12:20}}>
       <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:10,background:'rgba(245,158,11,.1)',color:'#D97706',border:'1px solid rgba(245,158,11,.2)'}}>{c.theme}</span>
-      <div style={{fontSize:18,fontWeight:900,color:tc,lineHeight:1.2,marginBottom:4}}>{c.title}</div>
+      <div className="font-serif" style={{fontSize:18,fontWeight:900,color:tc,lineHeight:1.2,marginBottom:4}}>{c.title}</div>
       
       {c.type === 'text' && <>
         <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12,fontStyle:'italic'}}>Reflexão - {c.author}</div>
@@ -828,7 +828,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
         <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:7}}>Setlist</div>
         {nS.map((s,i)=><div key={s.id} onClick={()=>onSelectSong(s,nxt)} className="touch-scale" style={{display:'flex',alignItems:'center',gap:9,padding:'8px 0',borderBottom:i<nS.length-1?`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`:''}}> 
           <span style={{width:22,height:22,borderRadius:7,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
-          <div style={{flex:1}}><div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,lineHeight:1.2}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
+          <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc,lineHeight:1.2}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
           <KeyChip k={s.key} size={10}/>
         </div>)}
       </div>
@@ -1787,7 +1787,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           const s = it.song;
           return <div key={it.id} onClick={()=>onSelectSong(s)} style={{display:'flex',alignItems:'center',gap:11,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)',cursor:'pointer'}}>
             <span style={{width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
-            <div style={{flex:1}}><div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
+            <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
             <KeyChip k={s.key} size={10}/>
           </div>
         })}
