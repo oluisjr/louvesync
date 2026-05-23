@@ -43,7 +43,7 @@ export default defineConfig({
     localScraperPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'LouveSync',
         short_name: 'LouveSync',
