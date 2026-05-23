@@ -323,7 +323,6 @@ const LyricView = memo(({text,st=0,mode='chords',dark,fs=17})=>{
   const lines=tLyrics(text,st).split('\n');
   return <div style={{fontFamily:"'Montserrat',sans-serif"}}>{lines.map((line,li)=>{
     if(!line.trim())return <div key={li} style={{height:8}}/>;
-    // Identificar blocos de cifras do Cifraclub (ex: [Refrão], [Primeira Parte])
     let secMatch = line.trim().match(/^\[?(Verso|Coro|Refrão|Pré-Refrão|Pré-Coro|Ponte|Intro|Final|Outro|Bridge|Primeira Parte|Segunda Parte|Terceira Parte|Quarta Parte)[\s:]?(\d*)\]?$/i);
     if(secMatch)return <Sec key={li} t={(secMatch[1] + (secMatch[2]?` ${secMatch[2]}`:'')).toUpperCase()}/>;
     if(mode==='lyrics'||!line.includes('['))return <div key={li} style={{fontSize:fs,lineHeight:1.8,color:tc,marginBottom:1}}>{line.replace(/\[[^\]]+\]/g,'')}</div>;
@@ -335,59 +334,41 @@ const LyricView = memo(({text,st=0,mode='chords',dark,fs=17})=>{
 const Biblia = memo(({dark})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
-  
-  const [books, setBooks] = useState([]);
+
+  const [books] = useState(BIBLE_BOOKS);
   const [selBook, setSelBook] = useState('');
-  const [chapters, setChapters] = useState(0);
-  const [selChapter, setSelChapter] = useState('');
+  const [selChapter, setSelChapter] = useState(null);
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(()=>{
-    fetch('https://www.abibliadigital.com.br/api/books')
-      .then(res=>res.json())
-      .then(data=>{
-         if (Array.isArray(data)) {
-           setBooks(data);
-         } else {
-           setError('A API da Bíblia está temporariamente indisponível.');
-         }
-      })
-      .catch(err=>{
-         console.error(err);
-         setError('Falha na conexão com a Bíblia.');
-      });
-  }, []);
+  const [error, setError] = useState(null);
 
   const handleSelectBook = (bId) => {
-     setSelBook(bId);
-     setSelChapter('');
-     setVerses([]);
-     const b = books.find(x => x.abbrev.pt === bId);
-     if (b) setChapters(b.chapters);
+    setSelBook(bId); setSelChapter(null); setVerses([]); setError(null);
   };
+
+  const chapters = useMemo(() => {
+    const b = books.find(x => x.a === selBook);
+    return b ? b.c : 0;
+  }, [selBook, books]);
 
   const handleSelectChapter = (ch) => {
-     setSelChapter(ch);
-     setLoading(true);
-     setError('');
-     fetch(`https://www.abibliadigital.com.br/api/verses/nvi/${selBook}/${ch}`)
-        .then(res=>{
-          if(!res.ok) throw new Error('Falha ao carregar versículos');
-          return res.json();
-        })
-        .then(data=>{
-           setVerses(data.verses || []);
-           setLoading(false);
-        })
-        .catch(err=>{
-           setError('Erro ao carregar o texto bíblico. Verifique a internet.');
-           setLoading(false);
-        });
+    setSelChapter(ch); setVerses([]); setError(null); setLoading(true);
+    fetch(`https://bible-api.com/${selBook}+${ch}?translation=almeida`)
+      .then(res=>res.json())
+      .then(data=>{
+         if (data.verses) {
+           setVerses(data.verses.map(v => ({ number: v.verse, text: v.text.trim() })));
+         } else {
+           setError('Capítulo não encontrado.');
+         }
+      })
+      .catch(()=>{
+         setError('Falha na conexão com a Bíblia.');
+      })
+      .finally(() => setLoading(false));
   };
 
-  return <div style={{padding:16, paddingBottom:96}}>
+  return <div style={{padding:16, paddingBottom:'calc(96px + env(safe-area-inset-bottom))', paddingTop:'env(safe-area-inset-top)'}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
       <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoBook s={20}/>Bíblia Sagrada</div>
     </div>
@@ -396,7 +377,7 @@ const Biblia = memo(({dark})=>{
       <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em'}}>Selecione o Livro</div>
       <div className="gIn"><select className="fi" value={selBook} onChange={e=>handleSelectBook(e.target.value)} style={{color:tc,padding:'10px'}}>
          <option value="">Escolha um livro...</option>
-         {books.map(b=><option key={b.abbrev.pt} value={b.abbrev.pt}>{b.name}</option>)}
+         {books.map(b=><option key={b.a} value={b.a}>{b.n}</option>)}
       </select></div>
 
       {chapters > 0 && <>
@@ -413,7 +394,7 @@ const Biblia = memo(({dark})=>{
     {error && <div style={{textAlign:'center',color:'#EF4444',fontWeight:700,fontSize:'var(--fs-sm)'}}>{error}</div>}
 
     {verses.length > 0 && !loading && <div className={`${gc} aUp`} style={{...CS}}>
-       <div style={{fontSize:24,fontWeight:900,color:tc,marginBottom:16,textAlign:'center'}}>{books.find(b=>b.abbrev.pt===selBook)?.name} {selChapter}</div>
+       <div style={{fontSize:24,fontWeight:900,color:tc,marginBottom:16,textAlign:'center'}}>{books.find(b=>b.a===selBook)?.n} {selChapter}</div>
        <div style={{display:'flex',flexDirection:'column',gap:12}}>
           {verses.map((v)=>(
              <div key={v.number} style={{display:'flex',gap:10,lineHeight:1.7}}>
@@ -1235,7 +1216,7 @@ const Maestro = memo(({dark,aiMsgs,aiIn,setAiIn,aiLoad,aiCount,onSendAI,profile}
     {l:'Estrutura de Ensaio',p:'Estruture um ensaio eficiente de 2 horas para ministério de louvor, com divisão de tempo.'},
   ];
 
-  return <div style={{display:'flex',flexDirection:'column',height:'calc(100dvh - 130px)',padding:'16px 16px 0'}}>
+  return <div style={{display:'flex',flexDirection:'column',height:'100%',padding:'16px 16px 120px'}}>
     <div style={{marginBottom:12}} className="aUp">
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2}}>
         <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoSpark s={20}/>Maestro</div>
@@ -2043,7 +2024,7 @@ export default function LouveSync() {
         {/* OFFLINE BANNER */}
         {!isOnline&&<div style={{background:'rgba(239,68,68,.9)',color:'#fff',textAlign:'center',padding:'5px',fontSize:'var(--fs-xs)',fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',gap:6,flexShrink:0}}><IcoWifi s={12} off/>Sem conexão — usando dados locais</div>}
         {/* TOP BAR */}
-        <div className="gL0" style={{padding:'11px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)'}`,position:'sticky',top:0,zIndex:30,flexShrink:0}}>
+        <div className="gL0" style={{padding:'11px 16px', paddingTop:'calc(env(safe-area-inset-top, 0px) + 11px)', display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)'}`,position:'sticky',top:0,zIndex:30,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             {inCifra&&<button onClick={()=>setSelSong(null)} style={{width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(79,70,229,.1)',color:'#4F46E5',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><IcoChevL s={18}/></button>}
             {inCifra?<div style={{lineHeight:1.3}}><div style={{fontSize:15,fontWeight:900,color:tc}}>{selSong.title}</div><div style={{fontSize:'var(--fs-xs)',color:dark?'#94A3B8':'#475569'}}>{selSong.artist}</div></div>
@@ -2062,7 +2043,7 @@ export default function LouveSync() {
         </div>
 
         {/* MAIN SCROLL */}
-        <div style={{flex:1,overflowY:'auto',paddingBottom:inCifra?96:96,minHeight:0}}>
+        <div style={{flex:1,overflowY:'auto',paddingBottom:inCifra?96:10,minHeight:0,display:'flex',flexDirection:'column'}}>
           {dataLoading&&!inCifra?<div style={{display:'flex',justifyContent:'center',alignItems:'center',height:200}}><Loader/></div>:<>
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={()=>setCreateEvOpen(true)}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
@@ -2078,7 +2059,7 @@ export default function LouveSync() {
         </div>
 
         {/* BOTTOM NAV — hidden in Cifra */}
-        {!inCifra&&<div style={{position:'fixed',bottom:20,left:0,right:0,display:'flex',justifyContent:'center',zIndex:50,pointerEvents:'none',maxWidth:500,margin:'0 auto'}}>
+        {!inCifra&&<div style={{position:'fixed',bottom:'calc(env(safe-area-inset-bottom, 0px) + 20px)',left:0,right:0,display:'flex',justifyContent:'center',zIndex:50,pointerEvents:'none',maxWidth:500,margin:'0 auto'}}>
           <div className="gNav hide-scroll" style={{borderRadius:100,padding:'6px 10px',display:'flex',gap:2,pointerEvents:'all',overflowX:'auto',maxWidth:'90%',WebkitOverflowScrolling:'touch'}}>
             {TABS.map(n=>{const active=tab===n.id;return <button key={n.id} className={`nb${active?' on':''}`} onClick={()=>navTo(n.id)}>
               <span className="ni" style={{color:active?'#4F46E5':dark?'#94A3B8':'#64748B'}}>{n.ico}</span>
