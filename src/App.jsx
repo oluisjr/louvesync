@@ -2,18 +2,18 @@ import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, requestDeleteSong, rejectDeleteSong, supabase } from './lib/supabase';
 import { findSongData, searchSongCandidates } from './lib/scraper';
 
-/* ─── CSS ───────────────────────────────────────────────────── */
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.cdnfonts.com/css/product-sans');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
 :root{
-  --fs-xs:10px;--fs-sm:12px;--fs-base:14px;--fs-lg:16px;--fs-xl:20px;--fs-2xl:26px;
+  --fs-xs:12px;--fs-sm:14px;--fs-base:16px;--fs-lg:18px;--fs-xl:22px;--fs-2xl:28px;
   --c-i:#4F46E5;--c-id:#818CF8;--c-g:#10B981;--c-a:#F59E0B;--c-p:#EC4899;--c-r:#EF4444;
   --r-sm:10px;--r-md:14px;--r-lg:18px;--r-xl:22px;--r-full:100px;
 }
-.ls{font-family:'Nunito',sans-serif;height:100dvh;overflow:hidden;position:relative;}
-.font-serif { font-family: 'Nunito', sans-serif; letter-spacing: -.02em; }
+.ls{font-family:'Product Sans', 'DM Sans', sans-serif;height:100dvh;overflow:hidden;position:relative;}
+.font-serif { font-family: 'Product Sans', 'DM Sans', sans-serif; letter-spacing: -.02em; }
 .bg{position:fixed;inset:0;z-index:0;transition:background .7s;}
 .bg-l{background:linear-gradient(160deg,#EEF2FF 0%,#E0F2FE 28%,#FDF4FF 58%,#ECFDF5 100%);}
 .bg-d{background:linear-gradient(160deg,#05091A 0%,#0D0F2A 30%,#150A35 62%,#040D18 100%);}
@@ -118,18 +118,18 @@ const IcoTap      = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill
 const IcoCalPlus  = ({s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg>;
 const IcoWifi     = ({s=14,off=false})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{off?<><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>:<><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>}</svg>;
 
-/* ─── MOCK FALLBACK ─────────────────────────────────────────── */
 const M = [
-  {id:'m001',name:'Pastor Luis',role:'Pastor',instrument:'Voz',avatar:'PL'},
-  {id:'m002',name:'Maria (Vocal)',role:'Vocalista',instrument:'Voz',avatar:'MA'},
-  {id:'m003',name:'João (Violão)',role:'Instrumentista',instrument:'Violão',avatar:'JO'},
-  {id:'m004',name:'Lucas (Bateria)',role:'Instrumentista',instrument:'Bateria',avatar:'LU'},
-  {id:'m005',name:'Ana (Teclado)',role:'Instrumentista',instrument:'Teclado',avatar:'AN'},
-  {id:'m006',name:'Pedro (Baixo)',role:'Instrumentista',instrument:'Baixo',avatar:'PE'},
-  {id:'m007',name:'Sara (Vocal)',role:'Vocalista',instrument:'Voz',avatar:'SA'},
-  {id:'m008',name:'Marcos (Guitarra)',role:'Instrumentista',instrument:'Guitarra',avatar:'MA'},
-  {id:'m009',name:'Lidia (Vocal)',role:'Vocalista',instrument:'Voz',avatar:'LI'},
-  {id:'m010',name:'Felipe (Vocal)',role:'Vocalista',instrument:'Voz',avatar:'FE'}
+  { id:'aaaa0001-0001-0001-0001-000000000001', name:'Junior',       role:'Líder de Louvor', instrument:'Teclado / Vocal', avatar:'JR', color:'#4F46E5', status:'ativo', is_admin:true,  pin:'JR01', vocal_category:null },
+  { id:'aaaa0002-0002-0002-0002-000000000002', name:'Ignacio',      role:'Músico',          instrument:'Baixo',          avatar:'IG', color:'#10B981', status:'ativo', is_admin:false, pin:'IG02', vocal_category:null },
+  { id:'aaaa0003-0003-0003-0003-000000000003', name:'Cleide',       role:'Vocal',           instrument:'Vocal 1',        avatar:'CL', color:'#EC4899', status:'ativo', is_admin:false, pin:'CL03', vocal_category:'adoracao' },
+  { id:'aaaa0004-0004-0004-0004-000000000004', name:'Sonia',        role:'Vocal',           instrument:'Vocal 2',        avatar:'SO', color:'#F59E0B', status:'ativo', is_admin:false, pin:'SO04', vocal_category:'jubilo' },
+  { id:'aaaa0005-0005-0005-0005-000000000005', name:'Kassya',       role:'Vocal',           instrument:'Vocal 4',        avatar:'KA', color:'#8B5CF6', status:'ativo', is_admin:false, pin:'KA05', vocal_category:'adoracao' },
+  { id:'aaaa0006-0006-0006-0006-000000000006', name:'Maria Helena', role:'Vocal',           instrument:'Back Vocal',     avatar:'MH', color:'#06B6D4', status:'ativo', is_admin:false, pin:'MH06', vocal_category:'hinario' },
+  { id:'aaaa0007-0007-0007-0007-000000000007', name:'Lidia',        role:'Vocal',           instrument:'Vocal 5',        avatar:'LI', color:'#EF4444', status:'ativo', is_admin:false, pin:'LI07', vocal_category:'hinario' },
+  { id:'aaaa0008-0008-0008-0008-000000000008', name:'Josi',         role:'Vocal',           instrument:'Vocal 3',        avatar:'JO', color:'#14B8A6', status:'ativo', is_admin:false, pin:'JO08', vocal_category:'jubilo' },
+  { id:'aaaa0009-0009-0009-0009-000000000009', name:'Aragão',       role:'Músico',          instrument:'Violão',         avatar:'AR', color:'#F97316', status:'ativo', is_admin:false, pin:'AR09', vocal_category:null },
+  { id:'aaaa0010-0010-0010-0010-000000000010', name:'Samuel',       role:'Músico',          instrument:'Bateria',        avatar:'SA', color:'#84CC16', status:'ativo', is_admin:false, pin:'SA10', vocal_category:null },
+  { id:'aaaa0011-0011-0011-0011-000000000011', name:'Darci',        role:'Músico',          instrument:'Violão',         avatar:'DA', color:'#A855F7', status:'ativo', is_admin:false, pin:'DA11', vocal_category:null },
 ];
 
 const BIBLE_BOOKS = [
