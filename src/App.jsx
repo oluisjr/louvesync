@@ -4,7 +4,7 @@ import { findSongData, searchSongCandidates } from './lib/scraper';
 
 /* ─── CSS ───────────────────────────────────────────────────── */
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
 :root{
@@ -12,7 +12,8 @@ html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
   --c-i:#4F46E5;--c-id:#818CF8;--c-g:#10B981;--c-a:#F59E0B;--c-p:#EC4899;--c-r:#EF4444;
   --r-sm:10px;--r-md:14px;--r-lg:18px;--r-xl:22px;--r-full:100px;
 }
-.ls{font-family:'Montserrat',sans-serif;height:100dvh;overflow:hidden;position:relative;}
+.ls{font-family:'Nunito',sans-serif;height:100dvh;overflow:hidden;position:relative;}
+.font-serif { font-family: 'Nunito', sans-serif; letter-spacing: -.02em; }
 .bg{position:fixed;inset:0;z-index:0;transition:background .7s;}
 .bg-l{background:linear-gradient(160deg,#EEF2FF 0%,#E0F2FE 28%,#FDF4FF 58%,#ECFDF5 100%);}
 .bg-d{background:linear-gradient(160deg,#05091A 0%,#0D0F2A 30%,#150A35 62%,#040D18 100%);}
@@ -50,15 +51,15 @@ html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
 .touch-scale:active{transform:scale(.97);}
 .stage-wrap{position:fixed;inset:0;z-index:200;overflow:hidden;animation:stageIn .35s ease;}
 .conf-p{position:fixed;pointer-events:none;z-index:9999;animation:confDrop 1.5s ease-out forwards;}
-.bp{background:linear-gradient(135deg,#4F46E5,#6D28D9);color:#fff;border:none;border-radius:var(--r-md);padding:14px 20px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:var(--fs-base);cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;}
+.bp{background:linear-gradient(135deg,#4F46E5,#6D28D9);color:#fff;border:none;border-radius:var(--r-md);padding:14px 20px;font-family:'Nunito',sans-serif;font-weight:800;font-size:var(--fs-base);cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;}
 .bp:hover{opacity:.9;box-shadow:0 8px 28px rgba(79,70,229,.38);}.bp:active{transform:scale(.97);}.bp:disabled{opacity:.5;cursor:not-allowed;}
-.bSec{border:1.5px solid rgba(79,70,229,.3);color:#4F46E5;background:rgba(79,70,229,.06);border-radius:var(--r-sm);padding:11px 16px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:var(--fs-sm);cursor:pointer;width:100%;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.bSec{border:1.5px solid rgba(79,70,229,.3);color:#4F46E5;background:rgba(79,70,229,.06);border-radius:var(--r-sm);padding:11px 16px;font-family:'Nunito',sans-serif;font-weight:700;font-size:var(--fs-sm);cursor:pointer;width:100%;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
 .dark .bSec{color:#818CF8;border-color:rgba(129,140,248,.3);background:rgba(129,140,248,.06);}
 .sc{border-radius:var(--r-xl);padding:16px;cursor:pointer;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .22s;margin-bottom:11px;}
 .sc:hover{transform:translateY(-3px);box-shadow:0 16px 36px rgba(79,70,229,.14);}.sc:active{transform:scale(.97);}
 .nb{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 14px;border:none;background:transparent;cursor:pointer;position:relative;transition:transform .15s;}
 .nb:active{transform:scale(.9);}.nb .ni{transition:transform .28s cubic-bezier(.34,1.56,.64,1);}.nb.on .ni{transform:scale(1.18);}
-.nl{font-size:10px;font-weight:700;letter-spacing:.02em;font-family:'Montserrat',sans-serif;transition:color .2s;}
+.nl{font-size:10px;font-weight:700;letter-spacing:.02em;font-family:'Nunito',sans-serif;transition:color .2s;}
 .ndot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);height:3px;border-radius:100px;transition:width .32s cubic-bezier(.34,1.56,.64,1);}
 .chord{font-family:'JetBrains Mono',monospace;color:#F59E0B;font-weight:800;font-size:12px;line-height:1.1;display:block;min-height:14px;}
 .bdg{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:100px;font-size:var(--fs-xs);font-weight:800;}
@@ -77,9 +78,9 @@ input, textarea, select, button { touch-action: manipulation; }
 .rotate-msg{position:fixed;inset:0;z-index:9999;background:#05091A;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#E2E8F0;}
 .pbar{height:3px;border-radius:100px;background:rgba(79,70,229,.1);overflow:hidden;}
 .pbar-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,#4F46E5,#7C3AED);transition:width .5s ease;}
-.fi{width:100%;padding:12px 14px;background:transparent;border:none;outline:none;font-family:'Montserrat',sans-serif;font-size:var(--fs-base);font-weight:500;}
+.fi{width:100%;padding:12px 14px;background:transparent;border:none;outline:none;font-family:'Nunito',sans-serif;font-size:var(--fs-base);font-weight:500;}
 textarea.fi{resize:none;}.ndot-ring{position:absolute;top:-1px;right:-1px;width:9px;height:9px;background:#EF4444;border-radius:50%;border:2px solid rgba(255,255,255,.9);}
-input,textarea,button{font-family:'Montserrat',sans-serif;}
+input,textarea,button{font-family:'Nunito',sans-serif;}
 /* ─── DARK MODE GLOBAL ────────────────────────── */
 .dark{color-scheme:dark;}
 .dark .fi{color:#CBD5E1;}
@@ -118,19 +119,36 @@ const IcoCalPlus  = ({s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill
 const IcoWifi     = ({s=14,off=false})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{off?<><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>:<><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>}</svg>;
 
 /* ─── MOCK FALLBACK ─────────────────────────────────────────── */
-const MOCK_MEMBERS = [
-  { id:'aaaa0001-0001-0001-0001-000000000001', name:'Junior',       role:'Líder de Louvor', instrument:'Teclado / Vocal', avatar:'JR', color:'#4F46E5', status:'ativo', is_admin:true,  pin:'JR01', vocal_category:null },
-  { id:'aaaa0002-0002-0002-0002-000000000002', name:'Ignacio',      role:'Músico',          instrument:'Baixo',          avatar:'IG', color:'#10B981', status:'ativo', is_admin:false, pin:'IG02', vocal_category:null },
-  { id:'aaaa0003-0003-0003-0003-000000000003', name:'Cleide',       role:'Vocal',           instrument:'Vocal 1',        avatar:'CL', color:'#EC4899', status:'ativo', is_admin:false, pin:'CL03', vocal_category:'adoracao' },
-  { id:'aaaa0004-0004-0004-0004-000000000004', name:'Sonia',        role:'Vocal',           instrument:'Vocal 2',        avatar:'SO', color:'#F59E0B', status:'ativo', is_admin:false, pin:'SO04', vocal_category:'jubilo' },
-  { id:'aaaa0005-0005-0005-0005-000000000005', name:'Kassya',       role:'Vocal',           instrument:'Vocal 4',        avatar:'KA', color:'#8B5CF6', status:'ativo', is_admin:false, pin:'KA05', vocal_category:'adoracao' },
-  { id:'aaaa0006-0006-0006-0006-000000000006', name:'Maria Helena', role:'Vocal',           instrument:'Back Vocal',     avatar:'MH', color:'#06B6D4', status:'ativo', is_admin:false, pin:'MH06', vocal_category:'hinario' },
-  { id:'aaaa0007-0007-0007-0007-000000000007', name:'Lidia',        role:'Vocal',           instrument:'Vocal 5',        avatar:'LI', color:'#EF4444', status:'ativo', is_admin:false, pin:'LI07', vocal_category:'hinario' },
-  { id:'aaaa0008-0008-0008-0008-000000000008', name:'Josi',         role:'Vocal',           instrument:'Vocal 3',        avatar:'JO', color:'#14B8A6', status:'ativo', is_admin:false, pin:'JO08', vocal_category:'jubilo' },
-  { id:'aaaa0009-0009-0009-0009-000000000009', name:'Aragão',       role:'Músico',          instrument:'Violão',         avatar:'AR', color:'#F97316', status:'ativo', is_admin:false, pin:'AR09', vocal_category:null },
-  { id:'aaaa0010-0010-0010-0010-000000000010', name:'Samuel',       role:'Músico',          instrument:'Bateria',        avatar:'SA', color:'#84CC16', status:'ativo', is_admin:false, pin:'SA10', vocal_category:null },
-  { id:'aaaa0011-0011-0011-0011-000000000011', name:'Darci',        role:'Músico',          instrument:'Violão',         avatar:'DA', color:'#A855F7', status:'ativo', is_admin:false, pin:'DA11', vocal_category:null },
+const M = [
+  {id:'m001',name:'Pastor Luis',role:'Pastor',instrument:'Voz',avatar:'PL'},
+  {id:'m002',name:'Maria (Vocal)',role:'Vocalista',instrument:'Voz',avatar:'MA'},
+  {id:'m003',name:'João (Violão)',role:'Instrumentista',instrument:'Violão',avatar:'JO'},
+  {id:'m004',name:'Lucas (Bateria)',role:'Instrumentista',instrument:'Bateria',avatar:'LU'},
+  {id:'m005',name:'Ana (Teclado)',role:'Instrumentista',instrument:'Teclado',avatar:'AN'},
+  {id:'m006',name:'Pedro (Baixo)',role:'Instrumentista',instrument:'Baixo',avatar:'PE'},
+  {id:'m007',name:'Sara (Vocal)',role:'Vocalista',instrument:'Voz',avatar:'SA'},
+  {id:'m008',name:'Marcos (Guitarra)',role:'Instrumentista',instrument:'Guitarra',avatar:'MA'},
+  {id:'m009',name:'Lidia (Vocal)',role:'Vocalista',instrument:'Voz',avatar:'LI'},
+  {id:'m010',name:'Felipe (Vocal)',role:'Vocalista',instrument:'Voz',avatar:'FE'}
 ];
+
+const BIBLE_BOOKS = [
+  {a:'gn',n:'Gênesis',c:50}, {a:'ex',n:'Êxodo',c:40}, {a:'lv',n:'Levítico',c:27}, {a:'nm',n:'Números',c:36}, {a:'dt',n:'Deuteronômio',c:34},
+  {a:'js',n:'Josué',c:24}, {a:'jz',n:'Juízes',c:21}, {a:'rt',n:'Rute',c:4}, {a:'1sm',n:'1 Samuel',c:31}, {a:'2sm',n:'2 Samuel',c:24},
+  {a:'1rs',n:'1 Reis',c:22}, {a:'2rs',n:'2 Reis',c:25}, {a:'1cr',n:'1 Crônicas',c:29}, {a:'2cr',n:'2 Crônicas',c:36}, {a:'ed',n:'Esdras',c:10},
+  {a:'ne',n:'Neemias',c:13}, {a:'et',n:'Ester',c:10}, {a:'jo',n:'Jó',c:42}, {a:'sl',n:'Salmos',c:150}, {a:'pv',n:'Provérbios',c:31},
+  {a:'ec',n:'Eclesiastes',c:12}, {a:'ct',n:'Cânticos',c:8}, {a:'is',n:'Isaías',c:66}, {a:'jr',n:'Jeremias',c:52}, {a:'lm',n:'Lamentações',c:5},
+  {a:'ez',n:'Ezequiel',c:48}, {a:'dn',n:'Daniel',c:12}, {a:'os',n:'Oséias',c:14}, {a:'jl',n:'Joel',c:3}, {a:'am',n:'Amós',c:9},
+  {a:'ob',n:'Obadias',c:1}, {a:'jn',n:'Jonas',c:4}, {a:'mq',n:'Miquéias',c:7}, {a:'na',n:'Naum',c:3}, {a:'hc',n:'Habacuque',c:3},
+  {a:'sf',n:'Sofonias',c:3}, {a:'ag',n:'Ageu',c:2}, {a:'zc',n:'Zacarias',c:14}, {a:'ml',n:'Malaquias',c:4},
+  {a:'mt',n:'Mateus',c:28}, {a:'mc',n:'Marcos',c:16}, {a:'lc',n:'Lucas',c:24}, {a:'joao',n:'João',c:21}, {a:'at',n:'Atos',c:28},
+  {a:'rm',n:'Romanos',c:16}, {a:'1co',n:'1 Coríntios',c:16}, {a:'2co',n:'2 Coríntios',c:13}, {a:'gl',n:'Gálatas',c:6}, {a:'ef',n:'Efésios',c:6},
+  {a:'fp',n:'Filipenses',c:4}, {a:'cl',n:'Colossenses',c:4}, {a:'1ts',n:'1 Tessalonicenses',c:5}, {a:'2ts',n:'2 Tessalonicenses',c:3}, {a:'1tm',n:'1 Timóteo',c:6},
+  {a:'2tm',n:'2 Timóteo',c:4}, {a:'tt',n:'Tito',c:3}, {a:'fm',n:'Filemom',c:1}, {a:'hb',n:'Hebreus',c:13}, {a:'tg',n:'Tiago',c:5},
+  {a:'1pe',n:'1 Pedro',c:5}, {a:'2pe',n:'2 Pedro',c:3}, {a:'1jo',n:'1 João',c:5}, {a:'2jo',n:'2 João',c:1}, {a:'3jo',n:'3 João',c:1},
+  {a:'jd',n:'Judas',c:1}, {a:'ap',n:'Apocalipse',c:22}
+];
+
 const MOCK_SONGS = [
   { id:'song_1', title:'Algo Novo', artist:'Kemuel', cat:'adoracao', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=wWU1Bn6wy9o', lyrics:'' },
   { id:'song_2', title:'Bondade de Deus', artist:'Isaias Saad', cat:'adoracao', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=BEkStuKw5Ow', lyrics:'' },
@@ -162,14 +180,15 @@ const MOCK_SONGS = [
   { id:'song_28', title:'Tua Fidelidade', artist:'Luzia Barbosa', cat:'oferta', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'', lyrics:'' },
   { id:'song_29', title:'Toda sorte de Bençãos', artist:'Davi Sacer', cat:'oferta', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=zCcnYP3o1rg', lyrics:'' },
 ];
-const M = MOCK_MEMBERS;
+
 const MOCK_EVENTS = [
-  { id:'cccc0001', date:'2026-05-21', type:'culto',  label:'Culto Noturno',   time:'19:00', theme:'Fidelidade de Deus',   songs:['song_19','song_10','song_1','song_26'], members:[M[0].id,M[1].id,M[2].id,M[3].id,M[8].id,M[9].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
-  { id:'cccc0002', date:'2026-05-23', type:'ensaio', label:'Ensaio Geral',    time:'15:00', theme:null,                   songs:['song_19','song_10','song_1','song_26'], members:[M[0].id,M[1].id,M[6].id,M[8].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
-  { id:'cccc0003', date:'2026-05-24', type:'culto',  label:'Culto de Manhã', time:'09:00', theme:'Graça Suficiente',      songs:['song_20','song_11','song_12','song_2','song_27'], members:[M[0].id,M[2].id,M[3].id,M[4].id,M[7].id,M[8].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:'song_3' },
-  { id:'cccc0004', date:'2026-05-28', type:'culto',  label:'Culto de Quinta', time:'19:30', theme:'Adoração Verdadeira',  songs:['song_21','song_13','song_4','song_28'], members:[M[0].id,M[5].id,M[6].id,M[9].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
-  { id:'cccc0005', date:'2026-05-31', type:'ensaio', label:'Ensaio',          time:'15:00', theme:null,                   songs:['song_22','song_14','song_15','song_5','song_29'], members:M.map(m=>m.id), confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
-  { id:'cccc0006', date:'2026-06-01', type:'culto',  label:'Culto de Manhã', time:'09:00', theme:'Perseverança na Fé',   songs:['song_23','song_16','song_6','song_29'], members:[M[0].id,M[2].id,M[8].id,M[9].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
+  { id:'cccc0001', date:'2026-05-23', type:'consagracao', label:'Consagração', time:'08:00', theme:'Busca Matinal', songs:['song_19','song_1'], members:[M[0].id,M[1].id,M[2].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
+  { id:'cccc0002', date:'2026-05-23', type:'ensaio', label:'Ensaio Geral', time:'15:00', theme:null, songs:['song_19','song_10','song_1','song_26'], members:[M[0].id,M[1].id,M[6].id,M[8].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
+  { id:'cccc0003', date:'2026-05-24', type:'ebd', label:'EBD', time:'09:00', theme:'Escola Bíblica Dominical', songs:['song_20','song_11'], members:[M[0].id,M[2].id,M[4].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
+  { id:'cccc0004', date:'2026-05-24', type:'culto', label:'Culto Dominical', time:'18:00', theme:'Adoração Noturna', songs:['song_20','song_12','song_2','song_27'], members:[M[0].id,M[2].id,M[3].id,M[7].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:'song_3' },
+  { id:'cccc0005', date:'2026-05-28', type:'culto', label:'Culto de Quinta', time:'19:30', theme:'Ensinamento da Palavra', songs:['song_21','song_13','song_4','song_28'], members:[M[0].id,M[5].id,M[6].id,M[9].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
+  { id:'cccc0006', date:'2026-05-30', type:'consagracao', label:'Consagração', time:'08:00', theme:'Busca Matinal', songs:['song_23','song_5'], members:[M[0].id,M[1].id,M[8].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
+  { id:'cccc0007', date:'2026-05-30', type:'ensaio', label:'Ensaio', time:'15:00', theme:null, songs:['song_22','song_14','song_15','song_29'], members:M.map(m=>m.id), confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
 ];
 
 /* ─── HELPERS ───────────────────────────────────────────────── */
@@ -340,7 +359,15 @@ const LyricView = memo(({text,st=0,mode='chords',dark,fs=17})=>{
     if(!line.trim())return <div key={li} style={{height:8}}/>;
     let secMatch = line.trim().match(/^\[?(Verso|Coro|Refrão|Pré-Refrão|Pré-Coro|Ponte|Intro|Final|Outro|Bridge|Primeira Parte|Segunda Parte|Terceira Parte|Quarta Parte)[\s:]?(\d*)\]?$/i);
     if(secMatch)return <Sec key={li} t={(secMatch[1] + (secMatch[2]?` ${secMatch[2]}`:'')).toUpperCase()}/>;
-    if(mode==='lyrics'||!line.includes('['))return <div key={li} style={{fontSize:fs,lineHeight:1.8,color:tc,marginBottom:1}}>{line.replace(/\[[^\]]+\]/g,'')}</div>;
+    if(mode==='lyrics'||!line.includes('['))return <div key={li} style={{fontSize:fs,lineHeight:1.8,color:tc,marginBottom:1,whiteSpace:'pre-wrap'}}>{line.replace(/\[[^\]]+\]/g,'')}</div>;
+    
+    // Check if line is ONLY chords and spaces (common in CifraClub imports)
+    const isOnlyChords = /^(\s*\[[^\]]+\]\s*)+$/.test(line);
+    if(isOnlyChords) {
+       // Render the line as a single pre-formatted text with chords highlighted
+       return <div key={li} style={{fontSize:fs,lineHeight:1.7,color:'#F59E0B',fontWeight:800,whiteSpace:'pre',fontFamily:"'JetBrains Mono',monospace",marginBottom:-6}}>{line.replace(/\[|\]/g,'')}</div>;
+    }
+    
     return <div key={li} style={{display:'flex',flexWrap:'wrap',marginBottom:5,alignItems:'flex-end'}}>{parseLine(line).map((seg,si)=><span key={si} style={{display:'inline-flex',flexDirection:'column',alignItems:'flex-start'}}><span className="chord">{seg.ch||' '}</span><span style={{fontSize:fs,lineHeight:1.7,color:tc,whiteSpace:'pre'}}>{seg.ly||(seg.ch?' ':'')}</span></span>)}</div>;
   })}</div>;
 });
@@ -1936,8 +1963,8 @@ export default function LouveSync() {
     async function loadMembers(){
       try{
         const data=await fetchMembers();
-        setAllMembers(data&&data.length>0?data:MOCK_MEMBERS);
-      }catch{setAllMembers(MOCK_MEMBERS);}
+        setAllMembers(data&&data.length>0?data:M);
+      }catch{setAllMembers(M);}
       setAuthLoading(false);
     }
     // Check localStorage first

@@ -3,9 +3,9 @@
 // Sources: CifraClub (chords) → Vagalume (lyrics) → Letras.mus.br (lyrics)
 
 const PROXIES = [
+  url => `/api/proxy?url=${encodeURIComponent(url)}`,
   url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`
 ];
 
 async function proxyGet(url, timeout = 7000) {
