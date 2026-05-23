@@ -1356,10 +1356,15 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
       if(lyric.includes('ERRO: O LouveSync aceita apenas músicas de cunho religioso/gospel')) {
         alert(lyric);
       } else {
-        setForm(f=>({...f,lyrics:lyric}));
+        setForm(f=>({...f,lyrics: lyric || sText || form.rawLyrics}));
         setStep(3);
       }
-    }catch(e){console.error(e);alert('Erro ao gerar a cifra. Tente digitar manualmente.');}
+    }catch(e){
+      console.error(e);
+      alert('A IA não pôde formatar a cifra. Usando texto bruto.');
+      setForm(f=>({...f,lyrics: sText || form.rawLyrics}));
+      setStep(3);
+    }
     finally { setGenLoad(false); }
   }
 
