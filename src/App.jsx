@@ -348,9 +348,16 @@ const Biblia = memo(({dark})=>{
     fetch('https://www.abibliadigital.com.br/api/books')
       .then(res=>res.json())
       .then(data=>{
-         setBooks(data);
+         if (Array.isArray(data)) {
+           setBooks(data);
+         } else {
+           setError('A API da Bíblia está temporariamente indisponível.');
+         }
       })
-      .catch(err=>console.error(err));
+      .catch(err=>{
+         console.error(err);
+         setError('Falha na conexão com a Bíblia.');
+      });
   }, []);
 
   const handleSelectBook = (bId) => {
@@ -427,7 +434,9 @@ const Devocional = memo(({dark})=>{
   const content = [
     { type: 'podcast', title: 'O coração do Ministro', theme: 'Liderança', desc: 'Podcast JesusCopy - Refletindo sobre a verdadeira adoração e os perigos de buscar os holofotes.', spotifyId: '5bU5h2C3N4957pE5FjUa7P', embedType: 'show' },
     { type: 'text', title: 'Comunidade: Onde a Graça Opera', theme: 'Comunhão', author: 'Baseado em John Wesley', text: 'A fé cristã é essencialmente social. Quando nos reunimos para ensaiar, estamos praticando a disciplina do amor mútuo. As discordâncias no tom da música ou no volume da bateria são oportunidades para exercer a paciência e suportar uns aos outros em amor. A adoração perfeita não vem de notas executadas sem erro, mas de corações unidos em uma única voz.'},
-    { type: 'video', title: 'A Essência da Adoração', theme: 'Devocional', desc: 'Ministração Nívea Soares', ytId: 'WNnFmy-cqzg' }
+    { type: 'video', title: 'A Essência da Adoração', theme: 'Devocional', desc: 'Ministração Nívea Soares', ytId: 'WNnFmy-cqzg' },
+    { type: 'text', title: 'O Altar Não É Palco', theme: 'Postura', author: 'C.S. Lewis', text: 'O louvor não existe para nos entreter, mas para completar a nossa alegria em Deus. Quando estamos no altar, devemos ser como janelas: as pessoas não devem olhar PARA nós, mas sim ATRAVÉS de nós, para verem a Cristo.'},
+    { type: 'video', title: 'Como fluir no louvor', theme: 'Devocional', desc: 'Dicas práticas de adoração', ytId: 'BEkStuKw5Ow' }
   ];
 
   return <div style={{padding:16, paddingBottom:96}}>
@@ -475,12 +484,14 @@ const Treinamento = memo(({dark, profile})=>{
     { type: 'video', title: 'Técnica de Respiração e Apoio', id: 'OH5sKfBDjW8', cat: 'Técnica Vocal' },
     { type: 'text', title: 'O Papel do Backing Vocal', cat: 'Dica Prática', text: 'O backing vocal não está ali para competir com a voz principal. O seu papel é "fazer a cama", preencher os espaços vazios e fortalecer a melodia. Muitas vezes, menos é mais. Aprenda a ouvir seus colegas de naipe antes de soltar a própria voz.' },
     { type: 'podcast', title: 'Afinação e Saúde Vocal', id: '5bU5h2C3N4957pE5FjUa7P', embedType: 'show', cat: 'Saúde' },
-    { type: 'video', title: 'Divisão de Vozes e Harmonia', id: 'TuBeo5f-RZU', cat: 'Harmonia' }
+    { type: 'video', title: 'Divisão de Vozes e Harmonia', id: 'TuBeo5f-RZU', cat: 'Harmonia' },
+    { type: 'text', title: 'Aquecimento Rápido', cat: 'Dica Prática', text: 'Sempre reserve 10 minutos antes do ensaio para fazer trinados de lábio (brrr) e sirenes. Isso aumenta o fluxo sanguíneo nas pregas vocais e previne lesões durante o culto.' }
   ] : [
     { type: 'video', title: 'Entendendo Bússola e Tempo', id: 'BEkStuKw5Ow', cat: 'Rítmica' },
     { type: 'text', title: 'Tocando de Ouvido', cat: 'Teoria Musical', text: 'Não seja escravo da cifra! Comece a decorar as sequências de acordes de músicas que seguem o padrão I - IV - V - vi. Quando você foca apenas em ler a cifra na tela, perde a conexão com a banda e com o Espírito durante o culto.' },
     { type: 'podcast', title: 'Dinâmica de Banda', id: '5bU5h2C3N4957pE5FjUa7P', embedType: 'show', cat: 'Podcast' },
-    { type: 'video', title: 'Campo Harmônico Simplificado', id: 'wWU1Bn6wy9o', cat: 'Teoria Musical' }
+    { type: 'video', title: 'Campo Harmônico Simplificado', id: 'wWU1Bn6wy9o', cat: 'Teoria Musical' },
+    { type: 'text', title: 'Volume não é Qualidade', cat: 'Dica Prática', text: 'Bateristas e guitarristas: a dinâmica é a alma da música. Saibam a hora de diminuir o volume para que a igreja ouça a si mesma cantando. O volume da banda deve servir à congregação, não encobri-la.' }
   ];
 
   return <div style={{padding:16, paddingBottom:96}}>
