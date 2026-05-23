@@ -44,6 +44,7 @@ html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
 @keyframes confDrop{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(280px) rotate(560deg);opacity:0}}
 @keyframes pinShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 @keyframes loginIn{from{opacity:0;transform:scale(.95) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:.2}}
 .aUp{animation:slideUp .38s cubic-bezier(.22,1,.36,1) both;}
 .touch-scale{transition:transform .2s cubic-bezier(.34,1.56,.64,1);cursor:pointer;}
 .touch-scale:active{transform:scale(.97);}
@@ -181,6 +182,7 @@ function today(){return new Date().toISOString().slice(0,10);}
 function isSundaySecond(dateStr){const d=new Date(dateStr+'T12:00:00');const dom=d.getDate();const dow=d.getDay();return dow===0&&dom>=8&&dom<=14;}
 function parseLine(line){const segs=[];const parts=line.split(/(\[[^\]]+\])/);let i=0;while(i<parts.length){if(parts[i]?.startsWith('[')&&parts[i]?.endsWith(']')){const ch=parts[i].slice(1,-1);const nx=parts[i+1];const ly=(nx&&!nx.startsWith('['))?nx:'';segs.push({ch,ly});i+=(nx&&!nx.startsWith('['))?2:1;}else{if(parts[i])segs.push({ch:'',ly:parts[i]});i++;}}return segs;}
 function normalizeEvent(ev){const sorted=[...(ev.event_songs||[])].sort((a,b)=>a.order_index-b.order_index);return{id:ev.id,date:ev.date,type:ev.type,label:ev.label,time:ev.time,theme:ev.theme,songs:sorted.filter(es=>es.item_type!=='note').map(es=>es.song_id),items:sorted.map(es=>({id:es.id,type:es.item_type||'song',song_id:es.song_id,text:es.note_text})),members:(ev.event_members||[]).map(em=>em.member_id),confirmations:Object.fromEntries((ev.event_members||[]).map(em=>[em.member_id,em.confirmed])),singerBySong:Object.fromEntries(sorted.filter(es=>es.item_type!=='note').map(es=>[es.song_id,es.singer_member_id])),requested_songs:ev.requested_songs||[],santa_ceia_song:ev.santa_ceia_song||null};}
+function vib(){if(navigator.vibrate)navigator.vibrate(10);}
 
 function useDraggableScroll(ref) {
   useEffect(() => {
@@ -314,8 +316,21 @@ const KeyChip = ({k,size=11})=><span style={{background:'rgba(79,70,229,.1)',col
 const BpmChip = ({bpm})=><span style={{background:'rgba(245,158,11,.1)',color:'#D97706',border:'1px solid rgba(245,158,11,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700}}>♩{bpm}</span>;
 const TimeSigChip = ({ts})=><span style={{background:'rgba(16,185,129,.08)',color:'#059669',border:'1px solid rgba(16,185,129,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{ts}</span>;
 const Loader = ()=><div style={{width:20,height:20,borderRadius:'50%',border:'2.5px solid rgba(79,70,229,.2)',borderTopColor:'#4F46E5',animation:'spin .7s linear infinite'}}/>;
+const Skeleton = ({dark, h=60, count=3}) => <div style={{display:'flex', flexDirection:'column', gap:10, padding:16}}>{Array.from({length:count}).map((_,i) => <div key={i} style={{height:h, borderRadius:'var(--r-md)', background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)', animation:'pulse 1.5s infinite ease-in-out', animationDelay:`${i*0.15}s`}}/>)}</div>;
 const Sec = ({t})=><div style={{fontSize:'var(--fs-xs)',fontWeight:900,color:'#F59E0B',letterSpacing:'.14em',textTransform:'uppercase',margin:'18px 0 6px',display:'flex',alignItems:'center',gap:6}}><div style={{width:16,height:1.5,background:'#F59E0B',opacity:.5}}/>{t}<div style={{flex:1,height:1.5,background:'#F59E0B',opacity:.5}}/></div>;
 const EmptyState = ({icon,title,sub,cta,onCta})=><div style={{textAlign:'center',padding:'48px 20px',display:'flex',flexDirection:'column',alignItems:'center',gap:12}}><div style={{fontSize:40,opacity:.35}}>{icon}</div><div style={{fontWeight:800,fontSize:'var(--fs-lg)',opacity:.5}}>{title}</div>{sub&&<div style={{fontSize:'var(--fs-sm)',opacity:.35,maxWidth:220}}>{sub}</div>}{cta&&<button onClick={onCta} style={{marginTop:4,padding:'10px 22px',borderRadius:'var(--r-full)',border:'none',background:'#4F46E5',color:'#fff',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer'}}>{cta}</button>}</div>;
+const ConfirmDialog = ({dark, title, msg, onConfirm, onCancel, isAlert}) => (
+  <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:20, backdropFilter:'blur(8px)'}}>
+    <div className={`aUp ${dark?'gL2':'gL0'}`} style={{width:'100%', maxWidth:340, padding:24, borderRadius:'var(--r-xl)', background:dark?'rgba(15,23,42,.95)':'rgba(255,255,255,.95)'}}>
+       <div className="font-serif" style={{fontSize:22, fontWeight:900, marginBottom:8, color:dark?'#F1F5F9':'#0F172A'}}>{title}</div>
+       <div style={{fontSize:'var(--fs-sm)', color:dark?'#94A3B8':'#475569', marginBottom:24, lineHeight:1.5}}>{msg}</div>
+       <div style={{display:'flex', gap:10}}>
+         {!isAlert&&<button onClick={()=>{vib();if(onCancel)onCancel();}} style={{flex:1, padding:'10px', borderRadius:'var(--r-full)', border:'none', background:dark?'rgba(255,255,255,.1)':'rgba(0,0,0,.05)', color:dark?'#E2E8F0':'#0F172A', fontWeight:700, cursor:'pointer'}}>Cancelar</button>}
+         <button onClick={()=>{vib();onConfirm();}} style={{flex:1, padding:'10px', borderRadius:'var(--r-full)', border:'none', background:'#4F46E5', color:'#fff', fontWeight:800, cursor:'pointer'}}>OK</button>
+       </div>
+    </div>
+  </div>
+);
 
 /* ─── LYRIC VIEW ────────────────────────────────────────────── */
 const LyricView = memo(({text,st=0,mode='chords',dark,fs=17})=>{
@@ -501,16 +516,23 @@ const Treinamento = memo(({dark, profile})=>{
 });
 
 /* ─── PAINEL ADMIN ──────────────────────────────────────────── */
-const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs})=>{
+const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
   
   const pendingDeletes = songs?.filter(s => s.delete_requested_by) || [];
 
   const handleApproveDelete = async (songId) => {
-    if(!window.confirm('Aprovar e EXCLUIR definitivamente esta música?')) return;
-    setSongs(s=>s.filter(x=>x.id!==songId));
-    dbDelSong(songId).catch(console.error);
+    setConfirmState({
+      title: 'Aprovar Exclusão',
+      msg: 'Aprovar e EXCLUIR definitivamente esta música?',
+      onConfirm: () => {
+        setSongs(s=>s.filter(x=>x.id!==songId));
+        dbDelSong(songId).catch(console.error);
+        setConfirmState(null);
+      },
+      onCancel: () => setConfirmState(null)
+    });
   };
 
   const handleRejectDelete = async (songId) => {
@@ -733,7 +755,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
     <div className="aUp" style={{marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
       <div>
         <div style={{fontSize:'var(--fs-xs)',color:'#4F46E5',fontWeight:800,marginBottom:4,letterSpacing:'.08em'}}>✦ BEM-VINDO DE VOLTA</div>
-        <div style={{fontSize:'var(--fs-2xl)',fontWeight:900,color:tc,letterSpacing:'-.03em',lineHeight:1.1}}>{profile?.name?.split(' ')[0]||'Usuário'}<br/><span style={{opacity:.55, fontWeight:400, fontSize:'var(--fs-lg)'}}>{profile?.role||'Membro'}</span></div>
+        <div className="font-serif" style={{fontSize:'var(--fs-2xl)',fontWeight:900,color:tc,letterSpacing:'-.03em',lineHeight:1.1}}>{profile?.name?.split(' ')[0]||'Usuário'}<br/><span style={{opacity:.55, fontWeight:400, fontSize:'var(--fs-lg)'}}>{profile?.role||'Membro'}</span></div>
       </div>
       <div style={{textAlign:'right',paddingTop:4}}>
         <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',marginBottom:2}}>Hoje</div>
@@ -938,7 +960,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     {/* Key info card */}
     <div className={`${gc} aUp`} style={CS}>
       <Bdg cat={song.cat}/>
-      <div style={{fontSize:22,fontWeight:900,color:tc,marginTop:8,letterSpacing:'-.02em',lineHeight:1.15}}>{song.title}</div>
+      <div className="font-serif" style={{fontSize:26,fontWeight:900,color:tc,marginTop:8,letterSpacing:'-.02em',lineHeight:1.15}}>{song.title}</div>
       <div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:3,marginBottom:14}}>{song.artist}</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
         <div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-md)',padding:13,border:'1px solid rgba(79,70,229,.14)',textAlign:'center'}}>
@@ -963,14 +985,23 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     {/* Transposer */}
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.07s'}}>
       <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10,display:'flex',alignItems:'center',gap:6}}><IcoGuitar s={12}/>Transpositor de Tom</div>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-        <button onClick={()=>setTr(t=>t-1)} style={{width:40,height:40,borderRadius:'var(--r-sm)',border:'1px solid rgba(79,70,229,.22)',background:'rgba(79,70,229,.07)',color:'#4F46E5',fontSize:22,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>−</button>
-        <div style={{flex:1,display:'flex',gap:4,justifyContent:'center'}}>
-          {[-3,-2,-1,0,1,2,3].map(n=><button key={n} onClick={()=>setTr(n)} style={{width:34,height:34,borderRadius:9,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:800,background:tr===n?'#4F46E5':'rgba(79,70,229,.07)',color:tr===n?'#fff':'#4F46E5',boxShadow:tr===n?'0 4px 12px rgba(79,70,229,.32)':'',transition:'all .18s'}}>{n>0?`+${n}`:n}</button>)}
-        </div>
-        <button onClick={()=>setTr(t=>t+1)} style={{width:40,height:40,borderRadius:'var(--r-sm)',border:'1px solid rgba(79,70,229,.22)',background:'rgba(79,70,229,.07)',color:'#4F46E5',fontSize:22,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6, marginBottom:8}}>
+        {['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'].map(k=>{
+          const isAct = curKey === k;
+          return <button key={k} onClick={()=>{
+             vib();
+             const origIdx = SH.indexOf(song.key);
+             const tgtIdx = SH.indexOf(k);
+             if(origIdx!==-1 && tgtIdx!==-1) {
+                let d = tgtIdx - origIdx;
+                if(d > 6) d -= 12;
+                if(d < -5) d += 12;
+                setTr(d);
+             }
+          }} style={{padding:'8px 0',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:isAct?'#4F46E5':dark?'rgba(255,255,255,.05)':'rgba(79,70,229,.07)',color:isAct?'#fff':dark?'#E2E8F0':'#4F46E5',boxShadow:isAct?'0 4px 12px rgba(79,70,229,.32)':'',transition:'all .15s'}}>{k}</button>
+        })}
       </div>
-      {tr!==0&&<button onClick={()=>setTr(0)} style={{width:'100%',padding:8,borderRadius:'var(--r-sm)',border:'none',cursor:'pointer',background:'rgba(245,158,11,.08)',color:'#D97706',fontSize:'var(--fs-sm)',fontWeight:700}}>↩ Voltar ao tom original ({song.key})</button>}
+      {tr!==0&&<button onClick={()=>{vib();setTr(0);}} style={{width:'100%',padding:8,borderRadius:'var(--r-sm)',border:'none',cursor:'pointer',background:'rgba(245,158,11,.08)',color:'#D97706',fontSize:'var(--fs-sm)',fontWeight:700}}>↩ Voltar ao tom original ({song.key})</button>}
     </div>
 
     {/* Mode controls */}
@@ -1022,7 +1053,7 @@ const Stage = memo(({song,tr,mode,setMode,stageFs,setStageFs,dark,onClose,beatId
   return <div className="stage-wrap" style={{background:dark?'#05091A':'#0A0F1E',color:'#E2E8F0',display:'flex',flexDirection:'column'}}>
     <div style={{background:dark?'rgba(5,9,26,.95)':'rgba(10,15,30,.95)',padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.07)'}}>
       <button onClick={onClose} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',borderRadius:'var(--r-sm)',border:'1px solid rgba(255,255,255,.14)',background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.7)',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer'}}><IcoChevL s={14}/>Sair</button>
-      <div style={{textAlign:'center'}}><div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'#E2E8F0'}}>{song.title}</div><div style={{fontSize:'var(--fs-xs)',color:'rgba(255,255,255,.4)'}}>{song.artist}</div></div>
+      <div style={{textAlign:'center'}}><div className="font-serif" style={{fontSize:22,fontWeight:800,color:'#E2E8F0'}}>{song.title}</div><div style={{fontSize:'var(--fs-xs)',color:'rgba(255,255,255,.4)'}}>{song.artist}</div></div>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
         <button onClick={()=>setAutoScroll(a=>!a)} title="Auto-scroll" style={{display:'flex',alignItems:'center',gap:4,padding:'6px 10px',borderRadius:'var(--r-sm)',border:`1px solid ${autoScroll?'rgba(16,185,129,.5)':'rgba(255,255,255,.14)'}`,background:autoScroll?'rgba(16,185,129,.18)':'rgba(255,255,255,.05)',color:autoScroll?'#10B981':'rgba(255,255,255,.7)',fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}><IcoScroll s={12}/>{autoScroll?'⏹':'▶'}</button>
         <div style={{background:'rgba(79,70,229,.22)',border:'1px solid rgba(99,102,241,.4)',borderRadius:'var(--r-sm)',padding:'5px 12px',textAlign:'center'}}>
@@ -1332,7 +1363,10 @@ const AddSong = memo(({dark,onSave,onClose})=>{
   }
 
   function tryClose(){
-    if(step===3&&form.lyrics.trim()){if(!window.confirm('Descartar rascunho?'))return;}
+    if(step===3&&form.lyrics.trim()){
+      // To simplify, we keep window.confirm for local draft discard.
+      if(!window.confirm('Descartar rascunho?'))return;
+    }
     onClose();
   }
 
@@ -1734,7 +1768,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
       <div style={{display:'flex',justifyContent:'center',padding:'14px 0 0'}}><div style={{width:44,height:4,borderRadius:100,background:'rgba(127,127,127,.22)'}}/></div>
       <div style={{padding:'16px 20px 52px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
-          <div><div style={{fontSize:20,fontWeight:900,color:tc}}>{ev.label}</div><div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:3}}>{fDate(ev.date)} · {ev.time}</div></div>
+          <div><div className="font-serif" style={{fontSize:24,fontWeight:900,color:tc}}>{ev.label}</div><div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:3}}>{fDate(ev.date)} · {ev.time}</div></div>
           <button onClick={onClose} style={{width:34,height:34,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.07)',color:t2,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={14}/></button>
         </div>
         {ev.theme&&<div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-sm)',padding:'9px 14px',marginBottom:14,fontSize:'var(--fs-sm)',color:'#4F46E5',fontWeight:700,border:'1px solid rgba(79,70,229,.15)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
@@ -1831,10 +1865,19 @@ export default function LouveSync() {
   const [notifsOpen,setNotifsOpen]=useState(false);
   const [selRole,setSelRole]=useState('Todos');
   const [confetti,setConfetti]=useState([]);
-  const [notifs,setNotifs]=useState([
-    {id:1,text:'Bem-vindo ao LouveSync! Confirme sua presença no próximo evento.',time:'agora',read:false,cta:'Ver Escala',ctaTab:'escala'},
-    {id:2,text:'Nova música disponível no repertório.',time:'hoje',read:false,cta:'Ver Repertório',ctaTab:'repertorio'},
-  ]);
+  const [notifs,setNotifs]=useState(()=>{
+    const stored = localStorage.getItem('ls_notifs');
+    if(stored) try { return JSON.parse(stored); } catch(e){}
+    return [
+      {id:1,text:'Bem-vindo ao LouveSync! Confirme sua presença no próximo evento.',time:'agora',read:false,cta:'Ver Escala',ctaTab:'escala'},
+      {id:2,text:'Nova música disponível no repertório.',time:'hoje',read:false,cta:'Ver Repertório',ctaTab:'repertorio'},
+    ];
+  });
+
+  useEffect(()=>{
+    localStorage.setItem('ls_notifs', JSON.stringify(notifs));
+  }, [notifs]);
+  const [confirmState,setConfirmState]=useState(null);
 
   // ── Online/offline
   const [isOnline,setIsOnline]=useState(navigator.onLine);
@@ -1999,8 +2042,8 @@ export default function LouveSync() {
     setProfile(safe);return true;
   }
   function handleLogout(){localStorage.removeItem('ls_profile');setProfile(null);setSelSong(null);setSelEvent(null);setTab('home');}
-  function navTo(t){setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}}
-  function selectSong(s,ev=null){setSelSong(s);setSelEvent(ev);setTr(0);setMetro(false);setBeatIdx(-1);setTab('repertorio');}
+  function navTo(t){vib();setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}}
+  function selectSong(s,ev=null){vib();setSelSong(s);setSelEvent(ev);setTr(0);setMetro(false);setBeatIdx(-1);setTab('repertorio');}
 
   function spawnConfetti(){
     const colors=['#4F46E5','#10B981','#F59E0B','#EC4899','#8B5CF6','#06B6D4'];
@@ -2016,16 +2059,28 @@ export default function LouveSync() {
 
   function handleDeleteSong(id){
     if(profile?.is_admin){
-      if(!window.confirm('Excluir esta música DEFINITIVAMENTE do repertório?'))return;
-      setSongs(s=>s.filter(x=>x.id!==id));setSelSong(null);
-      dbDelSong(id).catch(console.error);
+      setConfirmState({
+        title: 'Excluir Música',
+        msg: 'Deseja excluir esta música DEFINITIVAMENTE do repertório da igreja?',
+        onConfirm: () => {
+          setSongs(s=>s.filter(x=>x.id!==id));setSelSong(null);
+          dbDelSong(id).catch(console.error);
+          setConfirmState(null);
+        },
+        onCancel: () => setConfirmState(null)
+      });
     } else {
-      if(!window.confirm('Você não é administrador. Deseja ENVIAR UM PEDIDO de exclusão desta música para a liderança?'))return;
-      setSongs(s=>s.map(x=>x.id===id?{...x, delete_requested_by: profile.id}:x));
-      setSelSong(null);
-      requestDeleteSong(id, profile.id).then(()=>{
-        alert('Pedido de exclusão enviado aos administradores.');
-      }).catch(console.error);
+      setConfirmState({
+        title: 'Solicitar Exclusão',
+        msg: 'Você não é administrador. Deseja ENVIAR UM PEDIDO de exclusão desta música para a liderança?',
+        onConfirm: () => {
+          setSongs(s=>s.map(x=>x.id===id?{...x, delete_requested_by: profile.id}:x));
+          setSelSong(null);
+          requestDeleteSong(id, profile.id).catch(console.error);
+          setConfirmState(null);
+        },
+        onCancel: () => setConfirmState(null)
+      });
     }
   }
 
@@ -2123,8 +2178,8 @@ export default function LouveSync() {
         {/* TOP BAR */}
         <div className="gL0" style={{padding:'11px 16px', paddingTop:'calc(env(safe-area-inset-top, 0px) + 11px)', display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)'}`,position:'sticky',top:0,zIndex:30,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
-            {inCifra&&<button onClick={()=>setSelSong(null)} style={{width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(79,70,229,.1)',color:'#4F46E5',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><IcoChevL s={18}/></button>}
-            {inCifra?<div style={{lineHeight:1.3}}><div style={{fontSize:15,fontWeight:900,color:tc}}>{selSong.title}</div><div style={{fontSize:'var(--fs-xs)',color:dark?'#94A3B8':'#475569'}}>{selSong.artist}</div></div>
+            {inCifra&&<button onClick={()=>{vib();setSelSong(null);}} style={{padding:'8px 16px',borderRadius:'var(--r-full)',border:'none',background:'rgba(79,70,229,.15)',color:'#4F46E5',display:'flex',alignItems:'center',gap:6,fontWeight:800,fontSize:'var(--fs-sm)',cursor:'pointer',boxShadow:'0 2px 10px rgba(79,70,229,.15)'}}><IcoChevL s={16}/> Voltar</button>}
+            {inCifra?<div style={{lineHeight:1.3,textAlign:'right'}}><div className="font-serif" style={{fontSize:16,fontWeight:900,color:tc}}>{selSong.title}</div><div style={{fontSize:'var(--fs-xs)',color:dark?'#94A3B8':'#475569'}}>{selSong.artist}</div></div>
             :<div style={{display:'flex',alignItems:'center',gap:10}}>
               <img src="/logo_solo.png" alt="Logo" style={{height:34, objectFit:'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.08))'}} />
               <div><div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:tc,letterSpacing:'-.02em',lineHeight:1}}>LouveSync</div><div style={{fontSize:8,color:dark?'#94A3B8':'#475569',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase'}}>IMWAL</div></div>
@@ -2141,7 +2196,7 @@ export default function LouveSync() {
 
         {/* MAIN SCROLL */}
         <div style={{flex:1,overflowY:'auto',paddingBottom:inCifra?96:10,minHeight:0,display:'flex',flexDirection:'column'}}>
-          {dataLoading&&!inCifra?<div style={{display:'flex',justifyContent:'center',alignItems:'center',height:200}}><Loader/></div>:<>
+          {dataLoading&&!inCifra?<Skeleton dark={dark} count={6}/>:<>
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={()=>setCreateEvOpen(true)}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
             {inCifra&&<Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} profile={profile}/>}
@@ -2151,7 +2206,7 @@ export default function LouveSync() {
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
             {tab==='treinamento'&&!inCifra&&<Treinamento dark={dark} profile={profile}/>}
             {tab==='biblia'&&!inCifra&&<Biblia dark={dark}/>}
-            {tab==='admin'&&!inCifra&&<PainelAdmin dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs}/>}
+            {tab==='admin'&&!inCifra&&<PainelAdmin dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState}/>}
           </>}
         </div>
 
@@ -2172,6 +2227,7 @@ export default function LouveSync() {
       {createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);}}/>}
       {evSheet&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} onClose={()=>setEvSheet(null)} onSelectSong={s=>{selectSong(s);setEvSheet(null);}} onConfirm={handleConfirm} spawnConfetti={spawnConfetti}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotifsSheet dark={dark} notifs={notifs} onClose={()=>setNotifsOpen(false)} onMarkRead={id=>setNotifs(ns=>ns.map(n=>n.id===id?{...n,read:true}:n))} onMarkAllRead={()=>setNotifs(ns=>ns.map(n=>({...n,read:true})))} onAction={n=>{if(n.ctaAction==='addSong'){setAddOpen(true);setNotifsOpen(false);}else if(n.ctaTab){navTo(n.ctaTab);setNotifsOpen(false);}}}/>}
+      {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
     </div>
   </div>;
 }
