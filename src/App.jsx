@@ -133,20 +133,20 @@ const M = [
 ];
 
 const BIBLE_BOOKS = [
-  {a:'gn',n:'Gênesis',c:50}, {a:'ex',n:'Êxodo',c:40}, {a:'lv',n:'Levítico',c:27}, {a:'nm',n:'Números',c:36}, {a:'dt',n:'Deuteronômio',c:34},
-  {a:'js',n:'Josué',c:24}, {a:'jz',n:'Juízes',c:21}, {a:'rt',n:'Rute',c:4}, {a:'1sm',n:'1 Samuel',c:31}, {a:'2sm',n:'2 Samuel',c:24},
-  {a:'1rs',n:'1 Reis',c:22}, {a:'2rs',n:'2 Reis',c:25}, {a:'1cr',n:'1 Crônicas',c:29}, {a:'2cr',n:'2 Crônicas',c:36}, {a:'ed',n:'Esdras',c:10},
-  {a:'ne',n:'Neemias',c:13}, {a:'et',n:'Ester',c:10}, {a:'jo',n:'Jó',c:42}, {a:'sl',n:'Salmos',c:150}, {a:'pv',n:'Provérbios',c:31},
-  {a:'ec',n:'Eclesiastes',c:12}, {a:'ct',n:'Cânticos',c:8}, {a:'is',n:'Isaías',c:66}, {a:'jr',n:'Jeremias',c:52}, {a:'lm',n:'Lamentações',c:5},
-  {a:'ez',n:'Ezequiel',c:48}, {a:'dn',n:'Daniel',c:12}, {a:'os',n:'Oséias',c:14}, {a:'jl',n:'Joel',c:3}, {a:'am',n:'Amós',c:9},
-  {a:'ob',n:'Obadias',c:1}, {a:'jn',n:'Jonas',c:4}, {a:'mq',n:'Miquéias',c:7}, {a:'na',n:'Naum',c:3}, {a:'hc',n:'Habacuque',c:3},
-  {a:'sf',n:'Sofonias',c:3}, {a:'ag',n:'Ageu',c:2}, {a:'zc',n:'Zacarias',c:14}, {a:'ml',n:'Malaquias',c:4},
-  {a:'mt',n:'Mateus',c:28}, {a:'mc',n:'Marcos',c:16}, {a:'lc',n:'Lucas',c:24}, {a:'joao',n:'João',c:21}, {a:'at',n:'Atos',c:28},
-  {a:'rm',n:'Romanos',c:16}, {a:'1co',n:'1 Coríntios',c:16}, {a:'2co',n:'2 Coríntios',c:13}, {a:'gl',n:'Gálatas',c:6}, {a:'ef',n:'Efésios',c:6},
-  {a:'fp',n:'Filipenses',c:4}, {a:'cl',n:'Colossenses',c:4}, {a:'1ts',n:'1 Tessalonicenses',c:5}, {a:'2ts',n:'2 Tessalonicenses',c:3}, {a:'1tm',n:'1 Timóteo',c:6},
-  {a:'2tm',n:'2 Timóteo',c:4}, {a:'tt',n:'Tito',c:3}, {a:'fm',n:'Filemom',c:1}, {a:'hb',n:'Hebreus',c:13}, {a:'tg',n:'Tiago',c:5},
-  {a:'1pe',n:'1 Pedro',c:5}, {a:'2pe',n:'2 Pedro',c:3}, {a:'1jo',n:'1 João',c:5}, {a:'2jo',n:'2 João',c:1}, {a:'3jo',n:'3 João',c:1},
-  {a:'jd',n:'Judas',c:1}, {a:'ap',n:'Apocalipse',c:22}
+  {a:'genesis',n:'Gênesis',c:50}, {a:'exodus',n:'Êxodo',c:40}, {a:'leviticus',n:'Levítico',c:27}, {a:'numbers',n:'Números',c:36}, {a:'deuteronomy',n:'Deuteronômio',c:34},
+  {a:'joshua',n:'Josué',c:24}, {a:'judges',n:'Juízes',c:21}, {a:'ruth',n:'Rute',c:4}, {a:'1 samuel',n:'1 Samuel',c:31}, {a:'2 samuel',n:'2 Samuel',c:24},
+  {a:'1 kings',n:'1 Reis',c:22}, {a:'2 kings',n:'2 Reis',c:25}, {a:'1 chronicles',n:'1 Crônicas',c:29}, {a:'2 chronicles',n:'2 Crônicas',c:36}, {a:'ezra',n:'Esdras',c:10},
+  {a:'nehemiah',n:'Neemias',c:13}, {a:'esther',n:'Ester',c:10}, {a:'job',n:'Jó',c:42}, {a:'psalms',n:'Salmos',c:150}, {a:'proverbs',n:'Provérbios',c:31},
+  {a:'ecclesiastes',n:'Eclesiastes',c:12}, {a:'song of solomon',n:'Cânticos',c:8}, {a:'isaiah',n:'Isaías',c:66}, {a:'jeremiah',n:'Jeremias',c:52}, {a:'lamentations',n:'Lamentações',c:5},
+  {a:'ezekiel',n:'Ezequiel',c:48}, {a:'daniel',n:'Daniel',c:12}, {a:'hosea',n:'Oséias',c:14}, {a:'joel',n:'Joel',c:3}, {a:'amos',n:'Amós',c:9},
+  {a:'obadiah',n:'Obadias',c:1}, {a:'jonah',n:'Jonas',c:4}, {a:'micah',n:'Miquéias',c:7}, {a:'nahum',n:'Naum',c:3}, {a:'habakkuk',n:'Habacuque',c:3},
+  {a:'zephaniah',n:'Sofonias',c:3}, {a:'haggai',n:'Ageu',c:2}, {a:'zechariah',n:'Zacarias',c:14}, {a:'malachi',n:'Malaquias',c:4},
+  {a:'matthew',n:'Mateus',c:28}, {a:'mark',n:'Marcos',c:16}, {a:'luke',n:'Lucas',c:24}, {a:'john',n:'João',c:21}, {a:'acts',n:'Atos',c:28},
+  {a:'romans',n:'Romanos',c:16}, {a:'1 corinthians',n:'1 Coríntios',c:16}, {a:'2 corinthians',n:'2 Coríntios',c:13}, {a:'galatians',n:'Gálatas',c:6}, {a:'ephesians',n:'Efésios',c:6},
+  {a:'philippians',n:'Filipenses',c:4}, {a:'colossians',n:'Colossenses',c:4}, {a:'1 thessalonians',n:'1 Tessalonicenses',c:5}, {a:'2 thessalonians',n:'2 Tessalonicenses',c:3}, {a:'1 timothy',n:'1 Timóteo',c:6},
+  {a:'2 timothy',n:'2 Timóteo',c:4}, {a:'titus',n:'Tito',c:3}, {a:'philemon',n:'Filemom',c:1}, {a:'hebrews',n:'Hebreus',c:13}, {a:'james',n:'Tiago',c:5},
+  {a:'1 peter',n:'1 Pedro',c:5}, {a:'2 peter',n:'2 Pedro',c:3}, {a:'1 john',n:'1 João',c:5}, {a:'2 john',n:'2 João',c:1}, {a:'3 john',n:'3 João',c:1},
+  {a:'jude',n:'Judas',c:1}, {a:'revelation',n:'Apocalipse',c:22}
 ];
 
 const MOCK_SONGS = [
