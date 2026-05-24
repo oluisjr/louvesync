@@ -213,17 +213,15 @@ async function searchCifrasComBr(title, artist) {
 }
 
 export async function searchSongCandidates(title, artist) {
-  const [vag, let_, lrc, cifraclub, cifras] = await Promise.allSettled([
+  const [vag, let_, lrc, cifras] = await Promise.allSettled([
     searchVagalumeCandidates(title, artist),
     searchLetrasCandidates(title, artist),
     searchLRCLibCandidates(title, artist),
-    searchCifraClub(title, artist),
     searchCifrasComBr(title, artist)
   ]);
 
   return [
     ...(cifras.status === 'fulfilled' ? cifras.value : []),
-    ...(cifraclub.status === 'fulfilled' ? cifraclub.value : []),
     ...(lrc.status   === 'fulfilled' ? lrc.value   : []),
     ...(vag.status   === 'fulfilled' ? vag.value   : []),
     ...(let_.status  === 'fulfilled' ? let_.value  : []),
@@ -272,10 +270,10 @@ export async function fetchCifrasComBrContent(url) {
   const keyMatch = html.match(/tom:\s*<strong>([A-G][^<]{0,2})<\/strong>/i) || html.match(/data-tom="([^"]+)"/i);
   if (keyMatch) key = keyMatch[1];
 
-  let core = doc.querySelector('#cifra_core') || doc.querySelector('.core-cifra');
+  let core = doc.querySelector('#cifra_core') || doc.querySelector('.core-cifra') || doc.querySelector('pre');
   if (!core) return null;
 
-  // Cifras.com.br puts chords inside <b> or span with data-chord
+  // Cifras.com.br puts chords inside <b> or span with data-chord, or just straight inside pre if it's plain text
   let rawHtml = core.innerHTML;
   rawHtml = rawHtml.replace(/<span[^>]*data-chord=[^>]*>([^<]+)<\/span>/gi, (_, c) => `[${c.trim()}]`);
   rawHtml = rawHtml.replace(/<b>([^<]+)<\/b>/gi, (_, c) => `[${c.trim()}]`);

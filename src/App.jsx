@@ -2145,9 +2145,10 @@ export default function LouveSync() {
     const history=msgs.slice(-6);
     const GROQ_KEY=import.meta.env.VITE_GROQ_API_KEY;
     try{
-      const sysMsgAI={role:'system',content:'Você é o Maestro, assistente do ministério de adoração IMWAL. Especialista em ministério de louvor evangélico brasileiro. Se a pergunta não for sobre música, adoração, ministério ou fé cristã, recuse educadamente. Responda em português brasileiro. Seja pastoral e prático. Use • para listas. Máximo 220 palavras.'};
+      const repertorioStr = songs.map(s => `${s.title} (${s.artist})`).join(', ');
+      const sysMsgAI={role:'system',content:`Você é o Maestro, assistente de adoração IMWAL. Responda PRIMEIRO com base NESTE REPERTÓRIO ATUAL DO APP: [${repertorioStr}]. Se o usuário pedir uma música que não está nessa lista, diga que não está no repertório do app, mas você pode ajudar com sugestões ou arranjos se quiser. Seja pastoral. Máx 220 palavras.`};
       const convMsgs=history.map(m=>({role:m.r==='u'?'user':'assistant',content:m.c}));
-      const res=await fetch(GROQ_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`},body:JSON.stringify({model:'llama-3.1-8b-instant',max_tokens:400,messages:[sysMsgAI,...convMsgs]})});
+      const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`},body:JSON.stringify({model:'llama-3.1-8b-instant',max_tokens:400,messages:[sysMsgAI,...convMsgs]})});
       const data=await res.json();
       const reply=data.choices?.[0]?.message?.content||'Sem resposta.';
       setAiMsgs(p=>[...p,{r:'a',c:reply}]);
