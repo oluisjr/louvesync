@@ -137,68 +137,82 @@ async function searchLRCLibCandidates(title, artist) {
   } catch { return []; }
 }
 
-
-
-/* 🎸 CifraClub (Advanced Search via Vagalume/Google fallback) 🎸🎸🎸🎸🎸🎸🎸 */
+/* 🎸 CifraClub — Raspa a página de busca do site (HTML server-side) 🎸 */
 async function searchCifraClub(title, artist) {
-  const q = encodeURIComponent(`${title} ${artist || ''}`.trim());
-  try {
-    const res = await fetch(`https://itunes.apple.com/search?term=${q}&entity=song&limit=3`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    const results = [];
-    const seen = new Set();
-    
-    for (const r of (data.results || [])) {
-      const aSlug = slugify(r.artistName);
-      const tSlug = slugify(r.trackName.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, ''));
-      const url = `https://www.cifraclub.com.br/${aSlug}/${tSlug}/`;
-      if (!seen.has(url)) {
-        seen.add(url);
-        results.push({
-          id: `cifraclub_${results.length}`,
-          source: 'CifraClub',
-          title: r.trackName.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim(),
-          artist: r.artistName,
-          url,
-          hasCifra: true,
-          icon: '🎸'
-        });
-      }
-    }
-    return results;
-  } catch {
-    return [];
-  }
-}
+  const cleanArtist = (artist || '').replace(/\(.*?\)/g, '').trim();
+  const q = encodeURIComponent(`${title} ${cleanArtist}`.trim());
 
-/* 🎸 Cifras.com.br (Alternative Chords Source) 🎸🎸🎸🎸🎸🎸🎸 */
-async function searchCifrasComBr(title, artist) {
-  const q = encodeURIComponent(`${title} ${artist || ''}`.trim());
   try {
-    const res = await fetch(`https://itunes.apple.com/search?term=${q}&entity=song&limit=3`);
-    if (!res.ok) return [];
-    const data = await res.json();
+    // Raspa a página de resultados de busca do CifraClub (renderizada server-side)
+    const html = await proxyGet(
+      `https://www.cifraclub.com.br/search/?q=${q}`,
+      10000
+    );
+    if (!html || html.length < 500) return [];
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
     const results = [];
-    const seen = new Set();
-    
-    for (const r of (data.results || [])) {
-      const aSlug = slugify(r.artistName);
-      const tSlug = slugify(r.trackName.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, ''));
-      const url = `https://www.cifras.com.br/cifra/${aSlug}/${tSlug}`;
-      if (!seen.has(url)) {
-        seen.add(url);
+
+    // Seletor para links de cifra nos resultados de busca do CifraClub
+    // O padrão de URL é /artista/musica/
+    const links = doc.querySelectorAll(
+      'a[href*="/"][href]:not([href="#"]):not([href*="search"])'
+    );
+
+    for (const a of links) {
+      const href = a.getAttribute('href') || '';
+      // URL de cifra tem exatamente 2 segmentos não-vazios: /artista/musica/
+      const parts = href.replace(/^\/|\/$/g, '').split('/');
+      if (parts.length !== 2 || !parts[0] || !parts[1]) continue;
+
+      // Evitar links de navegação genéricos
+      const skip = ['search', 'top', 'mais', 'sobre', 'blog', 'contato', 'privacidade', 'tom'];
+      if (skip.some(s => parts[0].includes(s))) continue;
+
+      const url = `https://www.cifraclub.com.br${href.startsWith('/') ? href : '/' + href}`;
+      const rawTitle = a.textContent?.trim() || '';
+
+      // Evita entradas duplicadas e entradas sem texto
+      if (!rawTitle || results.find(r => r.url === url)) continue;
+
+      // Tentar extrair título e artista do texto do link ou do elemento pai
+      let songTitle = rawTitle;
+      let songArtist = titleCase(parts[0]);
+
+      // Muitas vezes o link tem "Título — Artista" ou está em um card
+      const parentText = a.closest('li, article, .result, [class*="result"], [class*="item"]')
+        ?.textContent?.trim() || '';
+
+      results.push({
+        id: `cifraclub_${results.length}`,
+        source: 'CifraClub',
+        title: songTitle || titleCase(parts[1]),
+        artist: songArtist,
+        url,
+        hasCifra: true,
+        icon: '🎸',
+      });
+
+      if (results.length >= 5) break;
+    }
+
+    // Fallback: tentar construir URL diretamente com slugs
+    if (results.length === 0 && cleanArtist) {
+      const aSlug = slugify(cleanArtist.split(/\s+/).slice(0, 3).join(' '));
+      const tSlug = slugify(title);
+      if (aSlug && tSlug) {
         results.push({
-          id: `cifras_${results.length}`,
-          source: 'Cifras.com.br',
-          title: r.trackName.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim(),
-          artist: r.artistName,
-          url,
+          id: 'cifraclub_direct',
+          source: 'CifraClub',
+          title,
+          artist: cleanArtist,
+          url: `https://www.cifraclub.com.br/${aSlug}/${tSlug}/`,
           hasCifra: true,
-          icon: '🎸'
+          icon: '🎸',
         });
       }
     }
+
     return results;
   } catch {
     return [];
@@ -215,9 +229,9 @@ export async function searchSongCandidates(title, artist) {
 
   return [
     ...(cifraclub.status === 'fulfilled' ? cifraclub.value : []),
-    ...(lrc.status   === 'fulfilled' ? lrc.value   : []),
-    ...(vag.status   === 'fulfilled' ? vag.value   : []),
-    ...(let_.status  === 'fulfilled' ? let_.value  : []),
+    ...(lrc.status === 'fulfilled' ? lrc.value : []),
+    ...(vag.status === 'fulfilled' ? vag.value : []),
+    ...(let_.status === 'fulfilled' ? let_.value : []),
   ];
 }
 
@@ -244,10 +258,10 @@ export async function findSongData(title, artist, onStatus) {
   onStatus?.('iniciando');
   const candidates = await searchSongCandidates(title, artist);
 
-  for (const c of candidates.filter(c => c.source.includes('Cifra'))) {
+  // Buscar conteúdo apenas de fontes com URL (CifraClub)
+  for (const c of candidates.filter(c => c.source === 'CifraClub' && c.url)) {
     onStatus?.(c.source);
-    const fetchFn = c.source === 'CifraClub' ? fetchCifraClubContent : fetchLRCContent;
-    const full = await fetchFn(c.url);
+    const full = await fetchCifraClubContent(c.url);
     if (full) { onStatus?.('found:' + c.source); return { ...c, ...full }; }
   }
 

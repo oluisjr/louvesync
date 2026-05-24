@@ -1,25 +1,25 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import * as cheerio from 'cheerio'
 
-// Custom plugin to act as a local CORS proxy, bypassing Cloudflare proxy blocks
+// ─── Plugin local: Proxy + Cifra handler (dev only) ──────────────────────────
 const localScraperPlugin = () => ({
   name: 'local-scraper-proxy',
   configureServer(server) {
     server.middlewares.use(async (req, res, next) => {
+      const envObj = loadEnv('', process.cwd(), '');
+      const scraperKey = envObj.SCRAPERAPI_KEY; // corrigido: igual ao .env
+
+      // ── /api/proxy — proxy genérico de CORS ─────────────────────────────────
       if (req.url?.startsWith('/api/proxy?url=')) {
         const targetUrl = new URL(req.url, 'http://localhost').searchParams.get('url');
-        if (!targetUrl) {
-          res.statusCode = 400;
-          return res.end('Missing url');
-        }
+        if (!targetUrl) { res.statusCode = 400; return res.end('Missing url'); }
+
         try {
-          const envObj = loadEnv('', process.cwd(), '');
-          const scraperKey = envObj.SCRAPERAPI_KEY;
           let fetchTarget = targetUrl;
           if (scraperKey) {
-             fetchTarget = `http://api.scraperapi.com/?api_key=${scraperKey}&render=true&url=${encodeURIComponent(targetUrl)}`;
+            fetchTarget = `http://api.scraperapi.com/?api_key=${scraperKey}&render=true&url=${encodeURIComponent(targetUrl)}`;
           }
-          // Fetch directly from Node.js (bypasses CORS and uses local residential IP)
           const fetchRes = await fetch(fetchTarget, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -34,9 +34,115 @@ const localScraperPlugin = () => ({
           res.statusCode = 500;
           res.end(e.toString());
         }
-      } else {
-        next();
+        return;
       }
+
+      // ── /api/cifra — extrai letra+acordes de URL do CifraClub ───────────────
+      if (req.url?.startsWith('/api/cifra')) {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+
+        const targetUrl = new URL(req.url, 'http://localhost').searchParams.get('url');
+        if (!targetUrl) {
+          res.statusCode = 400;
+          return res.end(JSON.stringify({ error: 'Missing url' }));
+        }
+
+        try {
+          let fetchTarget = targetUrl;
+          if (scraperKey) {
+            // render=true necessário para o JS do CifraClub executar e popular os acordes
+            fetchTarget = `http://api.scraperapi.com/?api_key=${scraperKey}&url=${encodeURIComponent(targetUrl)}&render=true&country_code=br`;
+          }
+
+          const fetchRes = await fetch(fetchTarget, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept-Language': 'pt-BR,pt;q=0.9',
+            },
+            signal: AbortSignal.timeout(30000),
+          });
+
+          const html = await fetchRes.text();
+
+          if (
+            html.includes('cf-browser-verification') ||
+            html.includes('Just a moment') ||
+            html.includes('Enable JavaScript and cookies')
+          ) {
+            res.statusCode = 403;
+            return res.end(JSON.stringify({ error: 'Blocked by Cloudflare' }));
+          }
+
+          const $ = cheerio.load(html);
+
+          // Seletores em ordem de prioridade
+          let pre = $();
+          const selectors = [
+            '.cifra_cnt pre',
+            'pre.js-tab-content',
+            '[data-js="cifra"] pre',
+            '#cifra_cnt pre',
+            '.js-cifra pre',
+            'pre',
+          ];
+          for (const sel of selectors) {
+            const el = $(sel).first();
+            if (el.length) { pre = el; break; }
+          }
+
+          if (!pre.length) {
+            res.statusCode = 404;
+            return res.end(JSON.stringify({ error: 'Chords section not found' }));
+          }
+
+          // Extrair tom
+          let key = 'C';
+          const keySelectors = ['#cifra_tom a', '.tom a', '[data-key]', '.js-cifra-tom'];
+          for (const sel of keySelectors) {
+            const el = $(sel).first();
+            if (el.length) { key = el.text().trim() || el.attr('data-key') || 'C'; break; }
+          }
+
+          // Converter acordes para formato [Acorde]
+          pre.find('b').each(function () {
+            const txt = $(this).text().trim();
+            if (/^[A-G]/.test(txt)) $(this).replaceWith(`[${txt}]`);
+          });
+          pre.find('span[data-chord]').each(function () {
+            const chord = $(this).attr('data-chord');
+            if (chord) $(this).replaceWith(`[${chord}]`);
+          });
+          pre.find('a').each(function () {
+            const txt = $(this).text().trim();
+            if (/^[A-G]/.test(txt)) $(this).replaceWith(`[${txt}]`);
+          });
+
+          let rawText = pre.html()
+            .replace(/<[^>]+>/g, '')
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, ' ').replace(/&#\d+;/g, ' ')
+            .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+            .replace(/\n{4,}/g, '\n\n\n')
+            .trim();
+
+          if (rawText.length < 50) {
+            res.statusCode = 404;
+            return res.end(JSON.stringify({ error: 'Content too short — page may not have rendered' }));
+          }
+
+          const result = { text: rawText, key, hasCifra: /\[[A-G]/.test(rawText) };
+          res.statusCode = 200;
+          res.end(JSON.stringify(result));
+
+        } catch (e) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+      }
+
+      next();
     });
   }
 });
@@ -45,16 +151,16 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
-    react(), 
+    react(),
     localScraperPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'LouveSync',
-        short_name: 'LouveSync',
-        description: 'App de Gestão para Ministérios de Louvor',
-        theme_color: '#4F46E5',
+        name: 'Louve',
+        short_name: 'Louve',
+        description: 'Gestão de Ministério de Louvor — Seu ministério em harmonia',
+        theme_color: '#7B3FF2',
         icons: [
           { src: 'logo_solo.png', sizes: '192x192', type: 'image/png' },
           { src: 'logo_solo.png', sizes: '512x512', type: 'image/png' },
@@ -68,7 +174,7 @@ export default defineConfig({
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 }, // 1 week
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
               cacheableResponse: { statuses: [0, 200] }
             }
           },
@@ -77,7 +183,7 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'google-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }, // 1 year
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
               cacheableResponse: { statuses: [0, 200] }
             }
           }

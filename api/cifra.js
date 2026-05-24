@@ -8,113 +8,118 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
   try {
     const { url } = req.query;
-    if (!url) {
-      return res.status(400).json({ error: "Missing URL parameter" });
-    }
+    if (!url) return res.status(400).json({ error: "Missing URL parameter" });
 
-    console.log(`[cifra.js] Requesting: ${url}`);
-
-    // PASSO 8 - Cache Verification
+    // Cache primeiro
     const { data: cached } = await supabase
       .from('songs_cache')
       .select('content')
       .eq('source_url', url)
       .single();
 
-    if (cached) {
-      console.log(`[cifra.js] Cache HIT for: ${url}`);
-      return res.status(200).json(cached.content);
+    if (cached) return res.status(200).json(cached.content);
+
+    // SCRAPERAPI_KEY — corrigido (era SCRAPER_API_KEY, incompatível com .env)
+    const scraperKey = process.env.SCRAPERAPI_KEY;
+
+    let fetchUrl = url;
+    if (scraperKey) {
+      // render: true necessário para garantir que o JS do CifraClub execute e popule os acordes
+      fetchUrl = `http://api.scraperapi.com/?api_key=${scraperKey}&url=${encodeURIComponent(url)}&render=true&country_code=br`;
     }
 
-    console.log(`[cifra.js] Cache MISS for: ${url}, requesting via ScraperAPI...`);
-
-    const response = await axios.get("http://api.scraperapi.com", {
-      params: {
-        api_key: process.env.SCRAPER_API_KEY,
-        url,
-        render: true,
-        country_code: "br",
-        premium: true
+    const response = await axios.get(fetchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'pt-BR,pt;q=0.9',
       },
-      timeout: 30000
+      timeout: 25000
     });
 
     const html = response.data;
-    
-    // PASSO 7 - Detect blocks
+
+    // Detecção de bloqueio
     if (
-      html.includes('Attention Required') ||
-      html.includes('Cloudflare') ||
       html.includes('cf-browser-verification') ||
-      html.includes('Just a moment')
+      html.includes('Just a moment') ||
+      html.includes('Enable JavaScript and cookies')
     ) {
-      console.log({ source: 'CifraClub', status: 403, htmlLength: html.length, blocked: true });
-      throw new Error('Cloudflare detected or block occurred');
+      return res.status(403).json({ error: 'Blocked by Cloudflare' });
     }
 
-    // PASSO 3 & 4 & 5 - Cheerio Parsing & Resilient Extraction
     const $ = cheerio.load(html);
-    
-    const pre = $('.cifra_cnt pre').first().length ? $('.cifra_cnt pre').first() :
-                $('pre.js-tab-content').first().length ? $('pre.js-tab-content').first() :
-                $('.tablatura').first().length ? $('.tablatura').first() :
-                $('[class*=tablatura]').first().length ? $('[class*=tablatura]').first() :
-                $('pre').first();
-                
-    if (!pre || pre.length === 0) {
-       console.log({ source: 'CifraClub', status: 404, htmlLength: html.length, error: "No pre tags found" });
-       return res.status(404).json({ error: "Could not find chords section" });
+
+    // Seletores em ordem de prioridade para CifraClub
+    // 1. Wrapper principal moderno: .cifra_cnt pre
+    // 2. Classe JS legacy: pre.js-tab-content
+    // 3. Atributo data-js: [data-js="cifra"] pre
+    // 4. Qualquer <pre> na página
+    let pre = $();
+    const selectors = [
+      '.cifra_cnt pre',
+      'pre.js-tab-content',
+      '[data-js="cifra"] pre',
+      '#cifra_cnt pre',
+      '.js-cifra pre',
+      'pre',
+    ];
+    for (const sel of selectors) {
+      const el = $(sel).first();
+      if (el.length) { pre = el; break; }
     }
 
+    if (!pre.length) return res.status(404).json({ error: "Chords section not found" });
+
+    // Extrair tom
     let key = 'C';
-    const keyEl = $('#cifra_tom a').first();
-    if (keyEl.length) {
-      key = keyEl.text().trim();
+    const keySelectors = ['#cifra_tom a', '.tom a', '[data-key]', '.js-cifra-tom'];
+    for (const sel of keySelectors) {
+      const el = $(sel).first();
+      if (el.length) { key = el.text().trim() || el.attr('data-key') || 'C'; break; }
     }
 
-    // Convert CifraClub structure: <b>A</b> or <span data-chord="A">A</span>
-    pre.find('b').each(function() {
-      const text = $(this).text().trim();
-      $(this).replaceWith(`[${text}]`);
+    // Converter acordes: <b>Acorde</b> e <span data-chord="..."> → [Acorde]
+    pre.find('b').each(function () {
+      const txt = $(this).text().trim();
+      if (/^[A-G]/.test(txt)) $(this).replaceWith(`[${txt}]`);
     });
-    
-    pre.find('span[data-chord]').each(function() {
+    pre.find('span[data-chord]').each(function () {
       const chord = $(this).attr('data-chord');
-      $(this).replaceWith(`[${chord}]`);
+      if (chord) $(this).replaceWith(`[${chord}]`);
+    });
+    // Links de acorde: <a ...>Dm</a>
+    pre.find('a').each(function () {
+      const txt = $(this).text().trim();
+      if (/^[A-G]/.test(txt)) $(this).replaceWith(`[${txt}]`);
     });
 
-    // Extract text ignoring other tags but keeping whitespace
-    // We get HTML and strip tags manually to preserve \n
-    let rawHtml = pre.html();
-    rawHtml = rawHtml.replace(/<[^>]+>/g, '');
-    rawHtml = rawHtml.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-    
-    let rawText = rawHtml.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    
-    if (rawText.length < 50) {
-      return res.status(404).json({ error: "Extracted text is too short" });
-    }
-    
-    const result = {
-      text: rawText,
-      key,
-      hasCifra: /\[[A-G]/.test(rawText)
-    };
+    let rawText = pre.html()
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ').replace(/&#\d+;/g, ' ')
+      .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      .replace(/\n{4,}/g, '\n\n\n')
+      .trim();
 
-    console.log({ source: 'CifraClub', status: 200, htmlLength: html.length, success: true });
+    if (rawText.length < 50) return res.status(404).json({ error: "Content too short — page may not have rendered" });
 
-    // PASSO 8 - Save to cache
-    await supabase.from('songs_cache').insert({
-      source_url: url,
-      content: result
-    }).catch(err => console.error("Cache save error:", err));
+    const result = { text: rawText, key, hasCifra: /\[[A-G]/.test(rawText) };
+
+    // Salvar no cache
+    await supabase.from('songs_cache').insert({ source_url: url, content: result })
+      .catch(err => console.error("Cache error:", err));
 
     res.status(200).json(result);
 
   } catch (err) {
     console.error("Cifra API Error:", err.message);
-    res.status(500).json({ error: "Erro ao buscar cifra" });
+    res.status(500).json({ error: err.message });
   }
 }
