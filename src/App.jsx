@@ -456,12 +456,12 @@ const Biblia = memo(({dark})=>{
     {error && <div style={{textAlign:'center',color:'#EF4444',fontWeight:700,fontSize:'var(--fs-sm)'}}>{error}</div>}
 
     {verses.length > 0 && !loading && <>
-       <div style={{position:'fixed',bottom:'calc(env(safe-area-inset-bottom, 0px) + 20px)',left:'50%',transform:'translateX(-50%)',width:'calc(100% - 32px)',maxWidth:500,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',background:dark?'rgba(15,23,42,.85)':'rgba(255,255,255,.9)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',borderRadius:'var(--r-xl)',boxShadow:'0 16px 40px rgba(0,0,0,.3)',border:`1px solid ${dark?'rgba(255,255,255,.1)':'rgba(255,255,255,1)'}`,zIndex:50}}>
+       <div style={{position:'fixed',bottom:'calc(env(safe-area-inset-bottom, 0px) + 90px)',left:'50%',transform:'translateX(-50%)',width:'calc(100% - 32px)',maxWidth:500,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',background:dark?'rgba(15,23,42,.85)':'rgba(255,255,255,.9)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',borderRadius:'var(--r-xl)',boxShadow:'0 16px 40px rgba(0,0,0,.3)',border:`1px solid ${dark?'rgba(255,255,255,.1)':'rgba(255,255,255,1)'}`,zIndex:50}}>
          <button onClick={()=>selChapter>1&&handleSelectChapter(selChapter-1)} disabled={selChapter<=1} style={{background:selChapter<=1?'transparent':'rgba(79,70,229,.1)',border:'none',color:selChapter<=1?t2:'#4F46E5',padding:'8px 12px',borderRadius:'var(--r-md)',fontWeight:800,display:'flex',alignItems:'center',gap:4,cursor:selChapter<=1?'default':'pointer',opacity:selChapter<=1?.5:1}}><IcoChevL s={14}/> Ant.</button>
          <div style={{fontSize:18,fontWeight:900,color:tc,textAlign:'center',flex:1}}>{books.find(b=>b.a===selBook)?.n} {selChapter}</div>
          <button onClick={()=>selChapter<chapters&&handleSelectChapter(selChapter+1)} disabled={selChapter>=chapters} style={{background:selChapter>=chapters?'transparent':'rgba(79,70,229,.1)',border:'none',color:selChapter>=chapters?t2:'#4F46E5',padding:'8px 12px',borderRadius:'var(--r-md)',fontWeight:800,display:'flex',alignItems:'center',gap:4,cursor:selChapter>=chapters?'default':'pointer',opacity:selChapter>=chapters?.5:1}}>Próx. <IcoChevR s={14}/></button>
        </div>
-       <div className={`${gc} aUp`} style={{...CS, paddingBottom: 80}}>
+       <div className={`${gc} aUp`} style={{...CS, paddingBottom: 160}}>
          <div style={{display:'flex',flexDirection:'column',gap:12}}>
             {verses.map((v)=>(
                <div key={v.number} style={{display:'flex',gap:10,lineHeight:1.7}}>
