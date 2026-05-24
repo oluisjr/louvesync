@@ -17,7 +17,7 @@ const localScraperPlugin = () => ({
           const scraperKey = envObj.SCRAPERAPI_KEY;
           let fetchTarget = targetUrl;
           if (scraperKey) {
-             fetchTarget = `http://api.scraperapi.com/?api_key=${scraperKey}&url=${encodeURIComponent(targetUrl)}`;
+             fetchTarget = `http://api.scraperapi.com/?api_key=${scraperKey}&render=true&url=${encodeURIComponent(targetUrl)}`;
           }
           // Fetch directly from Node.js (bypasses CORS and uses local residential IP)
           const fetchRes = await fetch(fetchTarget, {

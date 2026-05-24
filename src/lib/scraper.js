@@ -276,42 +276,7 @@ export async function fetchCifrasComBrContent(url) {
   let rawHtml = core.innerHTML;
   if (rawHtml.length < 50) return null;
 
-  const groqKey = import.meta.env.VITE_GROQ_API_KEY;
-  if (groqKey) {
-    try {
-      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${groqKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content: 'Você é um assistente que extrai letras e cifras de HTML. Retorne APENAS a letra da música com as cifras embutidas na linha, no formato [Cifra]. NÃO separe as partes da música (não adicione Refrão, Estrofe, etc). Não adicione nenhuma explicação. Apenas a letra pura com as cifras.'
-            },
-            {
-              role: 'user',
-              content: 'Extraia as cifras do seguinte HTML, mantendo-as na mesma linha da letra logo antes da palavra onde a cifra cai (exemplo: "[C]Aleluia"): ' + rawHtml.substring(0, 15000)
-            }
-          ],
-          temperature: 0.1
-        })
-      });
-      if (resp.ok) {
-        const json = await resp.json();
-        let aiText = json.choices[0].message.content.trim();
-        aiText = aiText.replace(/```[^\n]*\n?/g, ''); // Remover blocos markdown
-        return { text: aiText, key, hasCifra: /\[[A-G]/.test(aiText) };
-      }
-    } catch(e) {
-      console.warn('Groq extraction failed, falling back to regex', e);
-    }
-  }
-
-  // Fallback
+  // Usa apenas extração por regex
   rawHtml = rawHtml.replace(/<span[^>]*data-chord=[^>]*>([^<]+)<\/span>/gi, (_, c) => `[${c.trim()}]`);
   rawHtml = rawHtml.replace(/<b>([^<]+)<\/b>/gi, (_, c) => {
     const t = c.trim();
