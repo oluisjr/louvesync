@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, requestDeleteSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, setEventItems, setSingerForSong } from './lib/supabase';
-import { findSongData, searchSongCandidates, fetchCifraClubContent, fetchCifrasComBrContent } from './lib/scraper';
+import { findSongData, searchSongCandidates, fetchCifraClubContent } from './lib/scraper';
+import { generateSetlist } from './lib/setlist';
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -36,6 +37,7 @@ html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
 .dark .gIn:focus-within{border-color:var(--c-id);box-shadow:inset 0 1px 2px rgba(0,0,0,.2), 0 0 0 3px rgba(129,140,248,.15);}
 .aC-jubilo{border-left:3.5px solid #10B981;}.aC-adoracao{border-left:3.5px solid #4F46E5;}
 .aC-hinario{border-left:3.5px solid #F59E0B;}.aC-oferta{border-left:3.5px solid #EC4899;}
+.aC-corinho{border-left:3.5px solid #06B6D4;}.aC-ceia{border-left:3.5px solid #E11D48;}
 ::-webkit-scrollbar{width:3px;height:3px;}::-webkit-scrollbar-thumb{background:rgba(79,70,229,.22);border-radius:2px;}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
@@ -67,8 +69,11 @@ html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
 .bA{background:rgba(79,70,229,.1);color:#4F46E5;border:1px solid rgba(79,70,229,.22);}
 .bH{background:rgba(245,158,11,.1);color:#D97706;border:1px solid rgba(245,158,11,.22);}
 .bO{background:rgba(236,72,153,.1);color:#DB2777;border:1px solid rgba(236,72,153,.22);}
+.bC{background:rgba(225,29,72,.1);color:#BE123C;border:1px solid rgba(225,29,72,.22);}
+.bCo{background:rgba(6,182,212,.1);color:#0891B2;border:1px solid rgba(6,182,212,.22);}
 .dark .bJ{background:rgba(16,185,129,.15);color:#34D399;}.dark .bA{background:rgba(99,102,241,.15);color:#818CF8;}
 .dark .bH{background:rgba(245,158,11,.15);color:#FBBF24;}.dark .bO{background:rgba(236,72,153,.15);color:#F472B6;}
+.dark .bC{background:rgba(225,29,72,.15);color:#FB7185;}.dark .bCo{background:rgba(6,182,212,.15);color:#22D3EE;}
 .tog{width:52px;height:28px;border-radius:100px;border:none;cursor:pointer;position:relative;flex-shrink:0;transition:background .35s;}
 .tog::after{content:'';position:absolute;top:4px;left:4px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform .32s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 5px rgba(0,0,0,.18);}
 .tog.on::after{transform:translateX(24px);}
@@ -103,6 +108,7 @@ const CAT = {
   adoracao: { label:'Adoração', color:'#4F46E5', cls:'bA', acc:'aC-adoracao' },
   hinario:  { label:'Hinário',  color:'#F59E0B', cls:'bH', acc:'aC-hinario' },
   oferta:   { label:'Oferta',   color:'#EC4899', cls:'bO', acc:'aC-oferta' },
+  corinho:  { label:'Corinhos', color:'#06B6D4', cls:'bCo', acc:'aC-corinho' },
   ceia:     { label:'Santa Ceia', color:'#E11D48', cls:'bC', acc:'aC-ceia' }
 };
 const SH = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -450,7 +456,7 @@ const Biblia = memo(({dark})=>{
     {error && <div style={{textAlign:'center',color:'#EF4444',fontWeight:700,fontSize:'var(--fs-sm)'}}>{error}</div>}
 
     {verses.length > 0 && !loading && <>
-       <div style={{position:'sticky',bottom:'calc(env(safe-area-inset-bottom, 0px) + 20px)',width:'100%',margin:'0 auto 10px auto',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',background:dark?'rgba(15,23,42,.85)':'rgba(255,255,255,.9)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',borderRadius:'var(--r-xl)',boxShadow:'0 16px 40px rgba(0,0,0,.2)',border:`1px solid ${dark?'rgba(255,255,255,.1)':'rgba(255,255,255,1)'}`,zIndex:50}}>
+       <div style={{position:'fixed',bottom:'calc(env(safe-area-inset-bottom, 0px) + 20px)',left:'50%',transform:'translateX(-50%)',width:'calc(100% - 32px)',maxWidth:500,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',background:dark?'rgba(15,23,42,.85)':'rgba(255,255,255,.9)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',borderRadius:'var(--r-xl)',boxShadow:'0 16px 40px rgba(0,0,0,.3)',border:`1px solid ${dark?'rgba(255,255,255,.1)':'rgba(255,255,255,1)'}`,zIndex:50}}>
          <button onClick={()=>selChapter>1&&handleSelectChapter(selChapter-1)} disabled={selChapter<=1} style={{background:selChapter<=1?'transparent':'rgba(79,70,229,.1)',border:'none',color:selChapter<=1?t2:'#4F46E5',padding:'8px 12px',borderRadius:'var(--r-md)',fontWeight:800,display:'flex',alignItems:'center',gap:4,cursor:selChapter<=1?'default':'pointer',opacity:selChapter<=1?.5:1}}><IcoChevL s={14}/> Ant.</button>
          <div style={{fontSize:18,fontWeight:900,color:tc,textAlign:'center',flex:1}}>{books.find(b=>b.a===selBook)?.n} {selChapter}</div>
          <button onClick={()=>selChapter<chapters&&handleSelectChapter(selChapter+1)} disabled={selChapter>=chapters} style={{background:selChapter>=chapters?'transparent':'rgba(79,70,229,.1)',border:'none',color:selChapter>=chapters?t2:'#4F46E5',padding:'8px 12px',borderRadius:'var(--r-md)',fontWeight:800,display:'flex',alignItems:'center',gap:4,cursor:selChapter>=chapters?'default':'pointer',opacity:selChapter>=chapters?.5:1}}>Próx. <IcoChevR s={14}/></button>
@@ -1988,7 +1994,8 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
 });
 
 /* ─── EVENT SHEET ───────────────────────────────────────────── */
-const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,spawnConfetti})=>{
+const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,onSetSinger,onUpdateSongOptions,spawnConfetti})=>{
+  const [expandSong, setExpandSong] = useState(null);
   if(!ev)return null;
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const evItems=(ev.items||[]).map(it=>it.type==='song'?{...it,song:songs.find(s=>s.id===it.song_id)}:it).filter(it=>it.type==='note'||it.song);
@@ -2022,11 +2029,15 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map((it,i)=>{
             if(it.type==='note') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:'#D97706', borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
             const s = it.song;
+            const activeKey = ev.keyBySong?.[s.id] || (ev.singerBySong?.[s.id] && s.vocal_keys?.[ev.singerBySong[s.id]] ? s.vocal_keys[ev.singerBySong[s.id]] : s.key);
             return <div key={it.id} style={{display:'flex',flexDirection:'column',gap:5,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
-              <div onClick={()=>onSelectSong(s)} style={{display:'flex',alignItems:'center',gap:11,cursor:'pointer'}}>
-                <span style={{width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
-                <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
-                <KeyChip k={ev.singerBySong?.[s.id] && s.vocal_keys?.[ev.singerBySong[s.id]] ? s.vocal_keys[ev.singerBySong[s.id]] : s.key} size={10}/>
+              <div style={{display:'flex',alignItems:'center',gap:11}}>
+                <span onClick={()=>onSelectSong(s, ev, activeKey)} style={{cursor:'pointer',width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
+                <div onClick={()=>onSelectSong(s, ev, activeKey)} style={{flex:1,cursor:'pointer'}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+                  <KeyChip k={activeKey} size={10}/>
+                  <button onClick={()=>setExpandSong(expandSong===s.id?null:s.id)} style={{background:'none',border:'none',color:'#4F46E5',fontSize:'var(--fs-xs)',cursor:'pointer',fontWeight:700}}>Ajustar</button>
+                </div>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4,paddingTop:8,borderTop:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
                 <span style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700}}>🎤 Vocal principal:</span>
@@ -2035,6 +2046,25 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
                   {evM.filter(m=>m.instrument?.toLowerCase().includes('vocal')).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </div>
+              {expandSong === s.id && <div style={{marginTop:8,padding:10,background:'rgba(0,0,0,.05)',borderRadius:'var(--r-sm)',display:'flex',flexDirection:'column',gap:8}}>
+                <div style={{fontSize:'var(--fs-xs)',fontWeight:700,color:t2}}>Tom na escala:</div>
+                <select id={`adj-key-${s.id}`} className="fi" style={{padding:'4px 8px'}} defaultValue={activeKey}>
+                  {KEYS.map(k=><option key={k} value={k}>{k}</option>)}
+                </select>
+                {ev.singerBySong?.[s.id] && <label style={{fontSize:'var(--fs-xs)',color:t2,display:'flex',alignItems:'center',gap:6}}><input type="checkbox" id={`adj-off-${s.id}`} defaultChecked/>Atualizar tom oficial deste vocal para esta música</label>}
+                <div style={{display:'flex',gap:10}}>
+                  <div style={{flex:1}}><div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700}}>BPM</div><input type="number" id={`adj-bpm-${s.id}`} className="fi" style={{padding:'4px 8px'}} defaultValue={s.bpm||''} placeholder="Ex: 120"/></div>
+                  <div style={{flex:1}}><div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700}}>Compasso</div><select id={`adj-ts-${s.id}`} className="fi" style={{padding:'4px 8px'}} defaultValue={s.time_signature||'4/4'}>{TIME_SIGS.map(ts=><option key={ts} value={ts}>{ts}</option>)}</select></div>
+                </div>
+                <button onClick={()=>{
+                  const nk = document.getElementById(`adj-key-${s.id}`).value;
+                  const updOff = document.getElementById(`adj-off-${s.id}`)?.checked;
+                  const nbpm = document.getElementById(`adj-bpm-${s.id}`).value;
+                  const nts = document.getElementById(`adj-ts-${s.id}`).value;
+                  onUpdateSongOptions(s.id, nk, updOff, nbpm, nts, ev.singerBySong?.[s.id], ev.id);
+                  setExpandSong(null);
+                }} className="bp" style={{padding:'6px 12px',fontSize:'var(--fs-xs)',marginTop:4}}>Salvar Ajustes</button>
+              </div>}
             </div>
           })}
         </>}
@@ -2149,6 +2179,7 @@ export default function LouveSync() {
   // ── Create event
   const [createEvOpen,setCreateEvOpen]=useState(false);
   const [createEvDate,setCreateEvDate]=useState(null);
+  const [editEvState,setEditEvState]=useState(null);
 
   // ── Vocalist Monthly Reminder
   useEffect(()=>{
@@ -2400,6 +2431,14 @@ export default function LouveSync() {
 
   async function handleSaveEvent(evs){
     const toAdd = Array.isArray(evs) ? evs : [evs];
+    
+    // Auto-generate setlist
+    for (const ev of toAdd) {
+      if (ev.type === 'culto' && (!ev.items || ev.items.length === 0)) {
+         ev.items = generateSetlist(ev.date, events, songs, allMembers);
+      }
+    }
+
     setEvents(p => {
       let next = [...p];
       toAdd.forEach(ev => {
@@ -2413,10 +2452,10 @@ export default function LouveSync() {
     spawnConfetti();
     try {
       for (const ev of toAdd) {
-         const { songs, items, members, confirmations, singerBySong, requested_songs, sequenceBySong, ...rest } = ev;
+         const { songs: _s, items: _i, members: _m, confirmations: _c, singerBySong: _sbs, requested_songs: _rs, sequenceBySong: _seq, ...rest } = ev;
          await upsertEvent(rest);
-         const eventItems = (items || []).map(it => ({ type: it.type, song_id: it.song_id, text: it.text }));
-         await setEventItems(ev.id, eventItems, members || []);
+         const eventItems = (ev.items || []).map(it => ({ type: it.type, song_id: it.song_id, text: it.text }));
+         await setEventItems(ev.id, eventItems, ev.members || []);
       }
     } catch(e) { console.error('Sync event failed', e); }
   }
@@ -2437,11 +2476,26 @@ export default function LouveSync() {
     } catch(e) { console.error('Singer update error', e); }
   }
 
-  async function handleSaveVocalKey(songId, memberId, newKey){
-    setSongs(s => s.map(x => x.id === songId ? {...x, vocal_keys: {...(x.vocal_keys||{}), [memberId]: newKey}} : x));
-    try {
-      // Fake Supabase logic for now
-    } catch(e) { console.error('Save vocal key error', e); }
+  async function handleUpdateSongOptions(songId, newKey, updateOfficial, newBpm, newTimeSig, singerId, eventId) {
+    if (newBpm || newTimeSig) {
+      setSongs(s => s.map(x => x.id === songId ? {...x, bpm: newBpm || x.bpm, time_signature: newTimeSig || x.time_signature} : x));
+      // update db fake
+      upsertSong({...songs.find(x => x.id === songId), bpm: newBpm, time_signature: newTimeSig}).catch(e=>console.error(e));
+    }
+    
+    if (updateOfficial && singerId) {
+      // update song vocal keys
+      setSongs(s => s.map(x => x.id === songId ? {...x, vocal_keys: {...(x.vocal_keys||{}), [singerId]: newKey}} : x));
+      const target = songs.find(x => x.id === songId);
+      if(target) {
+        upsertSong({...target, vocal_keys: {...(target.vocal_keys||{}), [singerId]: newKey}}).catch(e=>console.error(e));
+      }
+    } else {
+      // just for event
+      setEvents(evs => evs.map(e => e.id === eventId ? {...e, keyBySong: {...(e.keyBySong||{}), [songId]: newKey}} : e));
+      const ev = events.find(x => x.id === eventId);
+      if(ev) upsertEvent({...ev, keyBySong: {...(ev.keyBySong||{}), [songId]: newKey}}).catch(e=>console.error(e));
+    }
   }
 
   async function handleSaveSong(song){
@@ -2577,7 +2631,7 @@ export default function LouveSync() {
       {/* OVERLAYS */}
       {addOpen&&<AddSong dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
       {createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
-      {evSheet&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} onClose={()=>setEvSheet(null)} onSelectSong={s=>{selectSong(s,evSheet);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} spawnConfetti={spawnConfetti}/>}
+      {evSheet&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotifsSheet dark={dark} notifs={notifs} onClose={()=>setNotifsOpen(false)} onMarkRead={id=>setNotifs(ns=>ns.map(n=>n.id===id?{...n,read:true}:n))} onMarkAllRead={()=>setNotifs(ns=>ns.map(n=>({...n,read:true})))} onAction={n=>{if(n.ctaAction==='addSong'){setAddOpen(true);setNotifsOpen(false);}else if(n.ctaTab){navTo(n.ctaTab);setNotifsOpen(false);}}}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
     </div>

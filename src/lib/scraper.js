@@ -213,15 +213,15 @@ async function searchCifrasComBr(title, artist) {
 }
 
 export async function searchSongCandidates(title, artist) {
-  const [vag, let_, lrc, cifras] = await Promise.allSettled([
+  const [vag, let_, lrc, cifraclub] = await Promise.allSettled([
     searchVagalumeCandidates(title, artist),
     searchLetrasCandidates(title, artist),
     searchLRCLibCandidates(title, artist),
-    searchCifrasComBr(title, artist)
+    searchCifraClub(title, artist)
   ]);
 
   return [
-    ...(cifras.status === 'fulfilled' ? cifras.value : []),
+    ...(cifraclub.status === 'fulfilled' ? cifraclub.value : []),
     ...(lrc.status   === 'fulfilled' ? lrc.value   : []),
     ...(vag.status   === 'fulfilled' ? vag.value   : []),
     ...(let_.status  === 'fulfilled' ? let_.value  : []),
@@ -234,7 +234,7 @@ export async function fetchCifraClubContent(url) {
   if (!html) return null;
   
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  const pre = doc.querySelector('pre');
+  const pre = doc.querySelector('.cifra_cnt pre');
   if (!pre) return null;
 
   let key = 'C';
@@ -246,8 +246,11 @@ export async function fetchCifraClubContent(url) {
   let rawHtml = pre.innerHTML;
   rawHtml = rawHtml.replace(/<b>([^<]+)<\/b>/gi, (_, c) => `[${c.trim()}]`);
   
-  // Limpar span extras (como as de tablatura ou formatação)
-  rawHtml = rawHtml.replace(/<span[^>]*>/gi, '').replace(/<\/span>/gi, '');
+  // Cifraclub com javascript injeta as cifras de volta com span data-chord ou similar, testando ambos:
+  rawHtml = rawHtml.replace(/<span[^>]*data-chord=[^>]*>([^<]+)<\/span>/gi, (_, c) => `[${c.trim()}]`);
+  
+  // Limpar tags extras
+  rawHtml = rawHtml.replace(/<[^>]+>/g, '');
   rawHtml = rawHtml.replace(/<[^>]+>/g, '');
   rawHtml = rawHtml.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
   
@@ -259,36 +262,6 @@ export async function fetchCifraClubContent(url) {
   return { text: rawText, key, hasCifra: /\[[A-G]/.test(rawText) };
 }
 
-/* 🎸 Fetch Cifras.com.br chord content from URL 🎸 */
-export async function fetchCifrasComBrContent(url) {
-  const html = await proxyGet(url);
-  if (!html) return null;
-
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  
-  let key = 'C';
-  const keyMatch = html.match(/tom:\s*<strong>([A-G][^<]{0,2})<\/strong>/i) || html.match(/data-tom="([^"]+)"/i);
-  if (keyMatch) key = keyMatch[1];
-
-  let core = doc.querySelector('#cifra_core') || doc.querySelector('.core-cifra') || doc.querySelector('.cifra_txt') || doc.querySelector('.js-cifra-texto') || doc.querySelector('pre') || doc.body;
-  if (!core) return null;
-
-  let rawHtml = core.innerHTML;
-  if (rawHtml.length < 50) return null;
-
-  // Usa apenas extração por regex
-  rawHtml = rawHtml.replace(/<span[^>]*data-chord=[^>]*>([^<]+)<\/span>/gi, (_, c) => `[${c.trim()}]`);
-  rawHtml = rawHtml.replace(/<b>([^<]+)<\/b>/gi, (_, c) => {
-    const t = c.trim();
-    if(t.length <= 8 && /^[A-G]/.test(t)) return `[${t}]`;
-    return t; 
-  });
-  rawHtml = rawHtml.replace(/<[^>]+>/g, '');
-  rawHtml = rawHtml.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-  
-  let rawText = rawHtml.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  return { text: rawText, key, hasCifra: /\[[A-G]/.test(rawText) };
-}
 
 /* ─── Backward compat: find first match (used by old genCifra) */
 export async function findSongData(title, artist, onStatus) {
@@ -297,7 +270,7 @@ export async function findSongData(title, artist, onStatus) {
 
   for (const c of candidates.filter(c => c.source.includes('Cifra'))) {
     onStatus?.(c.source);
-    const fetchFn = c.source === 'Cifras.com.br' ? fetchCifrasComBrContent : fetchCifraClubContent;
+    const fetchFn = c.source === 'CifraClub' ? fetchCifraClubContent : fetchLRCContent;
     const full = await fetchFn(c.url);
     if (full) { onStatus?.('found:' + c.source); return { ...c, ...full }; }
   }
