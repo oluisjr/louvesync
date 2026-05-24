@@ -3,9 +3,7 @@
 // Sources: CifraClub (chords) → Vagalume (lyrics) → Letras.mus.br (lyrics)
 
 const PROXIES = [
-  url => `/api/proxy?url=${encodeURIComponent(url)}`,
-  url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`
+  url => `/api/proxy?url=${encodeURIComponent(url)}`
 ];
 
 async function proxyGet(url, timeout = 7000) {
@@ -18,13 +16,8 @@ async function proxyGet(url, timeout = 7000) {
       clearTimeout(t);
       if (!r.ok) continue;
 
-      if (pUrl.includes('allorigins.win/get')) {
-        const j = await r.json();
-        if (j.contents && !j.contents.includes('520 Web Server') && !j.contents.includes('503 Service')) return j.contents;
-      } else {
-        const text = await r.text();
-        if (text && !text.includes('520 Web Server') && !text.includes('503 Service')) return text;
-      }
+      const text = await r.text();
+      if (text && !text.includes('520 Web Server') && !text.includes('503 Service')) return text;
     } catch {
       clearTimeout(t);
     }
@@ -230,36 +223,19 @@ export async function searchSongCandidates(title, artist) {
 
 /* 🎸 Fetch CifraClub chord content from URL 🎸 */
 export async function fetchCifraClubContent(url) {
-  const html = await proxyGet(url);
-  if (!html) return null;
-  
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const pre = doc.querySelector('.cifra_cnt pre');
-  if (!pre) return null;
-
-  let key = 'C';
-  const keyEl = doc.querySelector('#cifra_tom a');
-  if (keyEl) key = keyEl.textContent.trim();
-
-  // Converter CifraClub: eles usam <b>A</b> para acordes
-  // Substituímos os <b> por [A], e então extraímos o texto mantendo os espaços exatos
-  let rawHtml = pre.innerHTML;
-  rawHtml = rawHtml.replace(/<b>([^<]+)<\/b>/gi, (_, c) => `[${c.trim()}]`);
-  
-  // Cifraclub com javascript injeta as cifras de volta com span data-chord ou similar, testando ambos:
-  rawHtml = rawHtml.replace(/<span[^>]*data-chord=[^>]*>([^<]+)<\/span>/gi, (_, c) => `[${c.trim()}]`);
-  
-  // Limpar tags extras
-  rawHtml = rawHtml.replace(/<[^>]+>/g, '');
-  rawHtml = rawHtml.replace(/<[^>]+>/g, '');
-  rawHtml = rawHtml.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-  
-  let rawText = rawHtml.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-  // Não usar mergeChords complicado, apenas retornar o texto pré-formatado (que o App.jsx vai renderizar em fonte monoespaçada)
-  if (rawText.length < 50) return null;
-
-  return { text: rawText, key, hasCifra: /\[[A-G]/.test(rawText) };
+  try {
+    const res = await fetch(`/api/cifra?url=${encodeURIComponent(url)}`);
+    if (!res.ok) {
+      console.error('Failed to fetch from backend', res.status);
+      return null;
+    }
+    const data = await res.json();
+    if (!data.text) return null;
+    return data;
+  } catch (err) {
+    console.error('Error in fetchCifraClubContent frontend:', err);
+    return null;
+  }
 }
 
 
