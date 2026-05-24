@@ -117,6 +117,32 @@ export async function upsertEvent(event) {
   return data;
 }
 
+export async function deleteEvent(id) {
+  if (!supabase) return null;
+  await supabase.from('event_songs').delete().eq('event_id', id);
+  await supabase.from('event_members').delete().eq('event_id', id);
+  const { error } = await supabase.from('events').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function requestDeleteEvent(eventId, userId) {
+  if (!supabase) return null;
+  const { error } = await supabase
+    .from('events')
+    .update({ delete_requested_by: userId })
+    .eq('id', eventId);
+  if (error) throw error;
+}
+
+export async function rejectDeleteEvent(eventId) {
+  if (!supabase) return null;
+  const { error } = await supabase
+    .from('events')
+    .update({ delete_requested_by: null })
+    .eq('id', eventId);
+  if (error) throw error;
+}
+
 export async function setEventItems(eventId, items, memberIds) {
   if (!supabase) return null;
   // Fetch existing to preserve sequence and singer

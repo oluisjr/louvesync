@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
-import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, requestDeleteSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, setEventItems, setSingerForSong } from './lib/supabase';
+import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, requestDeleteSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, deleteEvent as dbDelEvent, requestDeleteEvent, rejectDeleteEvent, setEventItems, setSingerForSong } from './lib/supabase';
 import { findSongData, searchSongCandidates, fetchCifraClubContent } from './lib/scraper';
 import { generateSetlist } from './lib/setlist';
 
@@ -669,7 +669,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     </div>
 
     {pendingDeletes.length > 0 && <div className={`${gc} aUp`} style={{...CS, border:'1px solid rgba(239,68,68,.2)'}}>
-       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'#EF4444',marginBottom:10,textTransform:'uppercase'}}>Solicitações de Exclusão</div>
+       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'#EF4444',marginBottom:10,textTransform:'uppercase'}}>Solicitações de Exclusão (Músicas)</div>
        <div style={{display:'flex',flexDirection:'column',gap:10}}>
          {pendingDeletes.map(s => {
             const reqBy = members.find(m => m.id === s.delete_requested_by)?.name || 'Usuário';
@@ -681,6 +681,38 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
                <div style={{display:'flex',gap:6}}>
                   <button onClick={()=>handleRejectDelete(s.id)} style={{padding:'6px 12px',borderRadius:100,border:'1px solid rgba(239,68,68,.3)',background:'transparent',color:'#EF4444',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Recusar</button>
                   <button onClick={()=>handleApproveDelete(s.id)} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#EF4444',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Aprovar (Excluir)</button>
+               </div>
+            </div>
+         })}
+       </div>
+    </div>}
+    
+    {events?.filter(e => e.delete_requested_by).length > 0 && <div className={`${gc} aUp`} style={{...CS, border:'1px solid rgba(239,68,68,.2)'}}>
+       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'#EF4444',marginBottom:10,textTransform:'uppercase'}}>Solicitações de Exclusão (Eventos)</div>
+       <div style={{display:'flex',flexDirection:'column',gap:10}}>
+         {events.filter(e => e.delete_requested_by).map(ev => {
+            const reqBy = members.find(m => m.id === ev.delete_requested_by)?.name || 'Usuário';
+            return <div key={ev.id} style={{padding:12, background:'rgba(239,68,68,.05)', borderRadius:'var(--r-md)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+               <div>
+                  <div style={{fontWeight:800,color:tc}}>{ev.label}</div>
+                  <div style={{fontSize:'var(--fs-xs)',color:t2}}>Data: {ev.date} · {ev.time}</div>
+                  <div style={{fontSize:'var(--fs-xs)',color:t2}}>Pedida por: {reqBy}</div>
+               </div>
+               <div style={{display:'flex',gap:6}}>
+                  <button onClick={()=>{
+                     rejectDeleteEvent(ev.id).catch(console.error);
+                  }} style={{padding:'6px 12px',borderRadius:100,border:'1px solid rgba(239,68,68,.3)',background:'transparent',color:'#EF4444',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Recusar</button>
+                  <button onClick={()=>{
+                     setConfirmState({
+                       title: 'Aprovar Exclusão',
+                       msg: `Aprovar e EXCLUIR definitivamente o evento "${ev.label}"?`,
+                       onConfirm: () => {
+                         dbDelEvent(ev.id).catch(console.error);
+                         setConfirmState(null);
+                       },
+                       onCancel: () => setConfirmState(null)
+                     });
+                  }} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#EF4444',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Aprovar (Excluir)</button>
                </div>
             </div>
          })}
@@ -1996,7 +2028,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
 });
 
 /* ─── EVENT SHEET ───────────────────────────────────────────── */
-const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,onSetSinger,onUpdateSongOptions,spawnConfetti})=>{
+const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,onReqDelEv,onSetSinger,onUpdateSongOptions,spawnConfetti})=>{
   const [expandSong, setExpandSong] = useState(null);
   if(!ev)return null;
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
@@ -2025,6 +2057,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           <button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{flex:1,padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===true?'#10B981':'rgba(16,185,129,.1)',color:myConf===true?'#fff':'#059669',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoCheck/>Confirmar</button>
           <button onClick={()=>onConfirm(ev.id,false)} style={{flex:1,padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===false?'#EF4444':'rgba(239,68,68,.08)',color:myConf===false?'#fff':'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX/>Recusar</button>
           {profile?.is_admin&&<button onClick={()=>onEditEv&&onEditEv(ev)} style={{padding:'10px 16px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(245,158,11,.15)',color:'#D97706',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoEdit s={14}/>Editar</button>}
+          <button onClick={()=>onReqDelEv&&onReqDelEv(ev)} style={{padding:'10px 16px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.15)',color:'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX s={14}/>{profile?.is_admin?'Excluir':'Solicitar Exclusão'}</button>
         </div>}
         {ev.type !== 'ebd' && ev.type !== 'consagracao' && <>
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Setlist</div>
@@ -2404,6 +2437,67 @@ export default function LouveSync() {
     try{await setPresence(eventId,profile.id,confirmed);}catch(e){console.error('Sync presence failed:',e);}
   }
 
+  const handleSetSinger=useCallback((eventId,songId,singerMemberId)=>{
+    const memberId = singerMemberId === "" ? null : singerMemberId;
+    setEvents(evs=>evs.map(e=>e.id===eventId?{...e,singerBySong:{...(e.singerBySong||{}),[songId]:memberId}}:e));
+    if (evSheet && evSheet.id === eventId) setEvSheet(e=>({...e,singerBySong:{...(e.singerBySong||{}),[songId]:memberId}}));
+    setSingerForSong(eventId, songId, memberId).catch(console.error);
+  }, [evSheet]);
+
+  const handleUpdateSongOptions=useCallback((songId,newKey,updateOfficial,newBpm,newTs,singerId,eventId)=>{
+    if (updateOfficial && singerId) {
+      setSongs(sList=>sList.map(s=>s.id===songId?{...s,vocal_keys:{...(s.vocal_keys||{}),[singerId]:newKey}}:s));
+      const upds = { [`vocal_keys->${singerId}`]: newKey };
+      if (newBpm) upds.bpm = newBpm;
+      if (newTs) upds.time_signature = newTs;
+      supabase.from('songs').update(upds).eq('id',songId).catch(console.error);
+    } else {
+      if(newKey && eventId) setSequenceForSong(eventId, songId, newKey).catch(console.error);
+      if(eventId) {
+        setEvents(evs=>evs.map(e=>e.id===eventId?{...e,keyBySong:{...(e.keyBySong||{}),[songId]:newKey}}:e));
+        if(evSheet && evSheet.id === eventId) setEvSheet(e=>({...e,keyBySong:{...(e.keyBySong||{}),[songId]:newKey}}));
+      }
+      if (newBpm || newTs) {
+        const upds = {};
+        if(newBpm) upds.bpm = newBpm;
+        if(newTs) upds.time_signature = newTs;
+        setSongs(sList=>sList.map(s=>s.id===songId?{...s,...upds}:s));
+        supabase.from('songs').update(upds).eq('id',songId).catch(console.error);
+      }
+    }
+  }, [evSheet]);
+
+  const handleRequestDeleteEvent = useCallback((ev) => {
+    if (profile?.is_admin) {
+      setConfirmState({
+        title: 'Excluir Evento',
+        msg: `Excluir permanentemente o evento "${ev.label}"?`,
+        onConfirm: () => {
+          setEvents(prev => prev.filter(x => x.id !== ev.id));
+          if (evSheet?.id === ev.id) setEvSheet(null);
+          dbDelEvent(ev.id).catch(console.error);
+          setConfirmState(null);
+        },
+        onCancel: () => setConfirmState(null)
+      });
+    } else {
+      setConfirmState({
+        title: 'Solicitar Exclusão',
+        msg: `Enviar solicitação para os administradores excluírem o evento "${ev.label}"?`,
+        onConfirm: () => {
+          setEvents(prev => prev.map(x => x.id === ev.id ? {...x, delete_requested_by: profile.id} : x));
+          requestDeleteEvent(ev.id, profile.id).catch(e => {
+             console.error(e);
+             alert('Erro ao solicitar exclusão. A coluna delete_requested_by pode estar ausente no banco de dados (tabela events).');
+          });
+          setConfirmState(null);
+          if (evSheet?.id === ev.id) setEvSheet(null);
+        },
+        onCancel: () => setConfirmState(null)
+      });
+    }
+  }, [profile, evSheet]);
+
   function handleDeleteSong(id){
     if(profile?.is_admin){
       setConfirmState({
@@ -2636,7 +2730,7 @@ export default function LouveSync() {
       {/* OVERLAYS */}
       {addOpen&&<AddSong dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
       {createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
-      {evSheet&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti}/>}
+      {evSheet&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotifsSheet dark={dark} notifs={notifs} onClose={()=>setNotifsOpen(false)} onMarkRead={id=>setNotifs(ns=>ns.map(n=>n.id===id?{...n,read:true}:n))} onMarkAllRead={()=>setNotifs(ns=>ns.map(n=>({...n,read:true})))} onAction={n=>{if(n.ctaAction==='addSong'){setAddOpen(true);setNotifsOpen(false);}else if(n.ctaTab){navTo(n.ctaTab);setNotifsOpen(false);}}}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
     </div>
