@@ -270,37 +270,58 @@ export async function fetchCifrasComBrContent(url) {
   const keyMatch = html.match(/tom:\s*<strong>([A-G][^<]{0,2})<\/strong>/i) || html.match(/data-tom="([^"]+)"/i);
   if (keyMatch) key = keyMatch[1];
 
-  let core = doc.querySelector('#cifra_core') || doc.querySelector('.core-cifra') || doc.querySelector('.cifra_txt') || doc.querySelector('.js-cifra-texto');
-  if (!core) {
-    const chords = doc.querySelectorAll('[data-chord]');
-    if (chords.length > 0) {
-      let p = chords[0].parentElement;
-      while (p && p.tagName !== 'BODY') {
-        if (p.querySelectorAll('[data-chord]').length >= chords.length * 0.8) {
-          core = p;
-          break;
-        }
-        p = p.parentElement;
-      }
-    }
-  }
-  if (!core) core = doc.querySelector('pre');
+  let core = doc.querySelector('#cifra_core') || doc.querySelector('.core-cifra') || doc.querySelector('.cifra_txt') || doc.querySelector('.js-cifra-texto') || doc.querySelector('pre') || doc.body;
   if (!core) return null;
 
-  // Cifras.com.br puts chords inside <b> or span with data-chord, or just straight inside pre if it's plain text
   let rawHtml = core.innerHTML;
+  if (rawHtml.length < 50) return null;
+
+  const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+  if (groqKey) {
+    try {
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: 'Você é um assistente que extrai letras e cifras de HTML. Retorne APENAS a letra da música com as cifras embutidas na linha, no formato [Cifra]. NÃO separe as partes da música (não adicione Refrão, Estrofe, etc). Não adicione nenhuma explicação. Apenas a letra pura com as cifras.'
+            },
+            {
+              role: 'user',
+              content: 'Extraia as cifras do seguinte HTML, mantendo-as na mesma linha da letra logo antes da palavra onde a cifra cai (exemplo: "[C]Aleluia"): ' + rawHtml.substring(0, 15000)
+            }
+          ],
+          temperature: 0.1
+        })
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        let aiText = json.choices[0].message.content.trim();
+        aiText = aiText.replace(/```[^\n]*\n?/g, ''); // Remover blocos markdown
+        return { text: aiText, key, hasCifra: /\[[A-G]/.test(aiText) };
+      }
+    } catch(e) {
+      console.warn('Groq extraction failed, falling back to regex', e);
+    }
+  }
+
+  // Fallback
   rawHtml = rawHtml.replace(/<span[^>]*data-chord=[^>]*>([^<]+)<\/span>/gi, (_, c) => `[${c.trim()}]`);
   rawHtml = rawHtml.replace(/<b>([^<]+)<\/b>/gi, (_, c) => {
     const t = c.trim();
     if(t.length <= 8 && /^[A-G]/.test(t)) return `[${t}]`;
-    return t; // If it's a section header like <b>Refrão</b>, just return Refrão without brackets
+    return t; 
   });
   rawHtml = rawHtml.replace(/<[^>]+>/g, '');
   rawHtml = rawHtml.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
   
   let rawText = rawHtml.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  if (rawText.length < 50) return null;
-
   return { text: rawText, key, hasCifra: /\[[A-G]/.test(rawText) };
 }
 
