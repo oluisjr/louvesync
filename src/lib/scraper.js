@@ -146,7 +146,7 @@ async function searchLRCLibCandidates(title, artist) {
 
 
 
-/* ─── CifraClub (Advanced Search via Vagalume/Google fallback) ─────────────── */
+/* 🎸 CifraClub (Advanced Search via Vagalume/Google fallback) 🎸🎸🎸🎸🎸🎸🎸 */
 async function searchCifraClub(title, artist) {
   const q = encodeURIComponent(`${title} ${artist || ''}`.trim());
   try {
@@ -179,15 +179,50 @@ async function searchCifraClub(title, artist) {
   }
 }
 
+/* 🎸 Cifras.com.br (Alternative Chords Source) 🎸🎸🎸🎸🎸🎸🎸 */
+async function searchCifrasComBr(title, artist) {
+  const q = encodeURIComponent(`${title} ${artist || ''}`.trim());
+  try {
+    const res = await fetch(`https://itunes.apple.com/search?term=${q}&entity=song&limit=3`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const results = [];
+    const seen = new Set();
+    
+    for (const r of (data.results || [])) {
+      const aSlug = slugify(r.artistName);
+      const tSlug = slugify(r.trackName.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, ''));
+      const url = `https://www.cifras.com.br/cifra/${aSlug}/${tSlug}`;
+      if (!seen.has(url)) {
+        seen.add(url);
+        results.push({
+          id: `cifras_${results.length}`,
+          source: 'Cifras.com.br',
+          title: r.trackName.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim(),
+          artist: r.artistName,
+          url,
+          hasCifra: true,
+          icon: '🎸'
+        });
+      }
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 export async function searchSongCandidates(title, artist) {
-  const [vag, let_, lrc, cifraclub] = await Promise.allSettled([
+  const [vag, let_, lrc, cifraclub, cifras] = await Promise.allSettled([
     searchVagalumeCandidates(title, artist),
     searchLetrasCandidates(title, artist),
     searchLRCLibCandidates(title, artist),
-    searchCifraClub(title, artist)
+    searchCifraClub(title, artist),
+    searchCifrasComBr(title, artist)
   ]);
 
   return [
+    ...(cifras.status === 'fulfilled' ? cifras.value : []),
     ...(cifraclub.status === 'fulfilled' ? cifraclub.value : []),
     ...(lrc.status   === 'fulfilled' ? lrc.value   : []),
     ...(vag.status   === 'fulfilled' ? vag.value   : []),
@@ -195,7 +230,7 @@ export async function searchSongCandidates(title, artist) {
   ];
 }
 
-/* ─── Fetch CifraClub chord content from URL ──────────── */
+/* 🎸 Fetch CifraClub chord content from URL 🎸 */
 export async function fetchCifraClubContent(url) {
   const html = await proxyGet(url);
   if (!html) return null;
@@ -221,6 +256,33 @@ export async function fetchCifraClubContent(url) {
   let rawText = rawHtml.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
   // Não usar mergeChords complicado, apenas retornar o texto pré-formatado (que o App.jsx vai renderizar em fonte monoespaçada)
+  if (rawText.length < 50) return null;
+
+  return { text: rawText, key, hasCifra: /\[[A-G]/.test(rawText) };
+}
+
+/* 🎸 Fetch Cifras.com.br chord content from URL 🎸 */
+export async function fetchCifrasComBrContent(url) {
+  const html = await proxyGet(url);
+  if (!html) return null;
+
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  
+  let key = 'C';
+  const keyMatch = html.match(/tom:\s*<strong>([A-G][^<]{0,2})<\/strong>/i) || html.match(/data-tom="([^"]+)"/i);
+  if (keyMatch) key = keyMatch[1];
+
+  let core = doc.querySelector('#cifra_core') || doc.querySelector('.core-cifra');
+  if (!core) return null;
+
+  // Cifras.com.br puts chords inside <b> or span with data-chord
+  let rawHtml = core.innerHTML;
+  rawHtml = rawHtml.replace(/<span[^>]*data-chord=[^>]*>([^<]+)<\/span>/gi, (_, c) => `[${c.trim()}]`);
+  rawHtml = rawHtml.replace(/<b>([^<]+)<\/b>/gi, (_, c) => `[${c.trim()}]`);
+  rawHtml = rawHtml.replace(/<[^>]+>/g, '');
+  rawHtml = rawHtml.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+  
+  let rawText = rawHtml.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   if (rawText.length < 50) return null;
 
   return { text: rawText, key, hasCifra: /\[[A-G]/.test(rawText) };
