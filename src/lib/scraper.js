@@ -270,13 +270,31 @@ export async function fetchCifrasComBrContent(url) {
   const keyMatch = html.match(/tom:\s*<strong>([A-G][^<]{0,2})<\/strong>/i) || html.match(/data-tom="([^"]+)"/i);
   if (keyMatch) key = keyMatch[1];
 
-  let core = doc.querySelector('#cifra_core') || doc.querySelector('.core-cifra') || doc.querySelector('pre');
+  let core = doc.querySelector('#cifra_core') || doc.querySelector('.core-cifra') || doc.querySelector('.cifra_txt') || doc.querySelector('.js-cifra-texto');
+  if (!core) {
+    const chords = doc.querySelectorAll('[data-chord]');
+    if (chords.length > 0) {
+      let p = chords[0].parentElement;
+      while (p && p.tagName !== 'BODY') {
+        if (p.querySelectorAll('[data-chord]').length >= chords.length * 0.8) {
+          core = p;
+          break;
+        }
+        p = p.parentElement;
+      }
+    }
+  }
+  if (!core) core = doc.querySelector('pre');
   if (!core) return null;
 
   // Cifras.com.br puts chords inside <b> or span with data-chord, or just straight inside pre if it's plain text
   let rawHtml = core.innerHTML;
   rawHtml = rawHtml.replace(/<span[^>]*data-chord=[^>]*>([^<]+)<\/span>/gi, (_, c) => `[${c.trim()}]`);
-  rawHtml = rawHtml.replace(/<b>([^<]+)<\/b>/gi, (_, c) => `[${c.trim()}]`);
+  rawHtml = rawHtml.replace(/<b>([^<]+)<\/b>/gi, (_, c) => {
+    const t = c.trim();
+    if(t.length <= 8 && /^[A-G]/.test(t)) return `[${t}]`;
+    return t; // If it's a section header like <b>Refrão</b>, just return Refrão without brackets
+  });
   rawHtml = rawHtml.replace(/<[^>]+>/g, '');
   rawHtml = rawHtml.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
   

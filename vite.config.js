@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // Custom plugin to act as a local CORS proxy, bypassing Cloudflare proxy blocks
@@ -6,15 +6,21 @@ const localScraperPlugin = () => ({
   name: 'local-scraper-proxy',
   configureServer(server) {
     server.middlewares.use(async (req, res, next) => {
-      if (req.url?.startsWith('/api/scrape?url=')) {
+      if (req.url?.startsWith('/api/proxy?url=')) {
         const targetUrl = new URL(req.url, 'http://localhost').searchParams.get('url');
         if (!targetUrl) {
           res.statusCode = 400;
           return res.end('Missing url');
         }
         try {
+          const envObj = loadEnv('', process.cwd(), '');
+          const scraperKey = envObj.SCRAPERAPI_KEY;
+          let fetchTarget = targetUrl;
+          if (scraperKey) {
+             fetchTarget = `http://api.scraperapi.com/?api_key=${scraperKey}&url=${encodeURIComponent(targetUrl)}`;
+          }
           // Fetch directly from Node.js (bypasses CORS and uses local residential IP)
-          const fetchRes = await fetch(targetUrl, {
+          const fetchRes = await fetch(fetchTarget, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
               'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -50,9 +56,9 @@ export default defineConfig({
         description: 'App de Gestão para Ministérios de Louvor',
         theme_color: '#4F46E5',
         icons: [
-          { src: 'logo.png', sizes: '192x192', type: 'image/png' },
-          { src: 'logo.png', sizes: '512x512', type: 'image/png' },
-          { src: 'logo.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+          { src: 'logo_solo.png', sizes: '192x192', type: 'image/png' },
+          { src: 'logo_solo.png', sizes: '512x512', type: 'image/png' },
+          { src: 'logo_solo.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       },
       workbox: {

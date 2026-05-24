@@ -3,7 +3,12 @@ export default async function handler(req, res) {
   if (!url) return res.status(400).json({ error: 'Missing url' });
 
   try {
-    const response = await fetch(url, {
+    const scraperKey = process.env.SCRAPERAPI_KEY;
+    let targetUrl = url;
+    if (scraperKey) {
+       targetUrl = `http://api.scraperapi.com/?api_key=${scraperKey}&url=${encodeURIComponent(url)}`;
+    }
+    const response = await fetch(targetUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
     });
     const text = await response.text();
@@ -13,3 +18,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
+

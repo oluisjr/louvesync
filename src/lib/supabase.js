@@ -21,6 +21,23 @@ export async function fetchMembers() {
   return data;
 }
 
+export async function upsertMember(member) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('members')
+    .upsert(member)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteMember(id) {
+  if (!supabase) return null;
+  const { error } = await supabase.from('members').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function fetchSongs() {
   if (!supabase) return null;
   const { data, error } = await supabase
@@ -100,28 +117,42 @@ export async function upsertEvent(event) {
   return data;
 }
 
-export async function setEventSongs(eventId, songIds) {
+export async function setEventItems(eventId, items, memberIds) {
   if (!supabase) return null;
   // Fetch existing to preserve sequence and singer
   const { data: existing } = await supabase.from('event_songs').select('*').eq('event_id', eventId);
   const existingMap = {};
   if (existing) {
-    existing.forEach(e => { existingMap[e.song_id] = e; });
+    existing.forEach(e => { if(e.song_id) existingMap[e.song_id] = e; });
   }
 
-  // remove tudo e reinsere na ordem correta
+  // Remove existing
   await supabase.from('event_songs').delete().eq('event_id', eventId);
-  if (songIds.length === 0) return;
+  await supabase.from('event_members').delete().eq('event_id', eventId);
   
-  const rows = songIds.map((song_id, i) => ({
-    event_id: eventId,
-    song_id,
-    order_index: i + 1,
-    singer_member_id: existingMap[song_id]?.singer_member_id || null,
-    sequence: existingMap[song_id]?.sequence || null
-  }));
-  const { error } = await supabase.from('event_songs').insert(rows);
-  if (error) throw error;
+  if (items && items.length > 0) {
+    const rows = items.map((it, i) => ({
+      event_id: eventId,
+      song_id: it.type === 'song' ? it.song_id : null,
+      item_type: it.type || 'song',
+      note_text: it.text || null,
+      order_index: i + 1,
+      singer_member_id: (it.type === 'song' && existingMap[it.song_id]) ? existingMap[it.song_id].singer_member_id : null,
+      sequence: (it.type === 'song' && existingMap[it.song_id]) ? existingMap[it.song_id].sequence : null
+    }));
+    const { error } = await supabase.from('event_songs').insert(rows);
+    if (error) throw error;
+  }
+
+  if (memberIds && memberIds.length > 0) {
+    const mrows = memberIds.map(mId => ({
+      event_id: eventId,
+      member_id: mId,
+      confirmed: null
+    }));
+    const { error: errM } = await supabase.from('event_members').insert(mrows);
+    if (errM) throw errM;
+  }
 }
 
 export async function setSingerForSong(eventId, songId, singerMemberId) {

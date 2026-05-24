@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
-import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, requestDeleteSong, rejectDeleteSong, supabase } from './lib/supabase';
+import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, requestDeleteSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, setEventItems, setSingerForSong } from './lib/supabase';
 import { findSongData, searchSongCandidates, fetchCifraClubContent, fetchCifrasComBrContent } from './lib/scraper';
 
 const CSS = `
@@ -15,23 +15,23 @@ html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
 .ls{font-family:'Product Sans', 'DM Sans', sans-serif;height:100dvh;overflow:hidden;position:relative;}
 .font-serif { font-family: 'Product Sans', 'DM Sans', sans-serif; letter-spacing: -.02em; }
 .bg{position:fixed;inset:0;z-index:0;transition:background .7s;}
-.bg-l{background:linear-gradient(160deg,#EEF2FF 0%,#E0F2FE 28%,#FDF4FF 58%,#ECFDF5 100%);}
+.bg-l{background:#F8FAFC; /* Clean white/gray base instead of colorful gradient */}
 .bg-d{background:linear-gradient(160deg,#05091A 0%,#0D0F2A 30%,#150A35 62%,#040D18 100%);}
 .orb{position:absolute;border-radius:50%;pointer-events:none;filter:blur(100px);will-change:transform;}
 @keyframes oA{0%,100%{transform:translate(0,0) scale(1)}40%{transform:translate(30px,-45px) scale(1.1)}70%{transform:translate(-15px,22px) scale(.93)}}
 @keyframes oB{0%,100%{transform:translate(0,0) scale(1)}35%{transform:translate(-28px,32px) scale(.9)}70%{transform:translate(22px,-18px) scale(1.08)}}
 @keyframes oC{0%,100%{transform:translate(0,0) scale(1)}55%{transform:translate(20px,28px) scale(1.06)}}
 @keyframes oD{0%,100%{transform:translate(0,0) scale(1)}45%{transform:translate(-18px,-25px) scale(.95)}}
-.gL0{background:rgba(255,255,255,.2);backdrop-filter:blur(30px) saturate(160%) brightness(1.1);-webkit-backdrop-filter:blur(30px) saturate(160%) brightness(1.1);border:1px solid rgba(255,255,255,.4);box-shadow:inset 0 1px 1px rgba(255,255,255,.6), inset 0 -1px 1px rgba(255,255,255,.1);}
-.gL1{background:rgba(255,255,255,.25);backdrop-filter:blur(40px) saturate(180%) brightness(1.1);-webkit-backdrop-filter:blur(40px) saturate(180%) brightness(1.1);border:1px solid rgba(255,255,255,.3);box-shadow:inset 0 1px 1px rgba(255,255,255,.7), 0 8px 32px rgba(31,38,135,.07);}
-.gL2{background:rgba(255,255,255,.45);backdrop-filter:blur(50px) saturate(180%) brightness(1.15);-webkit-backdrop-filter:blur(50px) saturate(180%) brightness(1.15);border-top:1px solid rgba(255,255,255,.6);box-shadow:inset 0 1px 1px rgba(255,255,255,.8), 0 -12px 56px rgba(31,38,135,.1);}
-.gNav{background:rgba(255,255,255,.15);backdrop-filter:blur(12px) saturate(200%) brightness(1.2);-webkit-backdrop-filter:blur(12px) saturate(200%) brightness(1.2);border-top:1px solid rgba(255,255,255,.6);border-bottom:1px solid rgba(0,0,0,.05);border-left:1px solid rgba(255,255,255,.2);border-right:1px solid rgba(255,255,255,.2);box-shadow:inset 0 1px 1px rgba(255,255,255,.4), 0 8px 32px rgba(0,0,0,.15);}
-.gIn{background:rgba(255,255,255,.15);backdrop-filter:blur(24px) saturate(150%) brightness(1.05);-webkit-backdrop-filter:blur(24px) saturate(150%) brightness(1.05);border:1px solid rgba(79,70,229,.15);border-radius:var(--r-lg);transition:border .2s,box-shadow .2s;box-shadow:inset 0 1px 2px rgba(0,0,0,.03);}
-.gIn:focus-within{border-color:var(--c-i);box-shadow:inset 0 1px 2px rgba(0,0,0,.02), 0 0 0 3px rgba(79,70,229,.15);}
-.dark .gL0{background:rgba(10,15,30,.25);border:1px solid rgba(255,255,255,.05);box-shadow:inset 0 1px 1px rgba(255,255,255,.1), inset 0 -1px 1px rgba(255,255,255,.02);}
-.dark .gL1{background:rgba(14,18,44,.4);border:1px solid rgba(255,255,255,.05);box-shadow:inset 0 1px 1px rgba(255,255,255,.12), 0 4px 32px rgba(0,0,0,.4);}
-.dark .gL2{background:rgba(6,10,24,.6);border-top:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 1px rgba(255,255,255,.15), 0 -12px 56px rgba(0,0,0,.5);}
-.dark .gNav{background:rgba(15,23,42,.3);border-top:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(0,0,0,.5);border-left:1px solid rgba(255,255,255,.05);border-right:1px solid rgba(255,255,255,.05);box-shadow:inset 0 1px 1px rgba(255,255,255,.1), 0 8px 32px rgba(0,0,0,.5);}
+.gL0{background:rgba(255,255,255,.5);backdrop-filter:blur(16px) saturate(180%) contrast(105%);-webkit-backdrop-filter:blur(16px) saturate(180%) contrast(105%);border:1px solid rgba(255,255,255,.8);box-shadow:inset 0 1px 1px rgba(255,255,255,1), 0 4px 12px rgba(0,0,0,.03);}
+.gL1{background:rgba(255,255,255,.6);backdrop-filter:blur(24px) saturate(200%) contrast(110%);-webkit-backdrop-filter:blur(24px) saturate(200%) contrast(110%);border:1px solid rgba(255,255,255,1);box-shadow:inset 0 1px 1px rgba(255,255,255,1), 0 8px 24px rgba(0,0,0,.04);}
+.gL2{background:rgba(255,255,255,.7);backdrop-filter:blur(32px) saturate(200%) contrast(115%);-webkit-backdrop-filter:blur(32px) saturate(200%) contrast(115%);border-top:1px solid rgba(255,255,255,1);border-left:1px solid rgba(255,255,255,1);box-shadow:inset 0 1px 1px rgba(255,255,255,1), 0 -12px 56px rgba(0,0,0,.05);}
+.gNav{background:rgba(255,255,255,.75);backdrop-filter:blur(20px) saturate(200%);-webkit-backdrop-filter:blur(20px) saturate(200%);border-top:1px solid rgba(255,255,255,1);border-bottom:1px solid rgba(0,0,0,.02);border-left:1px solid rgba(255,255,255,.6);border-right:1px solid rgba(255,255,255,.6);box-shadow:inset 0 1px 1px rgba(255,255,255,.8), 0 8px 32px rgba(0,0,0,.08);}
+.gIn{background:rgba(255,255,255,.4);backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);border:1px solid rgba(255,255,255,1);border-radius:var(--r-lg);transition:border .2s,box-shadow .2s;box-shadow:inset 0 2px 4px rgba(0,0,0,.02), 0 2px 8px rgba(0,0,0,.01);}
+.gIn:focus-within{border-color:var(--c-i);box-shadow:inset 0 1px 2px rgba(0,0,0,.02), 0 0 0 3px rgba(79,70,229,.15), 0 4px 12px rgba(79,70,229,.1);}
+.dark .gL0{background:rgba(10,15,30,.25);backdrop-filter:blur(16px) saturate(150%);border:1px solid rgba(255,255,255,.05);box-shadow:inset 0 1px 1px rgba(255,255,255,.1), 0 4px 12px rgba(0,0,0,.3);}
+.dark .gL1{background:rgba(14,18,44,.4);backdrop-filter:blur(24px) saturate(150%);border:1px solid rgba(255,255,255,.05);box-shadow:inset 0 1px 1px rgba(255,255,255,.12), 0 8px 24px rgba(0,0,0,.4);}
+.dark .gL2{background:rgba(6,10,24,.6);backdrop-filter:blur(32px) saturate(150%);border-top:1px solid rgba(255,255,255,.08);border-left:1px solid rgba(255,255,255,.05);box-shadow:inset 0 1px 1px rgba(255,255,255,.15), 0 -12px 56px rgba(0,0,0,.5);}
+.dark .gNav{background:rgba(15,23,42,.4);backdrop-filter:blur(20px) saturate(150%);border-top:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(0,0,0,.5);border-left:1px solid rgba(255,255,255,.05);border-right:1px solid rgba(255,255,255,.05);box-shadow:inset 0 1px 1px rgba(255,255,255,.1), 0 8px 32px rgba(0,0,0,.6);}
 .dark .gIn{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.08);box-shadow:inset 0 1px 2px rgba(0,0,0,.2);}
 .dark .gIn:focus-within{border-color:var(--c-id);box-shadow:inset 0 1px 2px rgba(0,0,0,.2), 0 0 0 3px rgba(129,140,248,.15);}
 .aC-jubilo{border-left:3.5px solid #10B981;}.aC-adoracao{border-left:3.5px solid #4F46E5;}
@@ -103,6 +103,7 @@ const CAT = {
   adoracao: { label:'Adoração', color:'#4F46E5', cls:'bA', acc:'aC-adoracao' },
   hinario:  { label:'Hinário',  color:'#F59E0B', cls:'bH', acc:'aC-hinario' },
   oferta:   { label:'Oferta',   color:'#EC4899', cls:'bO', acc:'aC-oferta' },
+  ceia:     { label:'Santa Ceia', color:'#E11D48', cls:'bC', acc:'aC-ceia' }
 };
 const SH = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FL = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -282,7 +283,6 @@ function generateDynamicSetlist(eventDate, eventType, allSongs, recentEvents=[],
     if(s&&categoryCounts[s.cat]!==undefined)categoryCounts[s.cat]++;
   });
   
-  // Fill remaining slots
   for(const [cat,quota] of Object.entries(quotas)){
     while(categoryCounts[cat]<quota){
       const candidates=allSongs.filter(s=>s.cat===cat&&!selected.includes(s.id)&&!recentSongs.has(s.id));
@@ -299,12 +299,25 @@ function generateDynamicSetlist(eventDate, eventType, allSongs, recentEvents=[],
     }
   }
   
-  // Add Santa Ceia if applicable (2nd Sunday)
-  if(isSecondSunday && santaCeiaSong && !selected.includes(santaCeiaSong)){
+  if(santaCeiaSong && !selected.includes(santaCeiaSong)) {
     selected.push(santaCeiaSong);
   }
-  
-  return selected.slice(0,8); // Max 8 songs
+
+  // Ordenar o Setlist conforme layout desejado:
+  // Júbilo (1), Hinário (2), Adoração (3), Oferta (4), Pedidos (5), Santa Ceia (6)
+  const catOrder = { 'jubilo': 1, 'hinario': 2, 'adoracao': 3, 'oferta': 4, 'ceia': 6 };
+  selected.sort((a,b) => {
+    const sa = allSongs.find(x=>x.id===a);
+    const sb = allSongs.find(x=>x.id===b);
+    const getOrder = (sid, song) => {
+      if(sid === santaCeiaSong || song?.cat === 'ceia') return 6;
+      if(requestedSongs.includes(sid)) return 5;
+      return catOrder[song?.cat] || 99;
+    };
+    return getOrder(a, sa) - getOrder(b, sb);
+  });
+
+  return selected;
 }
 
 function getWeekRange(offset=0){const now=new Date();const day=now.getDay()||7;const mon=new Date(now);mon.setDate(now.getDate()-day+1+offset*7);mon.setHours(0,0,0,0);const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);return{mon,sun};}
@@ -324,6 +337,7 @@ const IcoGuitar  = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill=
 const IcoPlus    = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 const IcoCheck   = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
 const IcoX       = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+const IcoEdit    = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
 const IcoArrowUp = ({s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>;
 const IcoBook    = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>;
 const IcoLogout  = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;
@@ -435,17 +449,71 @@ const Biblia = memo(({dark})=>{
     {loading && <div style={{textAlign:'center',padding:30}}><Loader/></div>}
     {error && <div style={{textAlign:'center',color:'#EF4444',fontWeight:700,fontSize:'var(--fs-sm)'}}>{error}</div>}
 
-    {verses.length > 0 && !loading && <div className={`${gc} aUp`} style={{...CS}}>
-       <div style={{fontSize:24,fontWeight:900,color:tc,marginBottom:16,textAlign:'center'}}>{books.find(b=>b.a===selBook)?.n} {selChapter}</div>
-       <div style={{display:'flex',flexDirection:'column',gap:12}}>
-          {verses.map((v)=>(
-             <div key={v.number} style={{display:'flex',gap:10,lineHeight:1.7}}>
-                <span style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#4F46E5',minWidth:20,textAlign:'right',paddingTop:3}}>{v.number}</span>
-                <span style={{fontSize:'var(--fs-sm)',color:tc}}>{v.text}</span>
-             </div>
-          ))}
+    {verses.length > 0 && !loading && <>
+       <div style={{position:'sticky',bottom:'calc(env(safe-area-inset-bottom, 0px) + 20px)',width:'100%',margin:'0 auto 10px auto',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',background:dark?'rgba(15,23,42,.85)':'rgba(255,255,255,.9)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',borderRadius:'var(--r-xl)',boxShadow:'0 16px 40px rgba(0,0,0,.2)',border:`1px solid ${dark?'rgba(255,255,255,.1)':'rgba(255,255,255,1)'}`,zIndex:50}}>
+         <button onClick={()=>selChapter>1&&handleSelectChapter(selChapter-1)} disabled={selChapter<=1} style={{background:selChapter<=1?'transparent':'rgba(79,70,229,.1)',border:'none',color:selChapter<=1?t2:'#4F46E5',padding:'8px 12px',borderRadius:'var(--r-md)',fontWeight:800,display:'flex',alignItems:'center',gap:4,cursor:selChapter<=1?'default':'pointer',opacity:selChapter<=1?.5:1}}><IcoChevL s={14}/> Ant.</button>
+         <div style={{fontSize:18,fontWeight:900,color:tc,textAlign:'center',flex:1}}>{books.find(b=>b.a===selBook)?.n} {selChapter}</div>
+         <button onClick={()=>selChapter<chapters&&handleSelectChapter(selChapter+1)} disabled={selChapter>=chapters} style={{background:selChapter>=chapters?'transparent':'rgba(79,70,229,.1)',border:'none',color:selChapter>=chapters?t2:'#4F46E5',padding:'8px 12px',borderRadius:'var(--r-md)',fontWeight:800,display:'flex',alignItems:'center',gap:4,cursor:selChapter>=chapters?'default':'pointer',opacity:selChapter>=chapters?.5:1}}>Próx. <IcoChevR s={14}/></button>
        </div>
-    </div>}
+       <div className={`${gc} aUp`} style={{...CS, paddingBottom: 80}}>
+         <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            {verses.map((v)=>(
+               <div key={v.number} style={{display:'flex',gap:10,lineHeight:1.7}}>
+                  <span style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#4F46E5',minWidth:20,textAlign:'right',paddingTop:3}}>{v.number}</span>
+                  <span style={{fontSize:'var(--fs-sm)',color:tc}}>{v.text}</span>
+               </div>
+            ))}
+         </div>
+       </div>
+    </>}
+  </div>;
+});
+
+/* ─── CAROUSEL HELPER ───────────────────────────────────────── */
+const ContentCarousel = memo(({content, dark}) => {
+  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
+  
+  const [idx, setIdx] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  useEffect(() => {
+     if(isHovered) return;
+     const timer = setInterval(() => {
+        setIdx(prev => (prev + 1) % content.length);
+     }, 10000);
+     return () => clearInterval(timer);
+  }, [isHovered, content.length]);
+
+  const c = content[idx];
+
+  return <div style={{position:'relative'}} onMouseEnter={()=>setIsHovered(true)} onMouseLeave={()=>setIsHovered(false)} onTouchStart={()=>setIsHovered(true)}>
+    <div className={`${gc} aUp`} style={{...CS, padding: c.type==='video'||c.type==='podcast'?12:20, minHeight: 280, display:'flex', flexDirection:'column'}}>
+      <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:10,background:'rgba(245,158,11,.1)',color:'#D97706',border:'1px solid rgba(245,158,11,.2)', alignSelf:'flex-start'}}>{c.theme || c.cat}</span>
+      <div className="font-serif" style={{fontSize:18,fontWeight:900,color:tc,lineHeight:1.2,marginBottom:4}}>{c.title}</div>
+      
+      {c.type === 'text' && <>
+        {c.author && <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12,fontStyle:'italic'}}>Reflexão - {c.author}</div>}
+        <div style={{fontSize:'var(--fs-sm)',lineHeight:1.7,color:tc,flex:1}}>{c.text}</div>
+      </>}
+      
+      {c.type === 'podcast' && <>
+        {c.desc && <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12}}>{c.desc}</div>}
+        <iframe style={{borderRadius: '12px', flex:1}} src={`https://open.spotify.com/embed/${c.embedType||'episode'}/${c.spotifyId || c.id}?utm_source=generator`} width="100%" height="152" frameBorder="0" allowFullScreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+      </>}
+
+      {c.type === 'video' && <>
+        {c.desc && <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12}}>{c.desc}</div>}
+        <div style={{borderRadius:'var(--r-lg)',overflow:'hidden',aspectRatio:'16/9', flex:1}}>
+          <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${c.ytId || c.id}`} title={c.title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
+        </div>
+      </>}
+    </div>
+    <div style={{display:'flex',justifyContent:'center',gap:6,marginTop:-5,marginBottom:20}}>
+      {content.map((_, i) => (
+        <button key={i} onClick={() => {setIdx(i); setIsHovered(true);}} style={{width:i===idx?18:8,height:8,borderRadius:4,background:i===idx?'#4F46E5':(dark?'rgba(255,255,255,.2)':'rgba(0,0,0,.15)'),border:'none',transition:'all .3s',cursor:'pointer',padding:0}}/>
+      ))}
+    </div>
   </div>;
 });
 
@@ -472,27 +540,7 @@ const Devocional = memo(({dark})=>{
       <div style={{fontSize:'var(--fs-base)',fontWeight:600,color:tc,lineHeight:1.6}}>Recursos selecionados para a sua edificação espiritual antes de ministrar aos outros.</div>
     </div>
 
-    {content.map((c,i)=><div key={i} className={`${gc} aUp`} style={{...CS,animationDelay:`${i*.1}s`, padding: c.type==='video'?12:20}}>
-      <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:10,background:'rgba(245,158,11,.1)',color:'#D97706',border:'1px solid rgba(245,158,11,.2)'}}>{c.theme}</span>
-      <div className="font-serif" style={{fontSize:18,fontWeight:900,color:tc,lineHeight:1.2,marginBottom:4}}>{c.title}</div>
-      
-      {c.type === 'text' && <>
-        <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12,fontStyle:'italic'}}>Reflexão - {c.author}</div>
-        <div style={{fontSize:'var(--fs-sm)',lineHeight:1.7,color:tc}}>{c.text}</div>
-      </>}
-      
-      {c.type === 'podcast' && <>
-        <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12}}>{c.desc}</div>
-        <iframe style={{borderRadius: '12px'}} src={`https://open.spotify.com/embed/${c.embedType||'episode'}/${c.spotifyId}?utm_source=generator`} width="100%" height="152" frameBorder="0" allowFullScreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-      </>}
-
-      {c.type === 'video' && <>
-        <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12}}>{c.desc}</div>
-        <div style={{borderRadius:'var(--r-lg)',overflow:'hidden',aspectRatio:'16/9'}}>
-          <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${c.ytId}`} title={c.title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
-        </div>
-      </>}
-    </div>)}
+    <ContentCarousel content={content} dark={dark}/>
   </div>;
 });
 
@@ -527,23 +575,12 @@ const Treinamento = memo(({dark, profile})=>{
       <div style={{fontSize:'var(--fs-base)',fontWeight:600,color:tc,lineHeight:1.6}}>Conteúdos multimídia focados na sua evolução como {profile?.instrument || 'ministro'}!</div>
     </div>
 
-    {content.map((c,i)=><div key={i} className={`${gc} aUp`} style={{...CS, animationDelay:`${i*.1}s`, padding: c.type==='video'||c.type==='podcast'?12:20}}>
-      <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,color:'#4F46E5',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>{c.cat}</span>
-      <div style={{fontSize:16,fontWeight:800,color:tc,marginBottom:8}}>{c.title}</div>
-      
-      {c.type === 'text' && <div style={{fontSize:'var(--fs-sm)',lineHeight:1.6,color:t2}}>{c.text}</div>}
-      
-      {c.type === 'podcast' && <iframe style={{borderRadius: '12px'}} src={`https://open.spotify.com/embed/${c.embedType||'episode'}/${c.id}?utm_source=generator`} width="100%" height="152" frameBorder="0" allowFullScreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>}
-      
-      {c.type === 'video' && <div style={{borderRadius:'var(--r-lg)',overflow:'hidden',aspectRatio:'16/9'}}>
-        <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${c.id}`} title={c.title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
-      </div>}
-    </div>)}
+    <ContentCarousel content={content} dark={dark}/>
   </div>;
 });
 
 /* ─── PAINEL ADMIN ──────────────────────────────────────────── */
-const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState})=>{
+const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState, setMembers})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
   
@@ -557,6 +594,36 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
         setSongs(s=>s.filter(x=>x.id!==songId));
         dbDelSong(songId).catch(console.error);
         setConfirmState(null);
+      },
+      onCancel: () => setConfirmState(null)
+    });
+  };
+
+  const [editMember, setEditMember] = useState(null);
+
+  const saveMember = async () => {
+    if(!editMember.name || !editMember.pin) return alert('Nome e PIN são obrigatórios!');
+    setMembers(mList => mList.map(m => m.id === editMember.id ? editMember : m));
+    setEditMember(null);
+    try {
+      await upsertMember(editMember);
+    } catch (e) {
+      console.error('Failed to save member:', e);
+    }
+  };
+
+  const delMember = (id) => {
+    setConfirmState({
+      title: 'Excluir Membro',
+      msg: 'Excluir permanentemente este membro?',
+      onConfirm: async () => {
+        setMembers(mList => mList.filter(m => m.id !== id));
+        setConfirmState(null);
+        try {
+          await deleteMember(id);
+        } catch (e) {
+          console.error('Failed to delete member:', e);
+        }
       },
       onCancel: () => setConfirmState(null)
     });
@@ -627,6 +694,65 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
           </div>
        })}
     </div>
+
+    <div className={`${gc} aUp`} style={CS}>
+       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12}}>Gerenciar Membros</div>
+       {members.map(m => (
+         <div key={m.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'6px 0',borderBottom:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
+             <div style={{display:'flex',alignItems:'center',gap:10}}>
+               <Ava m={m} size={28}/>
+               <div style={{display:'flex',flexDirection:'column'}}>
+                 <span style={{fontSize:'var(--fs-sm)',fontWeight:700,color:tc}}>{m.name}</span>
+                 <span style={{fontSize:'var(--fs-xs)',color:t2}}>{m.instrument} {m.is_admin ? '(Admin)' : ''}</span>
+               </div>
+             </div>
+             <button onClick={()=>setEditMember({...m})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'rgba(79,70,229,.1)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Editar</button>
+         </div>
+       ))}
+    </div>
+
+    <div className={`${gc} aUp`} style={CS}>
+       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12}}>Músicas Adicionadas (Mês Atual)</div>
+       <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          {Object.entries(CAT).map(([id, c]) => {
+             const cnt = songs.filter(s => {
+               if(s.cat !== id) return false;
+               if(!s.created_at) return false;
+               const createdMonth = new Date(s.created_at).getMonth();
+               const currentMonth = new Date().getMonth();
+               return createdMonth === currentMonth;
+             }).length;
+             return <div key={id} style={{background:`rgba(${id==='adoracao'?'79,70,229':id==='jubilo'?'16,185,129':id==='hinario'?'245,158,11':'236,72,153'},.1)`, border:`1px solid rgba(${id==='adoracao'?'79,70,229':id==='jubilo'?'16,185,129':id==='hinario'?'245,158,11':'236,72,153'},.2)`, borderRadius:'var(--r-md)', padding:'10px 14px', flex:'1 1 40%', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+                <span style={{fontSize:'var(--fs-xs)',fontWeight:700,color:c.color,textTransform:'uppercase'}}>{c.label}</span>
+                <span style={{fontSize:20,fontWeight:900,color:tc}}>{cnt}</span>
+             </div>
+          })}
+       </div>
+    </div>
+
+    {/* Member Edit Modal */}
+    {editMember && <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+       <div className={gc} style={{width:'100%',maxWidth:400,borderRadius:'var(--r-xl)',padding:24}}>
+          <div style={{fontSize:18,fontWeight:900,color:tc,marginBottom:16}}>Editar Membro</div>
+          <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.name} onChange={e=>setEditMember(m=>({...m,name:e.target.value}))} placeholder="Nome" style={{color:tc}}/></div>
+          <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.pin} onChange={e=>setEditMember(m=>({...m,pin:e.target.value}))} placeholder="PIN (Senha)" type="text" style={{color:tc}}/></div>
+          <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.instrument} onChange={e=>setEditMember(m=>({...m,instrument:e.target.value}))} placeholder="Função/Instrumento" style={{color:tc}}/></div>
+          
+          <label style={{display:'flex',alignItems:'center',gap:8,fontSize:'var(--fs-sm)',color:tc,fontWeight:700,marginBottom:10}}>
+             <input type="checkbox" checked={editMember.is_admin} onChange={e=>setEditMember(m=>({...m,is_admin:e.target.checked}))}/> É Administrador (Acesso Total)
+          </label>
+          <label style={{display:'flex',alignItems:'center',gap:8,fontSize:'var(--fs-sm)',color:tc,fontWeight:700,marginBottom:20}}>
+             <input type="checkbox" checked={editMember.status==='ativo'} onChange={e=>setEditMember(m=>({...m,status:e.target.checked?'ativo':'inativo'}))}/> Ativo na Escala
+          </label>
+
+          <div style={{display:'flex',gap:10}}>
+             <button className="bp" onClick={saveMember} style={{flex:1}}>Salvar</button>
+             <button onClick={()=>setEditMember(null)} style={{padding:'10px',borderRadius:'var(--r-md)',border:'none',background:'rgba(0,0,0,.1)',color:tc,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+          </div>
+          {editMember.id !== profile.id && <button onClick={()=>{setEditMember(null); delMember(editMember.id);}} style={{width:'100%',padding:'10px',borderRadius:'var(--r-md)',border:'none',background:'transparent',color:'#EF4444',fontWeight:700,cursor:'pointer',marginTop:10}}>Excluir Membro</button>}
+       </div>
+    </div>}
+
   </div>;
 });
 const MetroDots = ({beatIdx,timeSignature,active,dark})=>{
@@ -730,12 +856,13 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
   
   const upcoming=events.filter(e=>e.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date));
   const [selDay, setSelDay] = useState(todayStr);
-  const selectedEvent = events.find(e => e.date === selDay);
   const nextGlobal = upcoming[0];
-  const nxt = selectedEvent || nextGlobal;
   
-  const nS=nxt?.songs.map(id=>songs.find(s=>s.id===id)).filter(Boolean)||[];
-  const nM=nxt?.members.map(id=>members.find(m=>m.id===id)).filter(Boolean)||[];
+  // Exibir TODOS os eventos do dia selecionado
+  let displayEvents = events.filter(e => e.date === selDay).sort((a,b)=>a.time.localeCompare(b.time));
+  if (displayEvents.length === 0 && nextGlobal) {
+    displayEvents = [nextGlobal];
+  }
   
   // Month carousel logic
   const monthDays = useMemo(() => {
@@ -776,6 +903,15 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
   const d3Str = d3.toISOString().slice(0,10);
   const pendingEvents = upcoming.filter(e => e.date <= d3Str && e.members.includes(profile?.id) && e.confirmations[profile?.id] === undefined);
   const nxtPending = pendingEvents[0];
+  
+  const isVocal = profile?.instrument?.toLowerCase().includes('vocal');
+  const vocalCats = [];
+  if (isVocal) {
+    if (profile?.name?.includes('Cleide') || profile?.name?.includes('Kassya')) vocalCats.push('adoração');
+    if (profile?.name?.includes('Lidia') || profile?.name?.includes('Maria')) vocalCats.push('hinário');
+    if (profile?.name?.includes('Josi') || profile?.name?.includes('Sonia')) vocalCats.push('júbilo');
+    vocalCats.push('oferta', 'santa ceia');
+  }
 
   return <div style={{padding:'16px 16px 0'}}>
     {/* Greeting */}
@@ -798,6 +934,16 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
           <div style={{fontSize:8,color:t2,fontWeight:700,marginTop:2}}>{s.l}</div>
         </div>)}
     </div>
+
+    {/* Vocal Alert */}
+    {isVocal && (
+      <div className="aUp" style={{marginBottom:16,background:'rgba(245,158,11,.15)',borderLeft:'4px solid #F59E0B',padding:12,borderRadius:'var(--r-md)',animationDelay:'.2s'}}>
+        <div style={{fontSize:'var(--fs-sm)',color:tc,fontWeight:700,marginBottom:4}}>🎤 Lembrete para Vocais</div>
+        <div style={{fontSize:'var(--fs-xs)',color:t2}}>
+          Atenção! Você é responsável por alimentar o nosso repertório com novas músicas das seguintes categorias: <strong>{vocalCats.join(', ')}</strong>.
+        </div>
+      </div>
+    )}
 
     {/* Confirmações Pendentes */}
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.08s',border:'1px solid rgba(245,158,11,.2)',background:dark?'rgba(245,158,11,.04)':'rgba(245,158,11,.03)'}}>
@@ -840,32 +986,44 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
       </div>
     </div>
 
-    {/* Next event */}
-    {nxt&&<div className={`${gc} aUp`} style={{...CS,animationDelay:'.11s',position:'relative',overflow:'hidden'}}>
-      <div style={{position:'absolute',top:0,right:0,width:100,height:100,background:'linear-gradient(135deg,rgba(79,70,229,.07),transparent)',borderRadius:'0 var(--r-xl) 0 100%'}}/>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
-        <div>
-          <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:6,background:nxt.type==='culto'?'rgba(79,70,229,.1)':'rgba(16,185,129,.1)',color:nxt.type==='culto'?'#4F46E5':'#059669',border:`1px solid ${nxt.type==='culto'?'rgba(79,70,229,.2)':'rgba(16,185,129,.2)'}`}}>{nxt.type==='culto'?'PRÓXIMO CULTO':'PRÓXIMO ENSAIO'}</span>
-          <div style={{fontSize:17,fontWeight:900,color:tc,lineHeight:1.2}}>{nxt.label}</div>
+    {/* Events List */}
+    {displayEvents.length > 0 ? displayEvents.map(evt => {
+      const isNext = evt.id === nextGlobal?.id;
+      const t = evt.type || 'culto';
+      let badgeLabel = t === 'culto' ? 'CULTO' : t === 'ensaio' ? 'ENSAIO' : t === 'ebd' ? 'EBD' : 'CONSAGRAÇÃO';
+      if (isNext) badgeLabel = 'PRÓXIMO ' + badgeLabel;
+
+      const nS = evt.songs?.map(id=>songs.find(s=>s.id===id)).filter(Boolean)||[];
+      const nM = evt.members?.map(id=>members.find(m=>m.id===id)).filter(Boolean)||[];
+      const showSetlist = t !== 'ebd' && t !== 'consagracao' && nS.length > 0;
+
+      return <div key={evt.id} className={`${gc} aUp`} style={{...CS,animationDelay:'.11s',position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',top:0,right:0,width:100,height:100,background:'linear-gradient(135deg,rgba(79,70,229,.07),transparent)',borderRadius:'0 var(--r-xl) 0 100%'}}/>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+          <div>
+            <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:6,background:t==='culto'?'rgba(79,70,229,.1)':'rgba(16,185,129,.1)',color:t==='culto'?'#4F46E5':'#059669',border:`1px solid ${t==='culto'?'rgba(79,70,229,.2)':'rgba(16,185,129,.2)'}`}}>{badgeLabel.toUpperCase()}</span>
+            <div style={{fontSize:17,fontWeight:900,color:tc,lineHeight:1.2}}>{evt.label}</div>
+          </div>
+          <div style={{textAlign:'right',flexShrink:0}}><div style={{fontSize:19,fontWeight:900,color:tc,lineHeight:1}}>{evt.time}</div><div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:2}}>{fDate(evt.date)}</div></div>
         </div>
-        <div style={{textAlign:'right',flexShrink:0}}><div style={{fontSize:19,fontWeight:900,color:tc,lineHeight:1}}>{nxt.time}</div><div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:2}}>{fDate(nxt.date)}</div></div>
+        {evt.theme&&<div style={{background:'rgba(79,70,229,.06)',borderRadius:'var(--r-sm)',padding:'8px 12px',marginBottom:12,fontSize:'var(--fs-sm)',color:'#4F46E5',fontWeight:700,border:'1px solid rgba(79,70,229,.14)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>  {evt.theme}</div>}
+        
+        {showSetlist && <div style={{marginBottom:12}}>
+          <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:7}}>Setlist</div>
+          {nS.map((s,i)=><div key={s.id} onClick={()=>onSelectSong(s,evt)} className="touch-scale" style={{display:'flex',alignItems:'center',gap:9,padding:'8px 0',borderBottom:i<nS.length-1?`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`:''}}> 
+            <span style={{width:22,height:22,borderRadius:7,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
+            <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc,lineHeight:1.2}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
+            <KeyChip k={s.key} size={10}/>
+          </div>)}
+        </div>}
+        
+        <div style={{display:'flex',alignItems:'center',gap:4}}>
+          {nM.slice(0,7).map((m,i)=><div key={m.id} style={{marginLeft:i?-8:0,zIndex:10-i}}><Ava m={m} size={26} ring/></div>)}
+          {nM.length>7&&<span style={{fontSize:'var(--fs-xs)',color:t2,marginLeft:5,fontWeight:600}}>+{nM.length-7}</span>}
+          <span style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:600,marginLeft:6}}>{nM.length} escalado{nM.length!==1?'s':''}</span>
+        </div>
       </div>
-      {nxt.theme&&<div style={{background:'rgba(79,70,229,.06)',borderRadius:'var(--r-sm)',padding:'8px 12px',marginBottom:12,fontSize:'var(--fs-sm)',color:'#4F46E5',fontWeight:700,border:'1px solid rgba(79,70,229,.14)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>  {nxt.theme}</div>}
-      <div style={{marginBottom:12}}>
-        <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:7}}>Setlist</div>
-        {nS.map((s,i)=><div key={s.id} onClick={()=>onSelectSong(s,nxt)} className="touch-scale" style={{display:'flex',alignItems:'center',gap:9,padding:'8px 0',borderBottom:i<nS.length-1?`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`:''}}> 
-          <span style={{width:22,height:22,borderRadius:7,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
-          <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc,lineHeight:1.2}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
-          <KeyChip k={s.key} size={10}/>
-        </div>)}
-      </div>
-      <div style={{display:'flex',alignItems:'center',gap:4}}>
-        {nM.slice(0,7).map((m,i)=><div key={m.id} style={{marginLeft:i?-8:0,zIndex:10-i}}><Ava m={m} size={26} ring/></div>)}
-        {nM.length>7&&<span style={{fontSize:'var(--fs-xs)',color:t2,marginLeft:5,fontWeight:600}}>+{nM.length-7}</span>}
-        <span style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:600,marginLeft:6}}>{nM.length} escalado{nM.length!==1?'s':''}</span>
-      </div>
-    </div>}
-    {!nxt&&<EmptyState icon={<IcoCal s={32}/>} title="Nenhum evento próximo" sub="Quando houver um culto ou ensaio agendado, ele aparece aqui." cta={"Criar evento"}/>}
+    }) : <EmptyState icon={<IcoCal s={32}/>} title="Nenhum evento neste dia" sub="Quando houver um evento agendado, ele aparecerá aqui." cta={"Criar evento"}/>}
 
     {/* Quick actions */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}} className="aUp">
@@ -925,7 +1083,7 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
     {filtered.length===0&&<EmptyState icon={<IcoMusic s={32}/>} title="Nenhuma música encontrada" sub="Tente outro termo de busca ou categoria."/>}
     {Object.entries(CAT).map(([catId,catC])=>{
       if(catF!=='all'&&catF!==catId)return null;
-      const cs=filtered.filter(s=>s.cat===catId);if(!cs.length)return null;
+      const cs=filtered.filter(s=>s.cat===catId).sort((a,b)=>a.title.localeCompare(b.title));if(!cs.length)return null;
       return <div key={catId} style={{marginBottom:22}}>
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
           <div style={{width:4,height:18,borderRadius:2,background:catC.color}}/>
@@ -944,7 +1102,10 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
               </div>
             </div>
             <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:5,marginLeft:10,flexShrink:0}}>
-              <button onClick={e=>{e.stopPropagation();onToggleFav?.(s.id);}} style={{background:'transparent',border:'none',cursor:'pointer',padding:'2px 4px',fontSize:16,color:favorites?.includes(s.id)?'#F59E0B':'rgba(127,127,127,.3)',transition:'color .15s'}}>{favorites?.includes(s.id)?'★':'☆'}</button>
+              <div style={{display:'flex', gap:4}}>
+                <button onClick={e=>{e.stopPropagation();onSetAddOpen?.(s);}} style={{background:'transparent',border:'none',cursor:'pointer',padding:'2px 4px',fontSize:14,color:t2,transition:'color .15s'}}>✏️</button>
+                <button onClick={e=>{e.stopPropagation();onToggleFav?.(s.id);}} style={{background:'transparent',border:'none',cursor:'pointer',padding:'2px 4px',fontSize:16,color:favorites?.includes(s.id)?'#F59E0B':'rgba(127,127,127,.3)',transition:'color .15s'}}>{favorites?.includes(s.id)?'★':'☆'}</button>
+              </div>
               <KeyChip k={s.key}/><BpmChip bpm={s.bpm}/>
             </div>
           </div>
@@ -956,7 +1117,7 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
 });
 
 /* ─── CIFRA ─────────────────────────────────────────────────── */
-const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatIdx,stageMode,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,profile})=>{
+const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatIdx,stageMode,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,onSaveVocalKey,profile,members})=>{
   if(!song)return null;
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
@@ -1028,7 +1189,17 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
           }} style={{padding:'8px 0',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:isAct?'#4F46E5':dark?'rgba(255,255,255,.05)':'rgba(79,70,229,.07)',color:isAct?'#fff':dark?'#E2E8F0':'#4F46E5',boxShadow:isAct?'0 4px 12px rgba(79,70,229,.32)':'',transition:'all .15s'}}>{k}</button>
         })}
       </div>
-      {tr!==0&&<button onClick={()=>{vib();setTr(0);}} style={{width:'100%',padding:8,borderRadius:'var(--r-sm)',border:'none',cursor:'pointer',background:'rgba(245,158,11,.08)',color:'#D97706',fontSize:'var(--fs-sm)',fontWeight:700}}>↩ Voltar ao tom original ({song.key})</button>}
+      {tr!==0&&<button onClick={()=>{vib();setTr(0);}} style={{width:'100%',padding:8,borderRadius:'var(--r-sm)',border:'none',cursor:'pointer',background:'rgba(245,158,11,.08)',color:'#D97706',fontSize:'var(--fs-sm)',fontWeight:700,marginBottom:8}}>↩ Voltar ao tom original ({song.key})</button>}
+      {event?.singerBySong?.[song.id] && (() => {
+        const sid = event.singerBySong[song.id];
+        const sMem = members?.find(m=>m.id===sid);
+        if(!sMem) return null;
+        const currentVocalKey = song.vocal_keys?.[sid];
+        const isSaved = currentVocalKey === curKey;
+        return <button onClick={()=>{vib();onSaveVocalKey(song.id, sid, curKey);}} disabled={isSaved} style={{width:'100%',padding:8,borderRadius:'var(--r-sm)',border:'none',cursor:isSaved?'default':'pointer',background:isSaved?'rgba(16,185,129,.1)':'rgba(79,70,229,.1)',color:isSaved?'#059669':'#4F46E5',fontSize:'var(--fs-sm)',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:'all .15s'}}>
+          {isSaved ? <><IcoCheck s={14}/> Tom ({curKey}) salvo para {sMem.name}</> : <><IcoEdit s={14}/> Salvar tom ({curKey}) para {sMem.name}</>}
+        </button>
+      })()}
     </div>
 
     {/* Mode controls */}
@@ -1135,8 +1306,12 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
     if(!w) return [];
     const d1 = w[0].toISOString().slice(0,10);
     const d2 = w[6].toISOString().slice(0,10);
-    return events.filter(e => e.date >= d1 && e.date <= d2).sort((a,b)=>a.date.localeCompare(b.date));
-  },[events, monthWeeks, selWeekIdx]);
+    let evs = events.filter(e => e.date >= d1 && e.date <= d2).sort((a,b)=>a.date.localeCompare(b.date));
+    if (!profile?.is_admin) {
+      evs = evs.filter(e => e.members.includes(profile?.id));
+    }
+    return evs;
+  },[events, monthWeeks, selWeekIdx, profile]);
 
   const confirmed=events.reduce((a,e)=>a+(e.confirmations[profile?.id]===true?1:0),0);
 
@@ -1210,27 +1385,54 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
       const evM=ev.members.map(id=>members.find(m=>m.id===id)).filter(Boolean);
       const evS=ev.songs.map(id=>songs.find(s=>s.id===id)).filter(Boolean);
       const isMyEvent=ev.members.includes(profile?.id);
-      const myConf=ev.confirmations[profile?.id];
-      return <div key={ev.id} className={`${gc} aUp touch-scale`} style={{...CS,animationDelay:`${ei*.06}s`,borderLeft:`3px solid ${ev.type==='culto'?'#4F46E5':'#10B981'}`,opacity:!isMyEvent&&!profile?.is_admin?.7:1}} onClick={(e)=>{ if(e.target.tagName!=='BUTTON') onEvSheet(ev); }}>
+      let myConf=ev.confirmations[profile?.id];
+
+      // Dynamic status
+      const evDateTime = new Date(`${ev.date}T${ev.time}:00`);
+      const now = new Date();
+      const diffMs = evDateTime - now;
+      const isExpired = diffMs < -2 * 60 * 60 * 1000;
+      const isHappening = diffMs <= 0 && !isExpired;
+      const isLocked = diffMs < 24 * 60 * 60 * 1000;
+      if (myConf === undefined && isLocked) {
+         myConf = false; // Auto-recusa
+      }
+
+      const t = ev.type || 'culto';
+      const badgeLabel = t === 'culto' ? 'CULTO' : t === 'ensaio' ? 'ENSAIO' : t === 'ebd' ? 'EBD' : 'CONSAGRAÇÃO';
+      const showSetlist = t !== 'ebd' && t !== 'consagracao';
+
+      return <div key={ev.id} className={`${gc} aUp touch-scale`} style={{...CS,animationDelay:`${ei*.06}s`,borderLeft:`3px solid ${t==='culto'?'#4F46E5':'#10B981'}`,opacity:isExpired?0.5:!isMyEvent&&!profile?.is_admin?0.7:1}} onClick={(e)=>{ if(e.target.tagName!=='BUTTON') onEvSheet(ev); }}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
           <div>
-            <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:5,background:ev.type==='culto'?'rgba(79,70,229,.1)':'rgba(16,185,129,.1)',color:ev.type==='culto'?'#4F46E5':'#059669',border:`1px solid ${ev.type==='culto'?'rgba(79,70,229,.2)':'rgba(16,185,129,.2)'}`}}>{ev.type==='culto'?'CULTO':'ENSAIO'}</span>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
+              <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,background:t==='culto'?'rgba(79,70,229,.1)':'rgba(16,185,129,.1)',color:t==='culto'?'#4F46E5':'#059669',border:`1px solid ${t==='culto'?'rgba(79,70,229,.2)':'rgba(16,185,129,.2)'}`}}>{badgeLabel.toUpperCase()}</span>
+              {isExpired && <span style={{fontSize:'10px',fontWeight:800,color:'#EF4444',background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4}}>EXPIRADO</span>}
+              {isHappening && <span style={{fontSize:'10px',fontWeight:800,color:'#F59E0B',background:'rgba(245,158,11,.1)',padding:'2px 6px',borderRadius:4}}>ACONTECENDO</span>}
+            </div>
             <div style={{fontSize:15,fontWeight:900,color:tc}}>{ev.label}</div>
             <div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:1}}>{fDate(ev.date)} · {ev.time}</div>
           </div>
-          {isMyEvent&&<div style={{display:'flex',flexDirection:'column',gap:5,alignItems:'flex-end',flexShrink:0}}>
-            <button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{padding:'6px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===true?'#10B981':'rgba(16,185,129,.1)',color:myConf===true?'#fff':'#059669',transition:'all .2s',display:'flex',alignItems:'center',gap:5}}><IcoCheck s={12}/>Confirmar</button>
-            <button onClick={()=>onConfirm(ev.id,false)} style={{padding:'6px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===false?'#EF4444':'rgba(239,68,68,.08)',color:myConf===false?'#fff':'#DC2626',transition:'all .2s',display:'flex',alignItems:'center',gap:5}}><IcoX s={12}/>Recusar</button>
+          {isMyEvent&&!isExpired&&!isHappening&&!isLocked&&<div style={{display:'flex',flexDirection:'column',gap:5,alignItems:'flex-end',flexShrink:0}}>
+            {myConf !== true && <button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{padding:'6px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(16,185,129,.1)',color:'#059669',transition:'all .2s',display:'flex',alignItems:'center',gap:5}}><IcoCheck s={12}/>Confirmar</button>}
+            {myConf === true && <div style={{padding:'6px 14px',borderRadius:100,fontSize:'var(--fs-sm)',fontWeight:800,background:'#10B981',color:'#fff',display:'flex',alignItems:'center',gap:5}}><IcoCheck s={12}/>Confirmado</div>}
+
+            {myConf !== false && <button onClick={()=>onConfirm(ev.id,false)} style={{padding:'6px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.08)',color:'#DC2626',transition:'all .2s',display:'flex',alignItems:'center',gap:5}}><IcoX s={12}/>Recusar</button>}
+            {myConf === false && <div style={{padding:'6px 14px',borderRadius:100,fontSize:'var(--fs-sm)',fontWeight:800,background:'#EF4444',color:'#fff',display:'flex',alignItems:'center',gap:5}}><IcoX s={12}/>Recusado</div>}
           </div>}
+          {isMyEvent && isLocked && myConf === false && !isHappening && !isExpired && (
+             <div style={{fontSize:'10px',fontWeight:800,color:'#EF4444',textAlign:'right'}}>Auto-recusa<br/>(Prazo esgotado)</div>
+          )}
         </div>
         {ev.theme&&<div style={{background:'rgba(79,70,229,.06)',borderRadius:'var(--r-sm)',padding:'7px 12px',marginBottom:10,fontSize:'var(--fs-sm)',color:'#4F46E5',fontWeight:700,border:'1px solid rgba(79,70,229,.14)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
-        <div style={{marginBottom:10}}>
+        
+        {showSetlist && <div style={{marginBottom:10}}>
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Músicas</div>
           {evS.length===0?<div style={{fontSize:'var(--fs-xs)',color:t2,opacity:.6}}>Nenhuma música definida</div>:
           <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
             {evS.map(s=><span key={s.id} style={{padding:'4px 11px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer',background:`${CAT[s.cat].color}14`,color:CAT[s.cat].color,border:`1px solid ${CAT[s.cat].color}28`}}>{s.title}</span>)}
           </div>}
-        </div>
+        </div>}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div style={{display:'flex',alignItems:'center',gap:3}}>
             {evM.length > 0 ? (
@@ -1364,11 +1566,11 @@ const Maestro = memo(({dark,aiMsgs,aiIn,setAiIn,aiLoad,aiCount,onSendAI,profile}
 });
 
 /* ─── ADD SONG OVERLAY ──────────────────────────────────────── */
-const AddSong = memo(({dark,onSave,onClose})=>{
+const AddSong = memo(({dark,onSave,onClose,initialData})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1';
-  const [step,setStep]=useState(1);
-  const [form,setForm]=useState({title:'',artist:'',cat:'adoracao',key:'C',bpm:'80',timeSignature:'4/4',lyrics:'',tags:'',rawLyrics:'',sequence:'',media_url:''});
+  const [step,setStep]=useState(initialData ? 3 : 1);
+  const [form,setForm]=useState(initialData ? {...initialData} : {title:'',artist:'',cat:'adoracao',key:'C',bpm:'80',timeSignature:'4/4',lyrics:'',tags:'',rawLyrics:'',sequence:'',media_url:''});
   const [candidates,setCandidates]=useState([]);
   const [searchLoading,setSearchLoading]=useState(false);
   const [selLoading,setSelLoading]=useState(false);
@@ -1462,7 +1664,7 @@ ${seqInst}
 MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acordes. Não mude a posição de nenhum acorde. Retorne APENAS o texto puro sem markdown.\n\nCIFRA BRUTA:\n${sText.slice(0,3500)}`;
     }
     try{
-      const res=await fetch(GROQ_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`},body:JSON.stringify({model:GROQ_MODEL_BEST,max_tokens:1300,messages:[{role:'system',content:'Especialista em cifras gospel brasileiras. REGRA CRÍTICA: Se a música solicitada NÃO for gospel/religiosa/cristã, você deve RECUSAR e retornar EXATAMENTE: "ERRO: O LouveSync aceita apenas músicas de cunho religioso/gospel." Caso seja gospel, retorne APENAS a cifra limpa em plain text (sem markdown), fundindo os acordes na mesma linha da letra, delimitados por colchetes (exemplo: [D9], [F#m7]). Mantenha a harmonia EXATAMENTE igual a original caso fornecida.'},{role:'user',content:userPrompt}]})});
+      const res=await fetch(GROQ_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`},body:JSON.stringify({model:GROQ_MODEL_BEST,max_tokens:1300,messages:[{role:'system',content:'Especialista em cifras gospel brasileiras. REGRA CRÍTICA: Se a música solicitada NÃO for gospel/religiosa/cristã, você deve RECUSAR e retornar EXATAMENTE: "ERRO: O LouveSync aceita apenas músicas de cunho religioso/gospel." Caso seja gospel, retorne APENAS a cifra limpa em plain text (sem markdown), fundindo os acordes na mesma linha da letra, delimitados por colchetes (exemplo: [D9], [F#m7]). Mantenha a harmonia EXATAMENTE igual a original. É EXPRESSAMENTE PROIBIDO ESCREVER AS PALAVRAS Refrão, Estrofe, Ponte, Coro, Verso, Pré-refrão na resposta. Nunca use marcadores de seção. Apague-os completamente do texto.'},{role:'user',content:userPrompt}]})});
       const data=await res.json();
       const lyric=data.choices?.[0]?.message?.content||'';
       
@@ -1498,7 +1700,7 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
         {/* Header */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
           <div>
-            <div style={{fontSize:18,fontWeight:900,color:tc}}>{step===1?'Nova Música':step===2?'Escolher Versão':'Revisar Cifra'}</div>
+            <div style={{fontSize:18,fontWeight:900,color:tc}}>{initialData ? 'Editar Música' : step===1?'Nova Música':step===2?'Escolher Versão':'Revisar Cifra'}</div>
             <div style={{display:'flex',gap:5,marginTop:7}}>{[1,2,3].map(s=><div key={s} style={{width:s===step?24:8,height:4,borderRadius:100,transition:'all .3s',background:s<=step?'#4F46E5':'rgba(79,70,229,.15)'}}/>)}</div>
           </div>
           <button onClick={tryClose} style={{width:34,height:34,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.07)',color:t2,fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={14}/></button>
@@ -1533,7 +1735,8 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
           </div>
           <div className="gIn"><input className="fi" value={form.tags} onChange={e=>setForm(f=>({...f,tags:e.target.value}))} placeholder="Tags (separadas por vírgula)" style={{color:tc}}/></div>
           <div className="gIn"><input className="fi" value={form.sequence} onChange={e=>setForm(f=>({...f,sequence:e.target.value}))} placeholder="Seq. Musical (ex: Intro, Verso, Coro...)" style={{color:tc}}/></div>
-          <button className="bp" onClick={goToSearch} disabled={!form.title}><IcoMusic s={15}/>Buscar Música</button>
+          <button className="bp" onClick={goToSearch} disabled={!form.title}><IcoMusic s={15}/>{initialData ? 'Buscar Músicas (Substituir)' : 'Buscar Música'}</button>
+          {initialData && <button className="bSec" onClick={()=>setStep(3)} style={{marginTop:8}}>Avançar para Letra →</button>}
         </div>}
 
         {/* ── STEP 2: Resultados de busca ── */}
@@ -1616,8 +1819,8 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
             <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Preview</div>
             <LyricView text={form.lyrics} st={0} mode='chords' dark={dark}/>
           </div>}
-          <button className="bp" onClick={save} disabled={!form.lyrics}>Salvar Música</button>
-          <button onClick={()=>setStep(2)} style={{border:'none',background:'transparent',color:t2,fontSize:'var(--fs-sm)',cursor:'pointer'}}>← Voltar</button>
+          <button className="bp" onClick={save} disabled={!form.lyrics}>{initialData ? 'Salvar Alterações' : 'Salvar Música'}</button>
+          <button onClick={()=>setStep(initialData ? 1 : 2)} style={{border:'none',background:'transparent',color:t2,fontSize:'var(--fs-sm)',cursor:'pointer'}}>← Voltar para Detalhes</button>
         </div>}
 
       </div>
@@ -1625,10 +1828,10 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
   </>;
 });
 /* ─── CREATE EVENT OVERLAY (Qualquer Usuário) ─────────────────────────── */
-const CreateEvent = memo(({dark,members,songs,events,initialDate,onSave,onClose})=>{
+const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSave,onClose})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1';
-  const [form,setForm]=useState({date:initialDate||'',time:'19:00',type:'culto',label:'',theme:'',selMembers:[],selSongs:[],requestedSongs:[],santaCeiaSong:null});
+  const [form,setForm]=useState({date:editEvent?.date||initialDate||'',time:editEvent?.time||'19:00',type:editEvent?.type||'culto',label:editEvent?.label||'',theme:editEvent?.theme||'',selMembers:editEvent?.members||[],selSongs:editEvent?.songs||[],requestedSongs:editEvent?.requested_songs||[],santaCeiaSong:editEvent?.santa_ceia_song||null});
   const [memberSearch,setMemberSearch]=useState('');
   const [songSearch,setSongSearch]=useState('');
   const [isRecurring,setIsRecurring]=useState(false);
@@ -1656,7 +1859,8 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,onSave,onClose}
     if(!form.date||!form.label)return;
     const evs = [];
     const baseDate = new Date(form.date+'T12:00:00');
-    for(let i=0; i<(isRecurring?occurrences:1); i++){
+    const iters = editEvent ? 1 : (isRecurring?occurrences:1);
+    for(let i=0; i<iters; i++){
        const d = new Date(baseDate);
        d.setDate(d.getDate() + i * 7);
        const dStr = d.toISOString().slice(0,10);
@@ -1666,10 +1870,12 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,onSave,onClose}
            songsToUse = generateDynamicSetlist(dStr, 'culto', songs, events, form.requestedSongs, form.santaCeiaSong);
        }
        
-       evs.push({id:'local_ev_'+Date.now()+'_'+i,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,songs:songsToUse,members:form.selMembers,confirmations:{},singerBySong:{},sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong});
+       const evId = editEvent ? editEvent.id : 'local_ev_'+Date.now()+'_'+i;
+       const newEv = {id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,songs:songsToUse,members:form.selMembers,confirmations:editEvent?editEvent.confirmations:{},singerBySong:editEvent?editEvent.singerBySong:{},sequenceBySong:editEvent?editEvent.sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong};
+       evs.push(newEv);
        
-       // Criar ensaio de sábado automaticamente se for domingo
-       if (form.type === 'culto' && d.getDay() === 0) {
+       // Criar ensaio de sábado automaticamente se for domingo (apenas na criação)
+       if (!editEvent && form.type === 'culto' && d.getDay() === 0) {
            const dSat = new Date(d);
            dSat.setDate(dSat.getDate() - 1);
            evs.push({id:'local_ev_'+Date.now()+'_sat_'+i,date:dSat.toISOString().slice(0,10),time:'15:00',type:'ensaio',label:'Ensaio (Sáb)',theme:form.theme||null,songs:songsToUse,members:form.selMembers,confirmations:{},singerBySong:{},sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong});
@@ -1713,6 +1919,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,onSave,onClose}
             </div>
           </div>
           {/* Recurrence */}
+          {!editEvent&&<>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)',padding:'12px',borderRadius:'var(--r-md)'}}>
             <div>
               <div style={{fontSize:'var(--fs-sm)',fontWeight:700,color:tc}}>Repetir semanalmente</div>
@@ -1724,6 +1931,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,onSave,onClose}
              <span style={{fontSize:'var(--fs-sm)',color:t2,fontWeight:600}}>Ocorrências:</span>
              <input type="number" min="2" max="12" value={occurrences} onChange={e=>setOccurrences(Number(e.target.value))} className="fi" style={{flex:1,color:tc,textAlign:'right'}}/>
           </div>}
+          </>}
           
           {/* Theme */}
           <div className="gIn"><input className="fi" value={form.theme} onChange={e=>setForm(f=>({...f,theme:e.target.value}))} placeholder="Tema / título (opcional)" style={{color:tc}}/></div>
@@ -1772,7 +1980,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,onSave,onClose}
               </button>)}
             </div>
           </div>}
-          <button className="bp" onClick={save} disabled={!form.date||!form.label}>Criar Compromisso</button>
+          <button className="bp" onClick={save} disabled={!form.date||!form.label}>{editEvent?'Salvar Alterações':'Criar Compromisso'}</button>
         </div>
       </div>
     </div>
@@ -1780,7 +1988,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,onSave,onClose}
 });
 
 /* ─── EVENT SHEET ───────────────────────────────────────────── */
-const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,spawnConfetti})=>{
+const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,spawnConfetti})=>{
   if(!ev)return null;
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const evItems=(ev.items||[]).map(it=>it.type==='song'?{...it,song:songs.find(s=>s.id===it.song_id)}:it).filter(it=>it.type==='note'||it.song);
@@ -1800,24 +2008,36 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
         </div>
         {ev.theme&&<div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-sm)',padding:'9px 14px',marginBottom:14,fontSize:'var(--fs-sm)',color:'#4F46E5',fontWeight:700,border:'1px solid rgba(79,70,229,.15)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
         {/* Share setlist */}
-        {evS.length>0&&<button onClick={()=>{
+        {ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0&&<button onClick={()=>{
           const txt=`🎵 *${ev.label}* — ${fDate(ev.date)} · ${ev.time}\n${ev.theme?`📖 ${ev.theme}\n`:''}\n*Setlist:*\n${evS.map((s,i)=>`${i+1}. ${s.title} (${s.artist}) — ${s.key}`).join('\n')}\n\n_Via LouveSync · IMWAL_`;
           navigator.clipboard.writeText(txt).then(()=>{const btn=document.getElementById('shareBtn');if(btn){btn.style.animation='shareBtn .3s ease';setTimeout(()=>btn.style.animation='',400);}}).catch(()=>alert(txt));
         }} id="shareBtn" style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.06)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoShare s={14}/>Copiar setlist para WhatsApp</button>}
         {isMyEvent&&<div style={{display:'flex',gap:8,marginBottom:16}}>
-          <button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{flex:1,padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===true?'#10B981':'rgba(16,185,129,.1)',color:myConf===true?'#fff':'#059669',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoCheck/>Confirmar Presença</button>
+          <button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{flex:1,padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===true?'#10B981':'rgba(16,185,129,.1)',color:myConf===true?'#fff':'#059669',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoCheck/>Confirmar</button>
           <button onClick={()=>onConfirm(ev.id,false)} style={{flex:1,padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===false?'#EF4444':'rgba(239,68,68,.08)',color:myConf===false?'#fff':'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX/>Recusar</button>
+          {profile?.is_admin&&<button onClick={()=>onEditEv&&onEditEv(ev)} style={{padding:'10px 16px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(245,158,11,.15)',color:'#D97706',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoEdit s={14}/>Editar</button>}
         </div>}
-        <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Setlist</div>
-        {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map((it,i)=>{
-          if(it.type==='note') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:'#D97706', borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
-          const s = it.song;
-          return <div key={it.id} onClick={()=>onSelectSong(s)} style={{display:'flex',alignItems:'center',gap:11,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)',cursor:'pointer'}}>
-            <span style={{width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
-            <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
-            <KeyChip k={s.key} size={10}/>
-          </div>
-        })}
+        {ev.type !== 'ebd' && ev.type !== 'consagracao' && <>
+          <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Setlist</div>
+          {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map((it,i)=>{
+            if(it.type==='note') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:'#D97706', borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
+            const s = it.song;
+            return <div key={it.id} style={{display:'flex',flexDirection:'column',gap:5,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
+              <div onClick={()=>onSelectSong(s)} style={{display:'flex',alignItems:'center',gap:11,cursor:'pointer'}}>
+                <span style={{width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
+                <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
+                <KeyChip k={ev.singerBySong?.[s.id] && s.vocal_keys?.[ev.singerBySong[s.id]] ? s.vocal_keys[ev.singerBySong[s.id]] : s.key} size={10}/>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4,paddingTop:8,borderTop:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
+                <span style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700}}>🎤 Vocal principal:</span>
+                <select className="fi" style={{flex:1,padding:'4px 8px',fontSize:'var(--fs-xs)'}} value={ev.singerBySong?.[s.id]||''} onChange={e=>onSetSinger&&onSetSinger(ev.id,s.id,e.target.value)}>
+                  <option value="">- Ninguém -</option>
+                  {evM.filter(m=>m.instrument?.toLowerCase().includes('vocal')).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
+            </div>
+          })}
+        </>}
         <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',margin:'16px 0 10px'}}>Equipe ({evM.length})</div>
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
           {evM.map(m=>{const conf=ev.confirmations[m.id];return <div key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:'var(--r-md)',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
@@ -1973,6 +2193,60 @@ export default function LouveSync() {
     loadMembers();
   },[]);
 
+  /* ── Session Expiry (4h) ── */
+  useEffect(() => {
+    if(!profile) return;
+    const checkSession = () => {
+       const lastAct = localStorage.getItem('ls_last_activity');
+       if (lastAct && Date.now() - parseInt(lastAct) > 4 * 60 * 60 * 1000) {
+           handleLogout();
+           alert('Sua sessão expirou por inatividade de 4 horas.');
+       } else {
+           localStorage.setItem('ls_last_activity', Date.now().toString());
+       }
+    };
+    checkSession();
+    
+    // Debounce activity update
+    let lastUpdate = Date.now();
+    const updateAct = () => {
+       const now = Date.now();
+       if (now - lastUpdate > 60000) { // Update localStorage at most once a minute on activity
+           localStorage.setItem('ls_last_activity', now.toString());
+           lastUpdate = now;
+       }
+    };
+    
+    window.addEventListener('pointerdown', updateAct, {passive: true});
+    window.addEventListener('keydown', updateAct, {passive: true});
+    const interval = setInterval(checkSession, 60000 * 5); // Check every 5 minutes
+    return () => {
+      window.removeEventListener('pointerdown', updateAct);
+      window.removeEventListener('keydown', updateAct);
+      clearInterval(interval);
+    };
+  }, [profile]);
+
+  /* ── HW Back Button (PopState) ── */
+  useEffect(() => {
+    const activeOverlay = inCifra || addOpen || createEvOpen || evSheet || notifsOpen;
+    if (activeOverlay) {
+       window.history.pushState({ overlay: true }, '');
+    }
+  }, [!!inCifra, !!addOpen, !!createEvOpen, !!evSheet, !!notifsOpen]);
+
+  useEffect(() => {
+    const handlePopState = (e) => {
+      if (inCifra) setInCifra(false);
+      if (addOpen) setAddOpen(false);
+      if (createEvOpen) setCreateEvOpen(false);
+      if (evSheet) setEvSheet(null);
+      if (notifsOpen) setNotifsOpen(false);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [inCifra, addOpen, createEvOpen, evSheet, notifsOpen]);
+
   /* ── Load app data ── */
   useEffect(()=>{
     if(!profile)return;
@@ -2070,7 +2344,20 @@ export default function LouveSync() {
   }
   function handleLogout(){localStorage.removeItem('ls_profile');setProfile(null);setSelSong(null);setSelEvent(null);setTab('home');}
   function navTo(t){vib();setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}}
-  function selectSong(s,ev=null){vib();setSelSong(s);setSelEvent(ev);setTr(0);setMetro(false);setBeatIdx(-1);setTab('repertorio');}
+  function selectSong(s,ev=null){
+    vib();setSelSong(s);setSelEvent(ev);
+    let defTr = 0;
+    if(ev && ev.singerBySong && ev.singerBySong[s.id]) {
+      const singerId = ev.singerBySong[s.id];
+      if(s.vocal_keys && s.vocal_keys[singerId]) {
+         const sh1 = SH.indexOf(s.vocal_keys[singerId]);
+         const sh2 = SH.indexOf(s.key);
+         if(sh1!==-1 && sh2!==-1) defTr = sh1 - sh2;
+      }
+    }
+    setTr(defTr);
+    setMetro(false);setBeatIdx(-1);setTab('repertorio');
+  }
 
   function spawnConfetti(){
     const colors=['#4F46E5','#10B981','#F59E0B','#EC4899','#8B5CF6','#06B6D4'];
@@ -2111,12 +2398,27 @@ export default function LouveSync() {
     }
   }
 
-  function handleSaveEvent(evs){
+  async function handleSaveEvent(evs){
     const toAdd = Array.isArray(evs) ? evs : [evs];
-    setEvents(p=>[...p,...toAdd]);
+    setEvents(p => {
+      let next = [...p];
+      toAdd.forEach(ev => {
+        const idx = next.findIndex(x => x.id === ev.id);
+        if(idx >= 0) next[idx] = ev;
+        else next.push(ev);
+      });
+      return next;
+    });
     setCreateEvOpen(false);
     spawnConfetti();
-    // TODO: sync to Supabase (upsertEvent)
+    try {
+      for (const ev of toAdd) {
+         const { songs, items, members, confirmations, singerBySong, requested_songs, sequenceBySong, ...rest } = ev;
+         await upsertEvent(rest);
+         const eventItems = (items || []).map(it => ({ type: it.type, song_id: it.song_id, text: it.text }));
+         await setEventItems(ev.id, eventItems, members || []);
+      }
+    } catch(e) { console.error('Sync event failed', e); }
   }
 
   async function handleSetSequence(evId, songId, seqStr){
@@ -2128,10 +2430,30 @@ export default function LouveSync() {
     }
   }
 
+  async function handleSetSinger(evId, songId, memberId){
+    setEvents(evs => evs.map(e => e.id === evId ? {...e, singerBySong: {...(e.singerBySong||{}), [songId]: memberId}} : e));
+    try {
+      await setSingerForSong(evId, songId, memberId);
+    } catch(e) { console.error('Singer update error', e); }
+  }
+
+  async function handleSaveVocalKey(songId, memberId, newKey){
+    setSongs(s => s.map(x => x.id === songId ? {...x, vocal_keys: {...(x.vocal_keys||{}), [memberId]: newKey}} : x));
+    try {
+      // Fake Supabase logic for now
+    } catch(e) { console.error('Save vocal key error', e); }
+  }
+
   async function handleSaveSong(song){
-    setSongs(p=>[...p,song]);setAddOpen(false);spawnConfetti();
+    const newSong = { ...song, created_at: song.created_at || new Date().toISOString() };
+    setSongs(p=> {
+       const exists = p.find(s=>s.id === newSong.id);
+       if (exists) return p.map(s=>s.id===newSong.id?newSong:s);
+       return [...p,newSong];
+    });
+    setAddOpen(false);spawnConfetti();
     try{
-      const {id:localId,...rest}=song;
+      const {id:localId,...rest}=newSong;
       const saved=await upsertSong({...rest,created_by:profile?.id});
       if(saved)setSongs(p=>p.map(s=>s.id===localId?saved:s));
     }catch(e){console.error('Sync song failed:',e);}
@@ -2177,12 +2499,14 @@ export default function LouveSync() {
     {id:'home',ico:<IcoHome s={22}/>,l:'Início'},
     {id:'repertorio',ico:<IcoMusic s={22}/>,l:'Músicas'},
     {id:'escala',ico:<IcoCal s={22}/>,l:'Escala'},
-    {id:'membros',ico:<IcoPeople s={22}/>,l:'Membros'},
     {id:'biblia',ico:<IcoBook s={22}/>,l:'Bíblia'},
     {id:'devocional',ico:<IcoHeart s={22}/>,l:'Devocional'},
     {id:'treinamento',ico:<IcoGuitar s={22}/>,l:'Treinar'},
     {id:'ia',ico:<IcoSpark s={22}/>,l:'Maestro'},
-    ...(profile?.is_admin ? [{id:'admin',ico:<IcoPeople s={22}/>,l:'Admin'}] : [])
+    ...(profile?.is_admin ? [
+      {id:'membros',ico:<IcoPeople s={22}/>,l:'Membros'},
+      {id:'admin',ico:<IcoPeople s={22}/>,l:'Admin'}
+    ] : [])
   ];
   const tc=dark?'#E2E8F0':'#0F172A';
 
@@ -2227,14 +2551,14 @@ export default function LouveSync() {
           {dataLoading&&!inCifra?<Skeleton dark={dark} count={6}/>:<>
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={()=>setCreateEvOpen(true)}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
-            {inCifra&&<Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} profile={profile}/>}
+            {inCifra&&<Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} profile={profile} members={allMembers}/>}
             {tab==='escala'&&!inCifra&&<Escala profile={profile} dark={dark} events={events} songs={songs} members={allMembers} onConfirm={handleConfirm} onEvSheet={setEvSheet} spawnConfetti={spawnConfetti} onCreateEvent={()=>setCreateEvOpen(true)}/>}
             {tab==='membros'&&!inCifra&&<Membros profile={profile} dark={dark} members={allMembers} events={events} selRole={selRole} setSelRole={setSelRole}/>}
             {tab==='ia'&&!inCifra&&<Maestro dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
             {tab==='treinamento'&&!inCifra&&<Treinamento dark={dark} profile={profile}/>}
             {tab==='biblia'&&!inCifra&&<Biblia dark={dark}/>}
-            {tab==='admin'&&!inCifra&&<PainelAdmin dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState}/>}
+            {tab==='admin'&&!inCifra&&<PainelAdmin dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState} setMembers={setAllMembers}/>}
           </>}
         </div>
 
@@ -2251,9 +2575,9 @@ export default function LouveSync() {
       </>}
 
       {/* OVERLAYS */}
-      {addOpen&&<AddSong dark={dark} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
-      {createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);}}/>}
-      {evSheet&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} onClose={()=>setEvSheet(null)} onSelectSong={s=>{selectSong(s);setEvSheet(null);}} onConfirm={handleConfirm} spawnConfetti={spawnConfetti}/>}
+      {addOpen&&<AddSong dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
+      {createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
+      {evSheet&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} onClose={()=>setEvSheet(null)} onSelectSong={s=>{selectSong(s,evSheet);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} spawnConfetti={spawnConfetti}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotifsSheet dark={dark} notifs={notifs} onClose={()=>setNotifsOpen(false)} onMarkRead={id=>setNotifs(ns=>ns.map(n=>n.id===id?{...n,read:true}:n))} onMarkAllRead={()=>setNotifs(ns=>ns.map(n=>({...n,read:true})))} onAction={n=>{if(n.ctaAction==='addSong'){setAddOpen(true);setNotifsOpen(false);}else if(n.ctaTab){navTo(n.ctaTab);setNotifsOpen(false);}}}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
     </div>
