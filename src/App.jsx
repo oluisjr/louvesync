@@ -2353,39 +2353,7 @@ export default function LouveSync() {
     loadMembers();
   },[]);
 
-  /* ── Session Expiry (4h) ── */
-  useEffect(() => {
-    if(!profile) return;
-    const checkSession = () => {
-       const lastAct = localStorage.getItem('ls_last_activity');
-       if (lastAct && Date.now() - parseInt(lastAct) > 4 * 60 * 60 * 1000) {
-           handleLogout();
-           alert('Sua sessão expirou por inatividade de 4 horas.');
-       } else {
-           localStorage.setItem('ls_last_activity', Date.now().toString());
-       }
-    };
-    checkSession();
-    
-    // Debounce activity update
-    let lastUpdate = Date.now();
-    const updateAct = () => {
-       const now = Date.now();
-       if (now - lastUpdate > 60000) { // Update localStorage at most once a minute on activity
-           localStorage.setItem('ls_last_activity', now.toString());
-           lastUpdate = now;
-       }
-    };
-    
-    window.addEventListener('pointerdown', updateAct, {passive: true});
-    window.addEventListener('keydown', updateAct, {passive: true});
-    const interval = setInterval(checkSession, 60000 * 5); // Check every 5 minutes
-    return () => {
-      window.removeEventListener('pointerdown', updateAct);
-      window.removeEventListener('keydown', updateAct);
-      clearInterval(interval);
-    };
-  }, [profile]);
+  
 
   /* ── HW Back Button (PopState) ── */
   useEffect(() => {
