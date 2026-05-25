@@ -147,50 +147,12 @@ const localScraperPlugin = () => ({
   }
 });
 
-import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
     react(),
     localScraperPlugin(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.png', 'apple-touch-icon.png'],
-      manifest: {
-        name: 'Louve',
-        short_name: 'Louve',
-        description: 'Gestão de Ministério de Louvor — Seu ministério em harmonia',
-        theme_color: '#7B3FF2',
-        icons: [
-          { src: 'logo_solo.png', sizes: '192x192', type: 'image/png' },
-          { src: 'logo_solo.png', sizes: '512x512', type: 'image/png' },
-          { src: 'logo_solo.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
-        ]
-      },
-      workbox: {
-        cleanupOutdatedCaches: true,
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
-              cacheableResponse: { statuses: [0, 200] }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] }
-            }
-          }
-        ]
-      }
-    })
+
   ],
   build: {
     chunkSizeWarningLimit: 1500

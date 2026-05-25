@@ -602,7 +602,10 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     });
     setEditMember(null);
     try {
-      await upsertMember(editMember);
+      const dbMember = { ...editMember };
+      delete dbMember.permissions;
+      delete dbMember.unavailableDays;
+      await upsertMember(dbMember);
     } catch (e) {
       console.error('Failed to save member:', e);
     }
