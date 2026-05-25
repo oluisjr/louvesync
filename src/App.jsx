@@ -2565,34 +2565,7 @@ export default function LouveSync() {
     }
   }
 
-  async function handleSetSinger(evId, songId, memberId){
-    setEvents(evs => evs.map(e => e.id === evId ? {...e, singerBySong: {...(e.singerBySong||{}), [songId]: memberId}} : e));
-    try {
-      await setSingerForSong(evId, songId, memberId);
-    } catch(e) { console.error('Singer update error', e); }
-  }
 
-  async function handleUpdateSongOptions(songId, newKey, updateOfficial, newBpm, newTimeSig, singerId, eventId) {
-    if (newBpm || newTimeSig) {
-      setSongs(s => s.map(x => x.id === songId ? {...x, bpm: newBpm || x.bpm, time_signature: newTimeSig || x.time_signature} : x));
-      // update db fake
-      upsertSong({...songs.find(x => x.id === songId), bpm: newBpm, time_signature: newTimeSig}).catch(e=>console.error(e));
-    }
-    
-    if (updateOfficial && singerId) {
-      // update song vocal keys
-      setSongs(s => s.map(x => x.id === songId ? {...x, vocal_keys: {...(x.vocal_keys||{}), [singerId]: newKey}} : x));
-      const target = songs.find(x => x.id === songId);
-      if(target) {
-        upsertSong({...target, vocal_keys: {...(target.vocal_keys||{}), [singerId]: newKey}}).catch(e=>console.error(e));
-      }
-    } else {
-      // just for event
-      setEvents(evs => evs.map(e => e.id === eventId ? {...e, keyBySong: {...(e.keyBySong||{}), [songId]: newKey}} : e));
-      const ev = events.find(x => x.id === eventId);
-      if(ev) upsertEvent({...ev, keyBySong: {...(ev.keyBySong||{}), [songId]: newKey}}).catch(e=>console.error(e));
-    }
-  }
 
   async function handleSaveSong(song){
     const newSong = { ...song, created_at: song.created_at || new Date().toISOString() };
