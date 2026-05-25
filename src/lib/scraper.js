@@ -166,8 +166,9 @@ async function searchCifraClub(title, artist) {
       if (parts.length !== 2 || !parts[0] || !parts[1]) continue;
 
       // Evitar links de navegação genéricos
-      const skip = ['search', 'top', 'mais', 'sobre', 'blog', 'contato', 'privacidade', 'tom'];
+      const skip = ['search', 'top', 'mais', 'sobre', 'blog', 'contato', 'privacidade', 'tom', 'letra', 'estilos', 'musico', 'listas', 'artistas', 'youtube', 'tv', 'forum', 'suporte', 'login', 'cadastro', 'ajuda', 'dicionario', 'gospel', 'sertanejo', 'rock', 'mpb', 'samba', 'pop', 'reggae'];
       if (skip.some(s => parts[0].includes(s))) continue;
+      if (parts[0].length <= 1) continue;
 
       const url = `https://www.cifraclub.com.br${href.startsWith('/') ? href : '/' + href}`;
       const rawTitle = a.textContent?.trim() || '';
