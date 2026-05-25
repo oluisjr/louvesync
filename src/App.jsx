@@ -722,7 +722,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     <div className={`${gc} aUp`} style={CS}>
        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
          <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>Gerenciar Membros</div>
-         <button onClick={()=>setEditMember({id:`new_${Date.now()}`, name:'', pin:'', instrument:'', is_admin:false, status:'ativo', permissions:['home','repertorio','escala','devocional','treinamento','membros'], unavailableDays:[], color: '#4F46E5', avatar: 'NM'})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>
+         <button onClick={()=>setEditMember({id:crypto.randomUUID(), name:'', pin:'', instrument:'', is_admin:false, status:'ativo', permissions:['home','repertorio','escala','devocional','treinamento','membros'], unavailableDays:[], color: '#4F46E5', avatar: 'NM'})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>
        </div>
        {members.map(m => (
          <div key={m.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'6px 0',borderBottom:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
@@ -760,7 +760,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     {/* Member Edit Modal */}
     {editMember && <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
        <div className={gc} style={{width:'100%',maxWidth:420,borderRadius:'var(--r-xl)',padding:24,maxHeight:'85vh',overflowY:'auto'}}>
-          <div style={{fontSize:18,fontWeight:900,color:tc,marginBottom:16}}>{editMember.id.startsWith('new_') ? 'Novo Membro' : 'Editar Membro'}</div>
+          <div style={{fontSize:18,fontWeight:900,color:tc,marginBottom:16}}>{(!editMember.name && !editMember.pin) ? 'Novo Membro' : 'Editar Membro'}</div>
           <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.name} onChange={e=>{
              const n=e.target.value;
              let ava = 'NM';
@@ -813,14 +813,14 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
              <button className="bp" onClick={saveMember} style={{flex:1}}>Salvar</button>
              <button onClick={()=>setEditMember(null)} style={{padding:'10px',borderRadius:'var(--r-md)',border:'none',background:'rgba(0,0,0,.1)',color:tc,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
           </div>
-          {!editMember.id.startsWith('new_') && editMember.id !== profile.id && <button onClick={()=>{setEditMember(null); delMember(editMember.id);}} style={{width:'100%',padding:'10px',borderRadius:'var(--r-md)',border:'none',background:'transparent',color:'#EF4444',fontWeight:700,cursor:'pointer',marginTop:10}}>Excluir Membro</button>}
+          {(editMember.name || editMember.pin) && editMember.id !== profile.id && <button onClick={()=>{setEditMember(null); delMember(editMember.id);}} style={{width:'100%',padding:'10px',borderRadius:'var(--r-md)',border:'none',background:'transparent',color:'#EF4444',fontWeight:700,cursor:'pointer',marginTop:10}}>Excluir Membro</button>}
        </div>
     </div>}
 
   </div>;
 });
 const MetroDots = ({beatIdx,timeSignature,active,dark})=>{
-  const beats=parseInt(timeSignature?.split('/')[0])||4;
+  const beats=parseInt(String(timeSignature||'4/4').split('/')[0])||4;
   if(!active)return null;
   return <div style={{display:'flex',gap:5,justifyContent:'center',marginTop:10}}>
     {Array.from({length:beats}).map((_,i)=><div key={i} style={{width:i===0?11:8,height:i===0?11:8,borderRadius:'50%',background:beatIdx===i?(i===0?'#10B981':'#4F46E5'):(dark?'rgba(255,255,255,.15)':'rgba(0,0,0,.12)'),transition:'background .06s, transform .06s',transform:beatIdx===i?'scale(1.35)':'scale(1)',boxShadow:beatIdx===i&&i===0?'0 0 8px rgba(16,185,129,.6)':beatIdx===i?'0 0 6px rgba(79,70,229,.5)':''}}/>)}
@@ -1186,7 +1186,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
   const curKey=getKey(song.key,tr);
-  const beats=parseInt(song.time_signature?.split('/')[0])||4;
+  const beats=parseInt(String(song.time_signature||'4/4').split('/')[0])||4;
   
   const getEmbedUrl = (url) => {
     if(!url || typeof url !== 'string') return null;
@@ -1233,7 +1233,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     </div>
 
     {/* Media Player */}
-    {embedUrl && <div className={`${gc} aUp`} style={{...CS, padding:0, overflow:'hidden', marginBottom:12, height: (song.media_url||'').includes('spotify') ? 80 : 200}}>
+    {embedUrl && <div className={`${gc} aUp`} style={{...CS, padding:0, overflow:'hidden', marginBottom:12, height: String(song.media_url||'').includes('spotify') ? 80 : 200}}>
        <iframe src={embedUrl} width="100%" height="100%" frameBorder="0" allow="encrypted-media; picture-in-picture" allowFullScreen></iframe>
     </div>}
 
@@ -2473,7 +2473,7 @@ export default function LouveSync() {
     if(metro&&selSong){
       const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
       if(!audioCtx.current)audioCtx.current=new AC();
-      const beats=parseInt(selSong.time_signature?.split('/')[0])||4;
+      const beats=parseInt(String(selSong.time_signature||'4/4').split('/')[0])||4;
       let idx=-1;
       const tick=()=>{
         const ctx=audioCtx.current;if(!ctx)return;
