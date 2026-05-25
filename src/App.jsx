@@ -1497,7 +1497,7 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Músicas</div>
           {evS.length===0?<div style={{fontSize:'var(--fs-xs)',color:t2,opacity:.6}}>Nenhuma música definida</div>:
           <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-            {evS.map(s=><span key={s.id} style={{padding:'4px 11px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer',background:`${CAT[s.cat].color}14`,color:CAT[s.cat].color,border:`1px solid ${CAT[s.cat].color}28`}}>{s.title}</span>)}
+            {evS.map(s=><span key={s.id} style={{padding:'4px 11px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer',background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}14`,color:(CAT[s.cat]||{color:'#94A3B8'}).color,border:`1px solid ${(CAT[s.cat]||{color:'#94A3B8'}).color}28`}}>{s.title}</span>)}
           </div>}
         </div>}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
@@ -2088,7 +2088,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
             <div>
               <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Músicas Pedidas ({form.requestedSongs.length})</div>
               <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                {form.requestedSongs.map(id=>{const s=songs.find(x=>x.id===id);return s?<span key={id} onClick={()=>toggleRequestedSong(id)} style={{padding:'4px 10px',borderRadius:100,background:`${CAT[s.cat].color}15`,color:CAT[s.cat].color,fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>{s.title} ✕</span>:null;})}
+                {form.requestedSongs.map(id=>{const s=songs.find(x=>x.id===id);return s?<span key={id} onClick={()=>toggleRequestedSong(id)} style={{padding:'4px 10px',borderRadius:100,background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}15`,color:(CAT[s.cat]||{color:'#94A3B8'}).color,fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>{s.title} ✕</span>:null;})}
               </div>
               <div className="gIn" style={{marginTop:8}}><select className="fi" value="" onChange={e=>toggleRequestedSong(e.target.value)} style={{color:tc,padding:'8px 10px'}}><option value="">+ Adicionar música pedida...</option>{songs.filter(s=>!form.requestedSongs.includes(s.id)).map(s=><option key={s.id} value={s.id}>{s.title} ({s.artist})</option>)}</select></div>
             </div>
@@ -2102,8 +2102,8 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
             </div>
             <div className="gIn" style={{marginBottom:8}}><input className="fi" value={songSearch} onChange={e=>setSongSearch(e.target.value)} placeholder="Buscar música..." style={{color:tc,padding:'8px 14px'}}/></div>
             <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:130,overflowY:'auto'}}>
-              {filtS.map(s=><button key={s.id} onClick={()=>toggleSong(s.id)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:'var(--r-sm)',border:`1.5px solid ${form.selSongs.includes(s.id)?CAT[s.cat].color:'transparent'}`,background:form.selSongs.includes(s.id)?`${CAT[s.cat].color}10`:'rgba(0,0,0,.03)',cursor:'pointer',transition:'all .15s'}}>
-                <div style={{width:8,height:8,borderRadius:'50%',background:CAT[s.cat].color,flexShrink:0}}/>
+              {filtS.map(s=><button key={s.id} onClick={()=>toggleSong(s.id)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:'var(--r-sm)',border:`1.5px solid ${form.selSongs.includes(s.id)?(CAT[s.cat]||{color:'#94A3B8'}).color:'transparent'}`,background:form.selSongs.includes(s.id)?`${(CAT[s.cat]||{color:'#94A3B8'}).color}10`:'rgba(0,0,0,.03)',cursor:'pointer',transition:'all .15s'}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:(CAT[s.cat]||{color:'#94A3B8'}).color,flexShrink:0}}/>
                 <span style={{flex:1,fontSize:'var(--fs-sm)',fontWeight:700,color:tc,textAlign:'left'}}>{s.title}</span>
                 <KeyChip k={s.key} size={9}/>
                 {form.selSongs.includes(s.id)&&<IcoCheck s={12}/>}
