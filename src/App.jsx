@@ -481,47 +481,31 @@ const Biblia = memo(({dark})=>{
 const ContentCarousel = memo(({content, dark}) => {
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
-  
-  const [idx, setIdx] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
 
-  useEffect(() => {
-     if(isHovered) return;
-     const timer = setInterval(() => {
-        setIdx(prev => (prev + 1) % content.length);
-     }, 10000);
-     return () => clearInterval(timer);
-  }, [isHovered, content.length]);
+  return <div style={{display:'flex', gap:14, overflowX:'auto', scrollSnapType:'x mandatory', paddingBottom:10, scrollbarWidth:'none'}} className="hide-scroll">
+    {content.map((c, i) => (
+      <div key={i} className={`${gc} aUp`} style={{...CS, flexShrink:0, width:'85%', scrollSnapAlign:'center', padding: c.type==='video'||c.type==='podcast'?12:20, minHeight: 280, display:'flex', flexDirection:'column'}}>
+        <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:10,background:'rgba(245,158,11,.1)',color:'#D97706',border:'1px solid rgba(245,158,11,.2)', alignSelf:'flex-start'}}>{c.theme || c.cat}</span>
+        <div className="font-serif" style={{fontSize:18,fontWeight:900,color:tc,lineHeight:1.2,marginBottom:4}}>{c.title}</div>
+        
+        {c.type === 'text' && <>
+          {c.author && <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12,fontStyle:'italic'}}>Reflexão - {c.author}</div>}
+          <div style={{fontSize:'var(--fs-sm)',lineHeight:1.7,color:tc,flex:1}}>{c.text}</div>
+        </>}
+        
+        {c.type === 'podcast' && <>
+          {c.desc && <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12}}>{c.desc}</div>}
+          <iframe style={{borderRadius: '12px', flex:1}} src={`https://open.spotify.com/embed/${c.embedType||'episode'}/${c.spotifyId || c.id}?utm_source=generator`} width="100%" height="152" frameBorder="0" allowFullScreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+        </>}
 
-  const c = content[idx];
-
-  return <div style={{position:'relative'}} onMouseEnter={()=>setIsHovered(true)} onMouseLeave={()=>setIsHovered(false)} onTouchStart={()=>setIsHovered(true)}>
-    <div className={`${gc} aUp`} style={{...CS, padding: c.type==='video'||c.type==='podcast'?12:20, minHeight: 280, display:'flex', flexDirection:'column'}}>
-      <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:10,background:'rgba(245,158,11,.1)',color:'#D97706',border:'1px solid rgba(245,158,11,.2)', alignSelf:'flex-start'}}>{c.theme || c.cat}</span>
-      <div className="font-serif" style={{fontSize:18,fontWeight:900,color:tc,lineHeight:1.2,marginBottom:4}}>{c.title}</div>
-      
-      {c.type === 'text' && <>
-        {c.author && <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12,fontStyle:'italic'}}>Reflexão - {c.author}</div>}
-        <div style={{fontSize:'var(--fs-sm)',lineHeight:1.7,color:tc,flex:1}}>{c.text}</div>
-      </>}
-      
-      {c.type === 'podcast' && <>
-        {c.desc && <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12}}>{c.desc}</div>}
-        <iframe style={{borderRadius: '12px', flex:1}} src={`https://open.spotify.com/embed/${c.embedType||'episode'}/${c.spotifyId || c.id}?utm_source=generator`} width="100%" height="152" frameBorder="0" allowFullScreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-      </>}
-
-      {c.type === 'video' && <>
-        {c.desc && <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12}}>{c.desc}</div>}
-        <div style={{borderRadius:'var(--r-lg)',overflow:'hidden',aspectRatio:'16/9', flex:1}}>
-          <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${c.ytId || c.id}`} title={c.title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
-        </div>
-      </>}
-    </div>
-    <div style={{display:'flex',justifyContent:'center',gap:6,marginTop:-5,marginBottom:20}}>
-      {content.map((_, i) => (
-        <button key={i} onClick={() => {setIdx(i); setIsHovered(true);}} style={{width:i===idx?18:8,height:8,borderRadius:4,background:i===idx?'#4F46E5':(dark?'rgba(255,255,255,.2)':'rgba(0,0,0,.15)'),border:'none',transition:'all .3s',cursor:'pointer',padding:0}}/>
-      ))}
-    </div>
+        {c.type === 'video' && <>
+          {c.desc && <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:12}}>{c.desc}</div>}
+          <div style={{borderRadius:'var(--r-lg)',overflow:'hidden',aspectRatio:'16/9', flex:1}}>
+            <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${c.ytId || c.id}`} title={c.title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
+          </div>
+        </>}
+      </div>
+    ))}
   </div>;
 });
 
@@ -574,7 +558,7 @@ const Treinamento = memo(({dark, profile})=>{
   ];
 
   return <div style={{padding:16, paddingBottom:96}}>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
+       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
       <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoGuitar s={20}/>Treinamento</div>
     </div>
     
@@ -1205,7 +1189,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
   const beats=parseInt(song.time_signature?.split('/')[0])||4;
   
   const getEmbedUrl = (url) => {
-    if(!url) return null;
+    if(!url || typeof url !== 'string') return null;
     try {
       if(url.includes('youtube.com/watch?v=')) {
           let u = url.startsWith('http') ? url : 'https://'+url;
@@ -1249,7 +1233,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     </div>
 
     {/* Media Player */}
-    {embedUrl && <div className={`${gc} aUp`} style={{...CS, padding:0, overflow:'hidden', marginBottom:12, height: song.media_url?.includes('spotify') ? 80 : 200}}>
+    {embedUrl && <div className={`${gc} aUp`} style={{...CS, padding:0, overflow:'hidden', marginBottom:12, height: (song.media_url||'').includes('spotify') ? 80 : 200}}>
        <iframe src={embedUrl} width="100%" height="100%" frameBorder="0" allow="encrypted-media; picture-in-picture" allowFullScreen></iframe>
     </div>}
 
@@ -2769,13 +2753,7 @@ export default function LouveSync() {
             {inCifra&&<button onClick={()=>{vib();setSelSong(null);}} style={{padding:'8px 16px',borderRadius:'var(--r-full)',border:'none',background:'rgba(123,63,242,.14)',color:'#7B3FF2',display:'flex',alignItems:'center',gap:6,fontWeight:800,fontSize:'var(--fs-sm)',cursor:'pointer',boxShadow:'0 2px 10px rgba(123,63,242,.15)'}}><IcoChevL s={16}/> Voltar</button>}
             {inCifra?<div style={{lineHeight:1.3,textAlign:'right'}}><div className="font-serif" style={{fontSize:16,fontWeight:900,color:tc}}>{selSong.title}</div><div style={{fontSize:'var(--fs-xs)',color:dark?'#94A3B8':'#475569'}}>{selSong.artist}</div></div>
             :<div style={{display:'flex',alignItems:'center',gap:10}}>
-              <div style={{
-                 width: 34, height: 34, flexShrink: 0,
-                 background: dark ? 'linear-gradient(135deg,#A855F7,#FF8C5A)' : 'linear-gradient(135deg,#7B3FF2,#FF6B35)',
-                 WebkitMaskImage: 'url(/logo_solo.png)', WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center',
-                 maskImage: 'url(/logo_solo.png)', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center',
-                 filter: dark ? 'drop-shadow(0 2px 8px rgba(123,63,242,0.5))' : 'drop-shadow(0 2px 4px rgba(123,63,242,0.2))'
-              }} />
+              <img src="/logo_solo.png" alt="Louve" style={{height:34, objectFit:'contain', filter: dark?'drop-shadow(0 2px 8px rgba(123,63,242,0.5))':'drop-shadow(0 2px 4px rgba(123,63,242,0.2))'}} />
               <div>
                 <div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:tc,letterSpacing:'-.03em',lineHeight:1,background:dark?'linear-gradient(135deg,#A855F7,#FF8C5A)':'linear-gradient(135deg,#7B3FF2,#FF6B35)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>Louve</div>
                 <div style={{fontSize:8,color:dark?'#7B5FA8':'#8B6BB0',fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',WebkitTextFillColor:'initial'}}>seu ministério em harmonia</div>
