@@ -736,7 +736,10 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     </div>
 
     <div className={`${gc} aUp`} style={CS}>
-       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12}}>Gerenciar Membros</div>
+       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+         <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>Gerenciar Membros</div>
+         <button onClick={()=>setEditMember({id:`new_${Date.now()}`, name:'', pin:'', instrument:'', is_admin:false, status:'ativo', permissions:['home','repertorio','escala','devocional','treinamento','membros'], unavailableDays:[], color: '#4F46E5', avatar: 'NM'})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>
+       </div>
        {members.map(m => (
          <div key={m.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'6px 0',borderBottom:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
              <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -772,11 +775,20 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
 
     {/* Member Edit Modal */}
     {editMember && <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-       <div className={gc} style={{width:'100%',maxWidth:400,borderRadius:'var(--r-xl)',padding:24}}>
-          <div style={{fontSize:18,fontWeight:900,color:tc,marginBottom:16}}>Editar Membro</div>
-          <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.name} onChange={e=>setEditMember(m=>({...m,name:e.target.value}))} placeholder="Nome" style={{color:tc}}/></div>
-          <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.pin} onChange={e=>setEditMember(m=>({...m,pin:e.target.value}))} placeholder="PIN (Senha)" type="text" style={{color:tc}}/></div>
-          <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.instrument} onChange={e=>setEditMember(m=>({...m,instrument:e.target.value}))} placeholder="Função/Instrumento" style={{color:tc}}/></div>
+       <div className={gc} style={{width:'100%',maxWidth:420,borderRadius:'var(--r-xl)',padding:24,maxHeight:'85vh',overflowY:'auto'}}>
+          <div style={{fontSize:18,fontWeight:900,color:tc,marginBottom:16}}>{editMember.id.startsWith('new_') ? 'Novo Membro' : 'Editar Membro'}</div>
+          <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.name} onChange={e=>{
+             const n=e.target.value;
+             let ava = 'NM';
+             if(n){
+               const parts = n.split(' ').filter(Boolean);
+               if(parts.length > 1) ava = (parts[0][0]+parts[1][0]).toUpperCase();
+               else ava = n.substring(0,2).toUpperCase();
+             }
+             setEditMember(m=>({...m,name:n, avatar:ava}));
+          }} placeholder="Nome Completo" style={{color:tc}}/></div>
+          <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.pin} onChange={e=>setEditMember(m=>({...m,pin:e.target.value}))} placeholder="PIN (Senha num ou alfanum)" type="text" style={{color:tc}}/></div>
+          <div className="gIn" style={{marginBottom:16}}><input className="fi" value={editMember.instrument} onChange={e=>setEditMember(m=>({...m,instrument:e.target.value}))} placeholder="Função/Instrumento (ex: Bateria, Vocal 1)" style={{color:tc}}/></div>
           
           <label style={{display:'flex',alignItems:'center',gap:8,fontSize:'var(--fs-sm)',color:tc,fontWeight:700,marginBottom:10}}>
              <input type="checkbox" checked={editMember.is_admin} onChange={e=>setEditMember(m=>({...m,is_admin:e.target.checked}))}/> É Administrador (Acesso Total)
@@ -785,11 +797,39 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
              <input type="checkbox" checked={editMember.status==='ativo'} onChange={e=>setEditMember(m=>({...m,status:e.target.checked?'ativo':'inativo'}))}/> Ativo na Escala
           </label>
 
+          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Permissões de Telas</div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
+             {['home','repertorio','escala','devocional','treinamento','membros','admin'].map(p=>
+               <label key={p} style={{display:'flex',alignItems:'center',gap:4,fontSize:'var(--fs-xs)',color:tc,fontWeight:600,padding:'4px 8px',borderRadius:100,background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',cursor:'pointer'}}>
+                 <input type="checkbox" checked={(editMember.permissions||[]).includes(p) || (editMember.is_admin && p==='admin')} onChange={e=>{
+                    let perms = editMember.permissions || [];
+                    if(e.target.checked && !perms.includes(p)) perms = [...perms, p];
+                    if(!e.target.checked) perms = perms.filter(x=>x!==p);
+                    setEditMember(m=>({...m, permissions:perms}));
+                 }} disabled={editMember.is_admin && p==='admin'}/> {p}
+               </label>
+             )}
+          </div>
+
+          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Dias Indisponíveis (Não escalar autom.)</div>
+          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:24}}>
+             {['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map((d,i)=>
+               <label key={i} style={{display:'flex',alignItems:'center',gap:4,fontSize:'var(--fs-xs)',color:tc,fontWeight:600,padding:'4px 8px',borderRadius:100,background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',cursor:'pointer'}}>
+                 <input type="checkbox" checked={(editMember.unavailableDays||[]).includes(i)} onChange={e=>{
+                    let u = editMember.unavailableDays || [];
+                    if(e.target.checked && !u.includes(i)) u = [...u, i];
+                    if(!e.target.checked) u = u.filter(x=>x!==i);
+                    setEditMember(m=>({...m, unavailableDays:u}));
+                 }}/> {d}
+               </label>
+             )}
+          </div>
+
           <div style={{display:'flex',gap:10}}>
              <button className="bp" onClick={saveMember} style={{flex:1}}>Salvar</button>
              <button onClick={()=>setEditMember(null)} style={{padding:'10px',borderRadius:'var(--r-md)',border:'none',background:'rgba(0,0,0,.1)',color:tc,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
           </div>
-          {editMember.id !== profile.id && <button onClick={()=>{setEditMember(null); delMember(editMember.id);}} style={{width:'100%',padding:'10px',borderRadius:'var(--r-md)',border:'none',background:'transparent',color:'#EF4444',fontWeight:700,cursor:'pointer',marginTop:10}}>Excluir Membro</button>}
+          {!editMember.id.startsWith('new_') && editMember.id !== profile.id && <button onClick={()=>{setEditMember(null); delMember(editMember.id);}} style={{width:'100%',padding:'10px',borderRadius:'var(--r-md)',border:'none',background:'transparent',color:'#EF4444',fontWeight:700,cursor:'pointer',marginTop:10}}>Excluir Membro</button>}
        </div>
     </div>}
 
@@ -1166,15 +1206,18 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
   
   const getEmbedUrl = (url) => {
     if(!url) return null;
-    if(url.includes('youtube.com/watch?v=')) {
-        const v = new URLSearchParams(new URL(url).search).get('v');
-        return `https://www.youtube.com/embed/${v}`;
-    }
-    if(url.includes('youtu.be/')) {
-        const v = url.split('youtu.be/')[1].split('?')[0];
-        return `https://www.youtube.com/embed/${v}`;
-    }
-    if(url.includes('spotify.com/track/')) return url.replace('spotify.com/track/', 'open.spotify.com/embed/track/');
+    try {
+      if(url.includes('youtube.com/watch?v=')) {
+          let u = url.startsWith('http') ? url : 'https://'+url;
+          const v = new URLSearchParams(new URL(u).search).get('v');
+          return `https://www.youtube.com/embed/${v}`;
+      }
+      if(url.includes('youtu.be/')) {
+          const v = url.split('youtu.be/')[1].split('?')[0];
+          return `https://www.youtube.com/embed/${v}`;
+      }
+      if(url.includes('spotify.com/track/')) return url.replace('spotify.com/track/', 'open.spotify.com/embed/track/');
+    } catch(e) {}
     return null;
   };
   const embedUrl = getEmbedUrl(song.media_url);
@@ -1206,7 +1249,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     </div>
 
     {/* Media Player */}
-    {embedUrl && <div className={`${gc} aUp`} style={{...CS, padding:0, overflow:'hidden', marginBottom:12, height: song.media_url.includes('spotify') ? 80 : 200}}>
+    {embedUrl && <div className={`${gc} aUp`} style={{...CS, padding:0, overflow:'hidden', marginBottom:12, height: song.media_url?.includes('spotify') ? 80 : 200}}>
        <iframe src={embedUrl} width="100%" height="100%" frameBorder="0" allow="encrypted-media; picture-in-picture" allowFullScreen></iframe>
     </div>}
 
@@ -1871,7 +1914,7 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
 const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSave,onClose})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1';
-  const [form,setForm]=useState({date:editEvent?.date||initialDate||'',time:editEvent?.time||'19:00',type:editEvent?.type||'culto',label:editEvent?.label||'',theme:editEvent?.theme||'',selMembers:editEvent?.members||[],selSongs:editEvent?.songs||[],requestedSongs:editEvent?.requested_songs||[],santaCeiaSong:editEvent?.santa_ceia_song||null});
+  const [form,setForm]=useState({date:editEvent?.date||initialDate||'',time:editEvent?.time||'19:00',type:editEvent?.type||'culto',label:editEvent?.label||'',theme:editEvent?.theme||'',selMembers:editEvent?.members||[],selSongs:editEvent?.songs||[],requestedSongs:editEvent?.requested_songs||[],santaCeiaSong:editEvent?.santa_ceia_song||null,singerBySong:editEvent?.singerBySong||{}});
   const [memberSearch,setMemberSearch]=useState('');
   const [songSearch,setSongSearch]=useState('');
   const [isRecurring,setIsRecurring]=useState(false);
@@ -1891,8 +1934,42 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
   
   function autoGenerate(){
     if(!form.date) return alert("Selecione a data primeiro para auto-gerar!");
-    const generated = generateDynamicSetlist(form.date, form.type, songs, events, form.requestedSongs, form.santaCeiaSong);
-    setForm(f=>({...f, selSongs: generated}));
+    
+    let draftedMembers = form.selMembers;
+    if (form.selMembers.length === 0) {
+      const day = new Date(form.date+'T12:00:00').getDay();
+      const ativos = members.filter(m=>m.status==='ativo');
+      if (form.type === 'culto') {
+         const instr = ativos.filter(m => !(m.instrument||'').toLowerCase().includes('vocal') && !(m.instrument||'').toLowerCase().includes('voz'));
+         const vocais = ativos.filter(m => ((m.instrument||'').toLowerCase().includes('vocal') || (m.instrument||'').toLowerCase().includes('voz')) && !(m.unavailableDays||[]).includes(day));
+         const shuffledVocais = [...vocais].sort(()=>Math.random()-0.5).slice(0,3);
+         draftedMembers = [...instr.map(m=>m.id), ...shuffledVocais.map(m=>m.id)];
+      } else if (form.type === 'ebd' || form.type === 'consagracao' || form.type === 'ensaio') {
+         draftedMembers = ativos.map(m=>m.id);
+      }
+    }
+    
+    const generatedSongs = generateDynamicSetlist(form.date, form.type, songs, events, form.requestedSongs, form.santaCeiaSong);
+    
+    let sbs = {...form.singerBySong};
+    if (form.type === 'culto' && draftedMembers.length > 0) {
+       const draftedVocais = draftedMembers.filter(mid => {
+           const m = members.find(x=>x.id===mid);
+           return m && ((m.instrument||'').toLowerCase().includes('vocal') || (m.instrument||'').toLowerCase().includes('voz'));
+       });
+       if (draftedVocais.length > 0) {
+           let vocalIdx = 0;
+           generatedSongs.forEach(sid => {
+               const s = songs.find(x=>x.id===sid);
+               if (s && s.cat !== 'oferta') {
+                   sbs[sid] = draftedVocais[vocalIdx % draftedVocais.length];
+                   vocalIdx++;
+               }
+           });
+       }
+    }
+    
+    setForm(f=>({...f, selSongs: generatedSongs, selMembers: draftedMembers, singerBySong: sbs}));
   }
 
   function save(){
@@ -1906,19 +1983,48 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
        const dStr = d.toISOString().slice(0,10);
        
        let songsToUse = form.selSongs;
-       if (form.type === 'culto' && (d.getDay()===0 || d.getDay()===4) && songsToUse.length === 0) {
-           songsToUse = generateDynamicSetlist(dStr, 'culto', songs, events, form.requestedSongs, form.santaCeiaSong);
+       let membersToUse = form.selMembers;
+       let sbsToUse = editEvent ? editEvent.singerBySong : {...form.singerBySong};
+       
+       if (form.type === 'culto' && (d.getDay()===0 || d.getDay()===4)) {
+           if (membersToUse.length === 0) {
+              const day = d.getDay();
+              const ativos = members.filter(m=>m.status==='ativo');
+              const instr = ativos.filter(m => !(m.instrument||'').toLowerCase().includes('vocal') && !(m.instrument||'').toLowerCase().includes('voz'));
+              const vocais = ativos.filter(m => ((m.instrument||'').toLowerCase().includes('vocal') || (m.instrument||'').toLowerCase().includes('voz')) && !(m.unavailableDays||[]).includes(day));
+              const shuffledVocais = [...vocais].sort(()=>Math.random()-0.5).slice(0,3);
+              membersToUse = [...instr.map(m=>m.id), ...shuffledVocais.map(m=>m.id)];
+           }
+           if (songsToUse.length === 0) {
+               songsToUse = generateDynamicSetlist(dStr, 'culto', songs, events, form.requestedSongs, form.santaCeiaSong);
+               const draftedVocais = membersToUse.filter(mid => {
+                   const m = members.find(x=>x.id===mid);
+                   return m && ((m.instrument||'').toLowerCase().includes('vocal') || (m.instrument||'').toLowerCase().includes('voz'));
+               });
+               if (draftedVocais.length > 0) {
+                   let vocalIdx = 0;
+                   songsToUse.forEach(sid => {
+                       const s = songs.find(x=>x.id===sid);
+                       if (s && s.cat !== 'oferta') {
+                           sbsToUse[sid] = draftedVocais[vocalIdx % draftedVocais.length];
+                           vocalIdx++;
+                       }
+                   });
+               }
+           }
+       } else if ((form.type === 'ebd' || form.type === 'consagracao' || form.type === 'ensaio') && membersToUse.length === 0) {
+           membersToUse = members.filter(m=>m.status==='ativo').map(m=>m.id);
        }
        
        const evId = editEvent ? editEvent.id : 'local_ev_'+Date.now()+'_'+i;
-       const newEv = {id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,songs:songsToUse,members:form.selMembers,confirmations:editEvent?editEvent.confirmations:{},singerBySong:editEvent?editEvent.singerBySong:{},sequenceBySong:editEvent?editEvent.sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong};
+       const newEv = {id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:editEvent?editEvent.confirmations:{},singerBySong:sbsToUse,sequenceBySong:editEvent?editEvent.sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong};
        evs.push(newEv);
        
        // Criar ensaio de sábado automaticamente se for domingo (apenas na criação)
        if (!editEvent && form.type === 'culto' && d.getDay() === 0) {
            const dSat = new Date(d);
            dSat.setDate(dSat.getDate() - 1);
-           evs.push({id:'local_ev_'+Date.now()+'_sat_'+i,date:dSat.toISOString().slice(0,10),time:'15:00',type:'ensaio',label:'Ensaio (Sáb)',theme:form.theme||null,songs:songsToUse,members:form.selMembers,confirmations:{},singerBySong:{},sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong});
+           evs.push({id:'local_ev_'+Date.now()+'_sat_'+i,date:dSat.toISOString().slice(0,10),time:'15:00',type:'ensaio',label:'Ensaio (Sáb)',theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:{},singerBySong:{},sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong});
        }
     }
     onSave(evs);
@@ -1960,12 +2066,12 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
           </div>
           {/* Recurrence */}
           {!editEvent&&<>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)',padding:'12px',borderRadius:'var(--r-md)'}}>
-            <div>
-              <div style={{fontSize:'var(--fs-sm)',fontWeight:700,color:tc}}>Repetir semanalmente</div>
-              <div style={{fontSize:'var(--fs-xs)',color:t2}}>Criar eventos automaticamente</div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)',padding:'12px',borderRadius:'var(--r-md)',border:isRecurring?'1px solid rgba(16,185,129,.3)':'1px solid transparent'}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:'var(--fs-sm)',fontWeight:900,color:isRecurring?'#10B981':tc}}>Repetir semanalmente</div>
+              <div style={{fontSize:'var(--fs-xs)',color:t2}}>Gera os eventos e escalas automaticamente</div>
             </div>
-            <button className={`tog${isRecurring?' on':''}`} onClick={()=>setIsRecurring(p=>!p)} style={{background:isRecurring?'#10B981':'#CBD5E1'}}/>
+            <button className={`tog${isRecurring?' on':''}`} onClick={()=>setIsRecurring(p=>!p)} style={{background:isRecurring?'#10B981':'#CBD5E1',transform:'scale(1.1)'}}/>
           </div>
           {isRecurring&&<div className="gIn" style={{display:'flex',alignItems:'center',gap:10,padding:'0 14px'}}>
              <span style={{fontSize:'var(--fs-sm)',color:t2,fontWeight:600}}>Ocorrências:</span>
@@ -2032,7 +2138,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
   const [expandSong, setExpandSong] = useState(null);
   if(!ev)return null;
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
-  const evItems=(ev.items||[]).map(it=>it.type==='song'?{...it,song:songs.find(s=>s.id===it.song_id)}:it).filter(it=>it.type==='note'||it.song);
+  const evItems=(ev.items?.length > 0 ? ev.items : (ev.songs||[]).map(id=>({id:'old_'+id, type:'song', song_id:id}))).map(it=>it.type==='song'?{...it,song:songs.find(s=>s.id===it.song_id)}:it).filter(it=>it.type==='note'||it.song);
   const evS=ev.songs.map(id=>songs.find(s=>s.id===id)).filter(Boolean);
   const evM=ev.members.map(id=>members.find(m=>m.id===id)).filter(Boolean);
   const myConf=ev.confirmations[profile?.id];
@@ -2618,7 +2724,7 @@ export default function LouveSync() {
     return <LoginScreen members={allMembers} loading={authLoading} onLogin={handleLogin} dark={dark} setDark={setDark}/>;
   }
 
-  const TABS=[
+  const allTabs = [
     {id:'home',ico:<IcoHome s={22}/>,l:'Início'},
     {id:'repertorio',ico:<IcoMusic s={22}/>,l:'Músicas'},
     {id:'escala',ico:<IcoCal s={22}/>,l:'Escala'},
@@ -2626,11 +2732,18 @@ export default function LouveSync() {
     {id:'devocional',ico:<IcoHeart s={22}/>,l:'Devocional'},
     {id:'treinamento',ico:<IcoGuitar s={22}/>,l:'Treinar'},
     {id:'ia',ico:<IcoSpark s={22}/>,l:'Maestro'},
-    ...(profile?.is_admin ? [
-      {id:'membros',ico:<IcoPeople s={22}/>,l:'Membros'},
-      {id:'admin',ico:<IcoPeople s={22}/>,l:'Admin'}
-    ] : [])
+    {id:'membros',ico:<IcoPeople s={22}/>,l:'Membros'},
+    {id:'admin',ico:<IcoPeople s={22}/>,l:'Admin'}
   ];
+  const TABS = allTabs.filter(t => {
+     if(profile?.is_admin && t.id === 'admin') return true;
+     if(!profile?.permissions) {
+        if(t.id==='admin' && !profile?.is_admin) return false;
+        if(t.id==='membros' && !profile?.is_admin) return false;
+        return true; 
+     }
+     return profile.permissions.includes(t.id);
+  });
   const tc=dark?'#E2E8F0':'#0F172A';
 
   return <div className={`ls${dark?' dark':''}`}>
@@ -2656,7 +2769,13 @@ export default function LouveSync() {
             {inCifra&&<button onClick={()=>{vib();setSelSong(null);}} style={{padding:'8px 16px',borderRadius:'var(--r-full)',border:'none',background:'rgba(123,63,242,.14)',color:'#7B3FF2',display:'flex',alignItems:'center',gap:6,fontWeight:800,fontSize:'var(--fs-sm)',cursor:'pointer',boxShadow:'0 2px 10px rgba(123,63,242,.15)'}}><IcoChevL s={16}/> Voltar</button>}
             {inCifra?<div style={{lineHeight:1.3,textAlign:'right'}}><div className="font-serif" style={{fontSize:16,fontWeight:900,color:tc}}>{selSong.title}</div><div style={{fontSize:'var(--fs-xs)',color:dark?'#94A3B8':'#475569'}}>{selSong.artist}</div></div>
             :<div style={{display:'flex',alignItems:'center',gap:10}}>
-              <img src="/logo_solo.png" alt="Louve" style={{height:34, objectFit:'contain', filter: dark?'drop-shadow(0 2px 8px rgba(123,63,242,0.5))':'drop-shadow(0 2px 4px rgba(123,63,242,0.2))'}} />
+              <div style={{
+                 width: 34, height: 34, flexShrink: 0,
+                 background: dark ? 'linear-gradient(135deg,#A855F7,#FF8C5A)' : 'linear-gradient(135deg,#7B3FF2,#FF6B35)',
+                 WebkitMaskImage: 'url(/logo_solo.png)', WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center',
+                 maskImage: 'url(/logo_solo.png)', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center',
+                 filter: dark ? 'drop-shadow(0 2px 8px rgba(123,63,242,0.5))' : 'drop-shadow(0 2px 4px rgba(123,63,242,0.2))'
+              }} />
               <div>
                 <div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:tc,letterSpacing:'-.03em',lineHeight:1,background:dark?'linear-gradient(135deg,#A855F7,#FF8C5A)':'linear-gradient(135deg,#7B3FF2,#FF6B35)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>Louve</div>
                 <div style={{fontSize:8,color:dark?'#7B5FA8':'#8B6BB0',fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',WebkitTextFillColor:'initial'}}>seu ministério em harmonia</div>
