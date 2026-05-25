@@ -595,7 +595,11 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
 
   const saveMember = async () => {
     if(!editMember.name || !editMember.pin) return alert('Nome e PIN são obrigatórios!');
-    setMembers(mList => mList.map(m => m.id === editMember.id ? editMember : m));
+    setMembers(mList => {
+      const exists = mList.find(m => m.id === editMember.id);
+      if (exists) return mList.map(m => m.id === editMember.id ? editMember : m);
+      return [...mList, editMember];
+    });
     setEditMember(null);
     try {
       await upsertMember(editMember);
