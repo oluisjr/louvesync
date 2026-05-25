@@ -1290,7 +1290,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.14s'}}><LyricView text={song.lyrics||''} st={tr} mode={mode} dark={dark}/></div>
 
     {/* AI button */}
-    <button className="bp aUp" style={{marginBottom:8,animationDelay:'.18s'}} onClick={()=>{onSendAI(`Analise "${song.title}" (tom ${curKey}, ${CAT[song.cat].label}, ${song.bpm}bpm, compasso ${song.time_signature||'4/4'}) e sugira 3 músicas complementares para setlist com justificativa de fluxo.`);onNavTo('ia');}}>
+    <button className="bp aUp" style={{marginBottom:8,animationDelay:'.18s'}} onClick={()=>{onSendAI(`Analise "${song.title}" (tom ${curKey}, ${CAT[song.cat]?.label || song.cat || 'Sem Categoria'}, ${song.bpm}bpm, compasso ${song.time_signature||'4/4'}) e sugira 3 músicas complementares para setlist com justificativa de fluxo.`);onNavTo('ia');}}>
       <IcoSpark s={16}/>Analisar com Maestro
     </button>
     {profile?.is_admin&&<button onClick={()=>onDeleteSong(song.id)} style={{width:'100%',marginBottom:16,padding:'11px',borderRadius:'var(--r-md)',border:'1px solid rgba(239,68,68,.22)',background:'rgba(239,68,68,.05)',color:'#DC2626',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoTrash s={14}/>Excluir música</button>}
