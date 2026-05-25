@@ -595,19 +595,25 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
 
   const saveMember = async () => {
     if(!editMember.name || !editMember.pin) return alert('Nome e PIN são obrigatórios!');
+    const newMember = {...editMember};
     setMembers(mList => {
-      const exists = mList.find(m => m.id === editMember.id);
-      if (exists) return mList.map(m => m.id === editMember.id ? editMember : m);
-      return [...mList, editMember];
+      const exists = mList.find(m => m.id === newMember.id);
+      if (exists) return mList.map(m => m.id === newMember.id ? newMember : m);
+      return [...mList, newMember];
     });
     setEditMember(null);
     try {
-      const dbMember = { ...editMember };
+      const dbMember = { ...newMember };
       delete dbMember.permissions;
       delete dbMember.unavailableDays;
-      await upsertMember(dbMember);
+      const saved = await upsertMember(dbMember);
+      // Sincroniza o estado local com o dado confirmado pelo Supabase
+      if (saved) {
+        setMembers(mList => mList.map(m => m.id === newMember.id ? {...newMember, ...saved} : m));
+      }
     } catch (e) {
       console.error('Failed to save member:', e);
+      alert('Erro ao salvar membro no banco de dados. Verifique o console.');
     }
   };
 
@@ -2346,8 +2352,17 @@ export default function LouveSync() {
     async function loadMembers(){
       try{
         const data=await fetchMembers();
-        setAllMembers(data&&data.length>0?data:M);
-      }catch{setAllMembers(M);}
+        if(data&&data.length>0){
+          setAllMembers(data);
+        }else{
+          // Fallback: localStorage → hardcoded
+          const lsM=localStorage.getItem('ls_members');
+          setAllMembers(lsM?JSON.parse(lsM):M);
+        }
+      }catch{
+        const lsM=localStorage.getItem('ls_members');
+        setAllMembers(lsM?JSON.parse(lsM):M);
+      }
       setAuthLoading(false);
     }
     // Check localStorage first
@@ -2355,6 +2370,13 @@ export default function LouveSync() {
     if(stored){try{const p=JSON.parse(stored);setProfile(p);}catch{localStorage.removeItem('ls_profile');}}
     loadMembers();
   },[]);
+
+  // Persist members locally (assim como songs e events)
+  useEffect(()=>{
+    if(allMembers.length>0){
+      localStorage.setItem('ls_members',JSON.stringify(allMembers));
+    }
+  },[allMembers]);
 
   
 
@@ -2368,7 +2390,7 @@ export default function LouveSync() {
 
   useEffect(() => {
     const handlePopState = (e) => {
-      if (inCifra) setSelSong(null);
+      if (inCifra) setSelSong(null); // inCifra é derivado; limpar selSong é o correto
       if (addOpen) setAddOpen(false);
       if (createEvOpen) setCreateEvOpen(false);
       if (evSheet) setEvSheet(null);
@@ -2645,6 +2667,20 @@ export default function LouveSync() {
       const saved=await upsertSong({...rest,created_by:profile?.id});
       if(saved)setSongs(p=>p.map(s=>s.id===localId?saved:s));
     }catch(e){console.error('Sync song failed:',e);}
+  }
+
+  // ── Salvar tom vocal para uma música (ex: tom específico da Cleide em "Quão Grande É Deus")
+  function handleSaveVocalKey(songId, singerId, key) {
+    setSongs(sList => sList.map(s => s.id === songId
+      ? {...s, vocal_keys: {...(s.vocal_keys||{}), [singerId]: key}}
+      : s
+    ));
+    if(supabase) {
+      supabase.from('songs')
+        .update({[`vocal_keys->${singerId}`]: key})
+        .eq('id', songId)
+        .catch(console.error);
+    }
   }
 
   async function sendAI(msg=''){

@@ -137,28 +137,45 @@ async function searchLRCLibCandidates(title, artist) {
   } catch { return []; }
 }
 
-/* 🎸 CifraClub — Raspa a página de busca do site (HTML server-side) 🎸 */
+/* 🎸 CifraClub — Gera candidatos via slug direto (URL previsível)
+   O CifraClub é uma SPA React: a página de busca não tem HTML server-side útil.
+   A abordagem correta é construir a URL a partir dos slugs de artista/título. */
 async function searchCifraClub(title, artist) {
   const cleanArtist = (artist || '').replace(/\(.*?\)/g, '').trim();
   const results = [];
-  
-  if (cleanArtist) {
-    const aSlug = slugify(cleanArtist.split(/\s+/).slice(0, 3).join(' '));
-    const tSlug = slugify(title);
-    if (aSlug && tSlug) {
-      results.push({
-        id: 'cifraclub_direct',
-        source: 'CifraClub',
-        title,
-        artist: cleanArtist,
-        url: `https://www.cifraclub.com.br/${aSlug}/${tSlug}/`,
-        hasCifra: true,
-        icon: '🎸',
-      });
-    }
+
+  // Gera variantes de slug do artista (nome completo, 3 palavras, 2, 1)
+  const words = cleanArtist.split(/\s+/).filter(Boolean);
+  const artistVariants = [
+    cleanArtist,
+    words.slice(0, 3).join(' '),
+    words.slice(0, 2).join(' '),
+    words[0] || '',
+  ].filter((v, i, arr) => v && arr.indexOf(v) === i); // deduplica
+
+  const tSlug = slugify(title);
+  if (!tSlug) return [];
+
+  for (const artistV of artistVariants.slice(0, 3)) {
+    const aSlug = slugify(artistV);
+    if (!aSlug) continue;
+    // Evita duplicatas
+    const url = `https://www.cifraclub.com.br/${aSlug}/${tSlug}/`;
+    if (results.find(r => r.url === url)) continue;
+    results.push({
+      id: `cifraclub_${results.length}`,
+      source: 'CifraClub',
+      title,
+      artist: cleanArtist || artist,
+      url,
+      hasCifra: true,
+      icon: '🎸',
+    });
   }
+
   return results;
 }
+
 export async function searchSongCandidates(title, artist) {
   const [vag, let_, lrc, cifraclub] = await Promise.allSettled([
     searchVagalumeCandidates(title, artist),
