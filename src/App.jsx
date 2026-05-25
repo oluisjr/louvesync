@@ -2368,7 +2368,7 @@ export default function LouveSync() {
 
   useEffect(() => {
     const handlePopState = (e) => {
-      if (inCifra) setInCifra(false);
+      if (inCifra) setSelSong(null);
       if (addOpen) setAddOpen(false);
       if (createEvOpen) setCreateEvOpen(false);
       if (evSheet) setEvSheet(null);
