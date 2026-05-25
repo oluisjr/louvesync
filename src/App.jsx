@@ -352,7 +352,7 @@ const IcoLogout  = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill=
 
 /* ─── ATOMS ─────────────────────────────────────────────────── */
 const Ava = memo(({m,size=36,ring=false})=><div style={{width:size,height:size,borderRadius:'50%',background:m.color,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*.32,fontWeight:900,flexShrink:0,border:ring?'2.5px solid rgba(255,255,255,.9)':`${size>30?2:1.5}px solid rgba(255,255,255,.8)`,boxShadow:`0 2px 10px ${m.color}50`}}>{m.avatar}</div>);
-const Bdg = ({cat})=>{const c=CAT[cat];return <span className={`bdg ${c.cls}`}>{c.label}</span>;};
+const Bdg = ({cat})=>{const c=CAT[cat]||{cls:'',label:cat||'Sem Cat.'};return <span className={`bdg ${c.cls}`} style={!CAT[cat]?{background:'rgba(0,0,0,.05)',color:'#64748B',border:'1px solid rgba(0,0,0,.1)'}:{}}>{c.label}</span>;};
 const KeyChip = ({k,size=11})=><span style={{background:'rgba(123,63,242,.1)',color:'#7B3FF2',border:'1px solid rgba(123,63,242,.2)',borderRadius:100,padding:`${size<12?2:3}px ${size<12?8:12}px`,fontSize:size,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",flexShrink:0}}>{k}</span>;
 const BpmChip = ({bpm})=><span style={{background:'rgba(255,107,53,.1)',color:'#D94E1A',border:'1px solid rgba(255,107,53,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700}}>♩{bpm}</span>;
 const TimeSigChip = ({ts})=><span style={{background:'rgba(0,201,167,.08)',color:'#00956E',border:'1px solid rgba(0,201,167,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{ts}</span>;
