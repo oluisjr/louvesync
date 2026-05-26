@@ -156,6 +156,19 @@ async function searchCifraClub(title, artist) {
   const tSlug = slugify(title);
   if (!tSlug) return [];
 
+  // Fallback: artista vazio → retorna link de busca do site
+  if (artistVariants.length === 0) {
+    return [{
+      id: 'cifraclub_search',
+      source: 'CifraClub',
+      title,
+      artist: '',
+      url: `https://www.cifraclub.com.br/busca/?q=${encodeURIComponent(title)}`,
+      hasCifra: true,
+      icon: '🎸',
+    }];
+  }
+
   for (const artistV of artistVariants.slice(0, 3)) {
     const aSlug = slugify(artistV);
     if (!aSlug) continue;

@@ -596,6 +596,10 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
   const saveMember = async () => {
     if(!editMember.name || !editMember.pin) return alert('Nome e PIN são obrigatórios!');
     const newMember = {...editMember};
+    // Garante UUID válido para novos membros
+    if (!newMember.id || String(newMember.id).startsWith('new_')) {
+      newMember.id = crypto.randomUUID();
+    }
     setMembers(mList => {
       const exists = mList.find(m => m.id === newMember.id);
       if (exists) return mList.map(m => m.id === newMember.id ? newMember : m);
@@ -603,17 +607,15 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     });
     setEditMember(null);
     try {
-      const dbMember = { ...newMember };
-      delete dbMember.permissions;
-      delete dbMember.unavailableDays;
+      // Enviar apenas colunas que existem na tabela members do Supabase
+      const { permissions, unavailableDays, confirmRate, pin, vocal_category, ...dbMember } = newMember;
       const saved = await upsertMember(dbMember);
-      // Sincroniza o estado local com o dado confirmado pelo Supabase
       if (saved) {
         setMembers(mList => mList.map(m => m.id === newMember.id ? {...newMember, ...saved} : m));
       }
     } catch (e) {
       console.error('Failed to save member:', e);
-      alert('Erro ao salvar membro no banco de dados. Verifique o console.');
+      alert('Erro ao salvar membro: ' + (e?.message || 'Verifique o console.'));
     }
   };
 
@@ -2664,7 +2666,12 @@ export default function LouveSync() {
     setAddOpen(false);spawnConfetti();
     try{
       const {id:localId,...rest}=newSong;
-      const saved=await upsertSong({...rest,created_by:profile?.id});
+      // Edição (id real do Supabase): mantém o id para UPDATE
+      // Criação (id 'local_...'): remove o id para o Supabase gerar UUID
+      const payload = localId && !String(localId).startsWith('local_')
+        ? {...newSong, created_by: profile?.id}
+        : {...rest, created_by: profile?.id};
+      const saved=await upsertSong(payload);
       if(saved)setSongs(p=>p.map(s=>s.id===localId?saved:s));
     }catch(e){console.error('Sync song failed:',e);}
   }
