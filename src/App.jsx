@@ -2368,15 +2368,23 @@ export default function LouveSync() {
       }
       setAuthLoading(false);
     }
-    // Check localStorage first — se há sessão salva, restaura imediatamente
-    // sem esperar o Supabase carregar os membros
-    const stored=localStorage.getItem('ls_profile');
-    if(stored){
-      try{
-        const p=JSON.parse(stored);
-        setProfile(p);
-        setAuthLoading(false); // libera acesso imediato
-      }catch{
+    // Restaurar sessão do localStorage — com verificação de expiração (4h)
+    const stored = localStorage.getItem('ls_profile');
+    if (stored) {
+      try {
+        const lastAct = parseInt(localStorage.getItem('ls_last_activity') || '0', 10);
+        const FOUR_HOURS = 4 * 60 * 60 * 1000;
+        const expired = lastAct && (Date.now() - lastAct) > FOUR_HOURS;
+        if (expired) {
+          // Sessão expirada — limpa tudo e mostra a tela de login normalmente
+          localStorage.removeItem('ls_profile');
+          localStorage.removeItem('ls_last_activity');
+        } else {
+          const p = JSON.parse(stored);
+          setProfile(p);
+          setAuthLoading(false); // acesso imediato sem bloquear
+        }
+      } catch {
         localStorage.removeItem('ls_profile');
       }
     }
@@ -2501,13 +2509,19 @@ export default function LouveSync() {
   },[metro,selSong]);
 
   /* ── Handlers ── */
-  function handleLogin(member,pin){
-    if(member.pin!==pin)return false;
-    const {pin:_,...safe}=member;
-    localStorage.setItem('ls_profile',JSON.stringify(safe));
-    setProfile(safe);return true;
+  function handleLogin(member, pin) {
+    if (member.pin !== pin) return false;
+    const {pin:_, ...safe} = member;
+    localStorage.setItem('ls_profile', JSON.stringify(safe));
+    localStorage.setItem('ls_last_activity', String(Date.now())); // registra momento do login
+    setProfile(safe);
+    return true;
   }
-  function handleLogout(){localStorage.removeItem('ls_profile');setProfile(null);setSelSong(null);setSelEvent(null);setTab('home');}
+  function handleLogout() {
+    localStorage.removeItem('ls_profile');
+    localStorage.removeItem('ls_last_activity');
+    setProfile(null); setSelSong(null); setSelEvent(null); setTab('home');
+  }
   function navTo(t){vib();setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}}
   function selectSong(s,ev=null){
     vib();setSelSong(s);setSelEvent(ev);
