@@ -2368,9 +2368,18 @@ export default function LouveSync() {
       }
       setAuthLoading(false);
     }
-    // Check localStorage first
+    // Check localStorage first — se há sessão salva, restaura imediatamente
+    // sem esperar o Supabase carregar os membros
     const stored=localStorage.getItem('ls_profile');
-    if(stored){try{const p=JSON.parse(stored);setProfile(p);}catch{localStorage.removeItem('ls_profile');}}
+    if(stored){
+      try{
+        const p=JSON.parse(stored);
+        setProfile(p);
+        setAuthLoading(false); // libera acesso imediato
+      }catch{
+        localStorage.removeItem('ls_profile');
+      }
+    }
     loadMembers();
   },[]);
 
