@@ -2159,11 +2159,11 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           const txt=`🎵 *${ev.label}* — ${fDate(ev.date)} · ${ev.time}\n${ev.theme?`📖 ${ev.theme}\n`:''}\n*Setlist:*\n${evS.map((s,i)=>`${i+1}. ${s.title} (${s.artist}) — ${s.key}`).join('\n')}\n\n_Via LouveSync · IMWAL_`;
           navigator.clipboard.writeText(txt).then(()=>{const btn=document.getElementById('shareBtn');if(btn){btn.style.animation='shareBtn .3s ease';setTimeout(()=>btn.style.animation='',400);}}).catch(()=>alert(txt));
         }} id="shareBtn" style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.06)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoShare s={14}/>Copiar setlist para WhatsApp</button>}
-        {isMyEvent&&<div style={{display:'flex',gap:8,marginBottom:16}}>
-          <button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{flex:1,padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===true?'#10B981':'rgba(16,185,129,.1)',color:myConf===true?'#fff':'#059669',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoCheck/>Confirmar</button>
-          <button onClick={()=>onConfirm(ev.id,false)} style={{flex:1,padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===false?'#EF4444':'rgba(239,68,68,.08)',color:myConf===false?'#fff':'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX/>Recusar</button>
-          {profile?.is_admin&&<button onClick={()=>onEditEv&&onEditEv(ev)} style={{padding:'10px 16px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(245,158,11,.15)',color:'#D97706',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoEdit s={14}/>Editar</button>}
-          <button onClick={()=>onReqDelEv&&onReqDelEv(ev)} style={{padding:'10px 16px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.15)',color:'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX s={14}/>{profile?.is_admin?'Excluir':'Solicitar Exclusão'}</button>
+        {isMyEvent&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
+          <button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===true?'#10B981':'rgba(16,185,129,.1)',color:myConf===true?'#fff':'#059669',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoCheck/>Confirmar</button>
+          <button onClick={()=>onConfirm(ev.id,false)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===false?'#EF4444':'rgba(239,68,68,.08)',color:myConf===false?'#fff':'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX/>Recusar</button>
+          {profile?.is_admin&&<button onClick={()=>onEditEv&&onEditEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(245,158,11,.15)',color:'#D97706',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoEdit s={14}/>Editar</button>}
+          <button onClick={()=>onReqDelEv&&onReqDelEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.15)',color:'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX s={14}/>{profile?.is_admin?'Excluir':'Solicitar Exclusão'}</button>
         </div>}
         {ev.type !== 'ebd' && ev.type !== 'consagracao' && <>
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Setlist</div>
@@ -2347,7 +2347,8 @@ export default function LouveSync() {
   const audioCtx=useRef(null);
   const metroTimer=useRef(null);
   const [keyF,setKeyF]=useState('');
-  const inCifra=!!selSong&&tab==='repertorio';
+  // inCifra: qualquer tab pode abrir a cifra de uma música
+  const inCifra = !!selSong;
   const unread=notifs.filter(n=>!n.read).length;
 
   /* ── Load auth members ── */
