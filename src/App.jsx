@@ -607,8 +607,9 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     });
     setEditMember(null);
     try {
-      // Enviar apenas colunas que existem na tabela members do Supabase
-      const { permissions, unavailableDays, confirmRate, pin, vocal_category, ...dbMember } = newMember;
+      // Colunas reais da tabela: id, name, role, instrument, avatar, color, status, is_admin, pin
+      // Remover apenas campos de UI que não existem no banco
+      const { permissions, unavailableDays, confirmRate, vocal_category, ...dbMember } = newMember;
       const saved = await upsertMember(dbMember);
       if (saved) {
         setMembers(mList => mList.map(m => m.id === newMember.id ? {...newMember, ...saved} : m));
