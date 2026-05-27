@@ -52,9 +52,10 @@ export function generateSetlist(dateStr, allEvents, allSongs, allMembers) {
 
   const setlist = [];
 
-  // Helper to pick a random song and singer
+  // Helper to pick a song and best-matching singer
   const pickSong = (category) => {
-    let candidates = allSongs.filter(s => s.category === category);
+    // FIXED: DB field is s.cat, not s.category
+    let candidates = allSongs.filter(s => s.cat === category);
     
     // Try to avoid recent songs
     let freshCandidates = candidates.filter(s => !recentSongIds.has(s.id));
@@ -66,13 +67,14 @@ export function generateSetlist(dateStr, allEvents, allSongs, allMembers) {
 
     // Pick random song
     const song = candidates[Math.floor(Math.random() * candidates.length)];
-    // Add to recent so we don't pick it again in the same setlist
     recentSongIds.add(song.id);
 
-    // Pick random singer
+    // Pick singer: prefer vocal whose vocal_category matches the song category
     let singerId = null;
     if (availableVocals.length > 0) {
-      const singer = availableVocals[Math.floor(Math.random() * availableVocals.length)];
+      const matched = availableVocals.filter(v => v.vocal_category === category);
+      const pool = matched.length > 0 ? matched : availableVocals;
+      const singer = pool[Math.floor(Math.random() * pool.length)];
       singerId = singer.id;
     }
 
