@@ -163,7 +163,7 @@ export async function setEventItems(eventId, items, memberIds) {
       item_type: it.type || 'song',
       note_text: it.text || null,
       order_index: i + 1,
-      singer_member_id: (it.type === 'song' && existingMap[it.song_id]) ? existingMap[it.song_id].singer_member_id : null,
+      singer_member_id: it.singer_id || ((it.type === 'song' && existingMap[it.song_id]) ? existingMap[it.song_id].singer_member_id : null),
       sequence: (it.type === 'song' && existingMap[it.song_id]) ? existingMap[it.song_id].sequence : null
     }));
     const { error } = await supabase.from('event_songs').insert(rows);

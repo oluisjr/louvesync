@@ -190,6 +190,14 @@ const MOCK_SONGS = [
   { id:'song_29', title:'Toda sorte de BenÃ§Ã£os', artist:'Davi Sacer', cat:'oferta', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=zCcnYP3o1rg', lyrics:'' },
 ];
 
+
+const COLLECTIONS = [
+  { id: 'domingo', label: 'Especial de Domingo', emoji: '🔥', color: '#EF4444', songs: ['song_1', 'song_19', 'song_2'] },
+  { id: 'jovens', label: 'Culto de Jovens', emoji: '🎸', color: '#8B5CF6', songs: ['song_22', 'song_6', 'song_8'] },
+  { id: 'ceia', label: 'Santa Ceia', emoji: '🍷', color: '#E11D48', songs: ['song_12', 'song_14', 'song_28'] },
+  { id: 'oracao', label: 'Círculo de Oração', emoji: '🙏', color: '#10B981', songs: ['song_11', 'song_15', 'song_18'] }
+];
+
 const MOCK_EVENTS = [
   { id:'cccc0001', date:'2026-05-23', type:'consagracao', label:'ConsagraÃ§Ã£o', time:'08:00', theme:'Busca Matinal', songs:['song_19','song_1'], members:[M[0].id,M[1].id,M[2].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
   { id:'cccc0002', date:'2026-05-23', type:'ensaio', label:'Ensaio Geral', time:'15:00', theme:null, songs:['song_19','song_10','song_1','song_26'], members:[M[0].id,M[1].id,M[6].id,M[8].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
@@ -374,23 +382,23 @@ const ConfirmDialog = ({dark, title, msg, onConfirm, onCancel, isAlert}) => (
 );
 
 /* â”€â”€â”€ LYRIC VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-const LyricView = memo(({text,st=0,mode='chords',dark,fs=17})=>{
+const LyricView = memo(({text,st=0,mode='chords',dark,fs=17,chordColor,fontFam})=>{
   const tc=dark?'#E2E8F0':'#1E293B';
   const lines=tLyrics(text,st).split('\n');
-  return <div style={{fontFamily:"'Montserrat',sans-serif"}}>{lines.map((line,li)=>{
+  return <div style={{fontFamily: fontFam || "'Montserrat',sans-serif"}}>{lines.map((line,li)=>{
     if(!line.trim())return <div key={li} style={{height:8}}/>;
     let secMatch = line.trim().match(/^\[?(Verso|Coro|RefrÃ£o|PrÃ©-RefrÃ£o|PrÃ©-Coro|Ponte|Intro|Final|Outro|Bridge|Primeira Parte|Segunda Parte|Terceira Parte|Quarta Parte)[\s:]?(\d*)\]?$/i);
     if(secMatch)return <Sec key={li} t={(secMatch[1] + (secMatch[2]?` ${secMatch[2]}`:'')).toUpperCase()}/>;
     if(mode==='lyrics'||!line.includes('['))return <div key={li} style={{fontSize:fs,lineHeight:1.8,color:tc,marginBottom:1,whiteSpace:'pre-wrap'}}>{line.replace(/\[[^\]]+\]/g,'')}</div>;
     
     // Check if line is ONLY chords and spaces (common in CifraClub imports)
-    const isOnlyChords = /^(\s*\[[^\]]+\]\s*)+$/.test(line);
+    const isOnlyChords = line.replace(/\[[^\]]+\]/g, '').trim() === '' && line.includes('[');
     if(isOnlyChords) {
        // Render the line as a single pre-formatted text with chords highlighted
-       return <div key={li} style={{fontSize:fs,lineHeight:1.7,color:'#F59E0B',fontWeight:800,whiteSpace:'pre',fontFamily:"'JetBrains Mono',monospace",marginBottom:-6}}>{line.replace(/\[|\]/g,'')}</div>;
+       return <div key={li} style={{fontSize:fs,lineHeight:1.7,color: chordColor || '#FF6B35',fontWeight:800,whiteSpace:'pre',fontFamily:"'JetBrains Mono',monospace",marginBottom:-6}}>{line.replace(/\[|\]/g,'')}</div>;
     }
     
-    return <div key={li} style={{display:'flex',flexWrap:'wrap',marginBottom:5,alignItems:'flex-end'}}>{parseLine(line).map((seg,si)=><span key={si} style={{display:'inline-flex',flexDirection:'column',alignItems:'flex-start'}}><span className="chord">{seg.ch||' '}</span><span style={{fontSize:fs,lineHeight:1.7,color:tc,whiteSpace:'pre'}}>{seg.ly||(seg.ch?' ':'')}</span></span>)}</div>;
+    return <div key={li} style={{display:'flex',flexWrap:'wrap',marginBottom:5,alignItems:'flex-end'}}>{parseLine(line).map((seg,si)=><span key={si} style={{display:'inline-flex',flexDirection:'column',alignItems:'flex-start'}}><span className="chord" style={chordColor ? {color: chordColor} : {}}>{seg.ch||' '}</span><span style={{fontSize:fs,lineHeight:1.7,color:tc,whiteSpace:'pre'}}>{seg.ly||(seg.ch?' ':'')}</span></span>)}</div>;
   })}</div>;
 });
 
@@ -984,7 +992,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     try {
       // Colunas reais da tabela: id, name, role, instrument, avatar, color, status, is_admin, pin
       // Remover apenas campos de UI que nÃ£o existem no banco
-      const { permissions, unavailableDays, confirmRate, vocal_category, ...dbMember } = newMember;
+      const { permissions, unavailableDays, confirmRate, ...dbMember } = newMember;
       const saved = await upsertMember(dbMember);
       if (saved) {
         setMembers(mList => mList.map(m => m.id === newMember.id ? {...newMember, ...saved} : m));
@@ -1233,6 +1241,19 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
           <label style={{display:'flex',alignItems:'center',gap:8,fontSize:'var(--fs-sm)',color:tc,fontWeight:700,marginBottom:20}}>
              <input type="checkbox" checked={editMember.status==='ativo'} onChange={e=>setEditMember(m=>({...m,status:e.target.checked?'ativo':'inativo'}))}/> Ativo na Escala
           </label>
+
+          {editMember.instrument?.toLowerCase().includes('vocal') && (
+             <div style={{marginBottom:12}}>
+                <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Categoria Vocal (Setlist Solos)</div>
+                <div className="gIn"><select className="fi" value={editMember.vocal_category || ''} onChange={e=>setEditMember(m=>({...m, vocal_category: e.target.value || null}))} style={{color:tc,padding:'10px',fontSize:'var(--fs-sm)'}}>
+                   <option value="">- Nenhuma -</option>
+                   <option value="adoracao">Adoração</option>
+                   <option value="jubilo">Júbilo</option>
+                   <option value="hinario">Hinário</option>
+                   <option value="oferta">Oferta</option>
+                </select></div>
+             </div>
+          )}
 
           <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>PermissÃµes de Telas</div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
@@ -1690,6 +1711,16 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
 /* â”€â”€â”€ CIFRA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatIdx,stageMode,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,onSaveVocalKey,profile,members})=>{
   if(!song)return null;
+  const iframeRef = useRef(null);
+  const sendYoutubeCommand = (func, args=[]) => {
+    if (iframeRef.current) {
+      iframeRef.current.contentWindow.postMessage(JSON.stringify({
+        event: 'command',
+        func: func,
+        args: args
+      }), '*');
+    }
+  };
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
   const curKey=getKey(song.key,tr);
@@ -1697,17 +1728,32 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
   
   const getEmbedUrl = (url) => {
     if(!url || typeof url !== 'string') return null;
+    const cleanUrl = url.trim();
     try {
-      if(url.includes('youtube.com/watch?v=')) {
-          let u = url.startsWith('http') ? url : 'https://'+url;
+      if (/^[a-zA-Z0-9_-]{11}$/.test(cleanUrl)) {
+          return `https://www.youtube.com/embed/${cleanUrl}?enablejsapi=1`;
+      }
+      if(cleanUrl.includes('youtube.com/shorts/')) {
+          const parts = cleanUrl.split('youtube.com/shorts/');
+          const v = parts[1].split('?')[0];
+          return `https://www.youtube.com/embed/${v}?enablejsapi=1`;
+      }
+      if(cleanUrl.includes('youtube.com/watch?v=')) {
+          let u = cleanUrl.startsWith('http') ? cleanUrl : 'https://'+cleanUrl;
           const v = new URLSearchParams(new URL(u).search).get('v');
-          return `https://www.youtube.com/embed/${v}`;
+          return `https://www.youtube.com/embed/${v}?enablejsapi=1`;
       }
-      if(url.includes('youtu.be/')) {
-          const v = url.split('youtu.be/')[1].split('?')[0];
-          return `https://www.youtube.com/embed/${v}`;
+      if(cleanUrl.includes('youtube.com/embed/')) {
+          let u = cleanUrl.startsWith('http') ? cleanUrl : 'https://'+cleanUrl;
+          const urlObj = new URL(u);
+          urlObj.searchParams.set('enablejsapi', '1');
+          return urlObj.toString();
       }
-      if(url.includes('spotify.com/track/')) return url.replace('spotify.com/track/', 'open.spotify.com/embed/track/');
+      if(cleanUrl.includes('youtu.be/')) {
+          const v = cleanUrl.split('youtu.be/')[1].split('?')[0];
+          return `https://www.youtube.com/embed/${v}?enablejsapi=1`;
+      }
+      if(cleanUrl.includes('spotify.com/track/')) return cleanUrl.replace('spotify.com/track/', 'open.spotify.com/embed/track/');
     } catch(e) {}
     return null;
   };
@@ -1755,8 +1801,15 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
 
     {/* Media Player */}
     {embedUrl && <div className={`${gc} aUp`} style={{...CS, padding:0, overflow:'hidden', marginBottom:12, height: String(song.media_url||'').includes('spotify') ? 80 : 200}}>
-       <iframe src={embedUrl} width="100%" height="100%" frameBorder="0" allow="encrypted-media; picture-in-picture" allowFullScreen></iframe>
+       <iframe ref={iframeRef} src={embedUrl} width="100%" height="100%" frameBorder="0" allow="encrypted-media; picture-in-picture" allowFullScreen></iframe>
     </div>}
+    {embedUrl && !String(song.media_url||'').includes('spotify') && (
+      <div style={{display:'flex', gap:8, marginBottom:12}} className="aUp">
+        <button onClick={() => { vib(); sendYoutubeCommand('playVideo'); }} className="bSec" style={{flex:1, padding:8, background:'rgba(16,185,129,0.08)', color:'#10B981', borderColor:'rgba(16,185,129,0.2)'}}>▶ Iniciar</button>
+        <button onClick={() => { vib(); sendYoutubeCommand('pauseVideo'); }} className="bSec" style={{flex:1, padding:8, background:'rgba(239,68,68,0.08)', color:'#EF4444', borderColor:'rgba(239,68,68,0.2)'}}>⏸ Pausar</button>
+        <button onClick={() => { vib(); sendYoutubeCommand('seekTo', [0, true]); }} className="bSec" style={{flex:1, padding:8, background:'rgba(79,70,229,0.08)', color:'#4F46E5', borderColor:'rgba(79,70,229,0.2)'}}>🔄 Reiniciar</button>
+      </div>
+    )}
 
     {/* Transposer */}
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.07s'}}>
@@ -1808,7 +1861,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     </div>}
 
     {/* Lyrics */}
-    <div className={`${gc} aUp`} style={{...CS,animationDelay:'.14s'}}><LyricView text={song.lyrics||''} st={tr} mode={mode} dark={dark}/></div>
+    <div className={`${gc} aUp`} style={{...CS,animationDelay:'.14s'}}><LyricView text={song.lyrics||''} st={tr} mode={mode} dark={dark} chordColor={chordColor} fontFam={fontFam}/></div>
 
     {/* AI button */}
     <button className="bp aUp" style={{marginBottom:8,animationDelay:'.18s'}} onClick={()=>{onSendAI(`Analise "${song.title}" (tom ${curKey}, ${CAT[song.cat]?.label || song.cat || 'Sem Categoria'}, ${song.bpm}bpm, compasso ${song.time_signature||'4/4'}) e sugira 3 mÃºsicas complementares para setlist com justificativa de fluxo.`);onNavTo('ia');}}>
@@ -1829,10 +1882,11 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
 });
 
 /* â”€â”€â”€ STAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-const Stage = memo(({song,tr,mode,setMode,stageFs,setStageFs,dark,onClose,beatIdx})=>{
+const Stage = memo(({song,tr,mode,setMode,stageFs,setStageFs,dark,onClose,beatIdx,chordColor,setChordColor,fontFam,setFontFam})=>{
   if(!song)return null;
   const curK=getKey(song.key,tr);
   const [autoScroll,setAutoScroll]=useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const lyricsRef=useRef(null);
   const scrollTimer=useRef(null);
   useEffect(()=>{
@@ -1861,7 +1915,24 @@ const Stage = memo(({song,tr,mode,setMode,stageFs,setStageFs,dark,onClose,beatId
         </div>
       </div>
     </div>
-    <div ref={lyricsRef} style={{flex:1,overflowY:'auto',padding:'16px 18px 48px',scrollBehavior:'smooth'}}><LyricView text={song.lyrics||''} st={tr} mode={mode} dark={true} fs={stageFs}/></div>
+    {showSettings && (
+      <div style={{background:'rgba(10,15,30,.98)', padding:16, borderBottom:'1px solid rgba(255,255,255,.07)', display:'flex', flexDirection:'column', gap:10}} className="aUp">
+        <div style={{fontSize:11, fontWeight:800, color:'rgba(255,255,255,.4)', textTransform:'uppercase'}}>Cor das Cifras</div>
+        <div style={{display:'flex', gap:8}}>
+          {[['#FF6B35','🔥 Laranja'],['#7B3FF2','💜 Roxo'],['#FFFFFF','⚪ Branco']].map(([c,l]) => (
+            <button key={c} onClick={() => setChordColor(c)} style={{flex:1, padding:6, borderRadius:6, border:'none', background: chordColor === c ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.03)', color: chordColor === c ? c : '#fff', fontWeight:700, fontSize:12, cursor:'pointer'}}>{l}</button>
+          ))}
+        </div>
+
+        <div style={{fontSize:11, fontWeight:800, color:'rgba(255,255,255,.4)', textTransform:'uppercase'}}>Tipo de Fonte</div>
+        <div style={{display:'flex', gap:8}}>
+          {[[`'Nunito', sans-serif`,'Nunito'],[`'Montserrat',sans-serif`,'Montserrat'],[`'JetBrains Mono',monospace`,'Monospace']].map(([f,l]) => (
+            <button key={l} onClick={() => setFontFam(f)} style={{flex:1, padding:6, borderRadius:6, border:'none', background: fontFam === f ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.03)', color: '#fff', fontWeight:700, fontSize:12, cursor:'pointer', fontFamily:f}}>{l}</button>
+          ))}
+        </div>
+      </div>
+    )}
+    <div ref={lyricsRef} style={{flex:1,overflowY:'auto',padding:'16px 18px 48px',scrollBehavior:'smooth'}}><LyricView text={song.lyrics||''} st={tr} mode={mode} dark={true} fs={stageFs} chordColor={chordColor} fontFam={fontFam}/></div>
   </div>;
 });
 
@@ -2731,7 +2802,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           navigator.clipboard.writeText(txt).then(()=>{const btn=document.getElementById('shareBtn');if(btn){btn.style.animation='shareBtn .3s ease';setTimeout(()=>btn.style.animation='',400);}}).catch(()=>alert(txt));
         }} id="shareBtn" style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.06)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoShare s={14}/>Copiar setlist para WhatsApp</button>}
         {/* Link público do setlist (operador de datashow) */}
-        {profile?.is_admin && ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0 && <button
+        {(profile?.is_admin || profile?.role === 'Operador de Datashow' || profile?.instrument === 'Operador de Datashow') && ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0 && <button
           onClick={()=>{
             const url = `${window.location.origin}/api/setlist?id=${ev.id}`;
             navigator.clipboard.writeText(url).catch(()=>{});
@@ -2833,6 +2904,905 @@ const NotifsSheet = memo(({dark,notifs,onClose,onMarkRead,onMarkAllRead,onAction
 });
 
 /* â”€â”€â”€ MAIN APP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+/* ─── MURAL DE COMUNICADOS ─── */
+const Mural = memo(({profile, dark, members}) => {
+  const tc = dark ? '#E2E8F0' : '#0F172A', t2 = dark ? '#94A3B8' : '#475569';
+  const gc = 'gL1', CS = {borderRadius:'var(--r-xl)', padding:20, marginBottom:16};
+
+  const [posts, setPosts] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [reactions, setReactions] = useState([]);
+  const [saves, setSaves] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // 1. Fetch data on mount
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    
+    const loadAllData = async () => {
+      try {
+        const [
+          { data: pData },
+          { data: cData },
+          { data: rData }
+        ] = await Promise.all([
+          supabase.from('announcements').select('*').order('created_at', { ascending: false }),
+          supabase.from('announcement_comments').select('*').order('created_at', { ascending: true }),
+          supabase.from('announcement_reactions').select('*')
+        ]);
+        
+        if (pData) setPosts(pData);
+        if (cData) setComments(cData);
+        if (rData) setReactions(rData);
+        
+        if (profile?.id) {
+          const { data: sData } = await supabase.from('announcement_saves').select('post_id').eq('member_id', profile.id);
+          if (sData) setSaves(sData.map(s => s.post_id));
+        }
+      } catch (err) {
+        console.error('Error fetching Mural data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAllData();
+  }, [profile?.id]);
+
+  // 2. Supabase Realtime Channels
+  useEffect(() => {
+    if (!supabase) return;
+
+    const channel = supabase.channel('mural_realtime_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
+        supabase.from('announcements').select('*').order('created_at', { ascending: false })
+          .then(({ data }) => { if (data) setPosts(data); });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_comments' }, () => {
+        supabase.from('announcement_comments').select('*').order('created_at', { ascending: true })
+          .then(({ data }) => { if (data) setComments(data); });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_reactions' }, () => {
+        supabase.from('announcement_reactions').select('*')
+          .then(({ data }) => { if (data) setReactions(data); });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const [newPostOpen, setNewPostOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [expandedComments, setExpandedComments] = useState({});
+  const [newCommentTexts, setNewCommentTexts] = useState({});
+
+  const handleCreatePost = async () => {
+    if (!newTitle.trim() || !newContent.trim()) return alert('Título e Conteúdo são obrigatórios!');
+    const newPost = {
+      id: 'post_' + Date.now(),
+      title: newTitle,
+      content: newContent,
+      created_at: new Date().toISOString(),
+      created_by: profile?.id || 'admin'
+    };
+    
+    // Update local UI immediately
+    setPosts(prev => [newPost, ...prev]);
+    setNewTitle('');
+    setNewContent('');
+    setNewPostOpen(false);
+
+if (!navigator.onLine) {
+      window.dispatchOfflineTask && window.dispatchOfflineTask('create_post', newPost);
+      alert('Offline — Seu comunicado foi enfileirado para envio automático!');
+      return;
+    }
+    if (supabase) {
+      const { error } = await supabase.from('announcements').insert(newPost);
+      if (error) console.error(error);
+    }
+  };
+
+  const handleAddComment = async (postId) => {
+    const txt = newCommentTexts[postId] || '';
+    if (!txt.trim()) return;
+    const newC = {
+      id: 'comment_' + Date.now(),
+      post_id: postId,
+      member_id: profile?.id || 'admin',
+      text: txt,
+      created_at: new Date().toISOString()
+    };
+    
+    // Update local UI immediately
+    setComments(prev => [...prev, newC]);
+    setNewCommentTexts(prev => ({ ...prev, [postId]: '' }));
+
+if (!navigator.onLine) {
+      window.dispatchOfflineTask && window.dispatchOfflineTask('create_comment', newC);
+      alert('Offline — Seu comentário foi enfileirado!');
+      return;
+    }
+    if (supabase) {
+      const { error } = await supabase.from('announcement_comments').insert(newC);
+      if (error) console.error(error);
+    }
+  };
+
+  const handleToggleReaction = async (postId, emoji) => {
+    vib();
+    const existing = reactions.find(r => r.post_id === postId && r.member_id === (profile?.id || 'admin') && r.emoji === emoji);
+    if (existing) {
+      setReactions(prev => prev.filter(r => !(r.post_id === postId && r.member_id === (profile?.id || 'admin') && r.emoji === emoji)));
+      if (!navigator.onLine) {
+        window.dispatchOfflineTask && window.dispatchOfflineTask('toggle_reaction', { action: 'delete', row: { post_id: postId, member_id: profile?.id || 'admin', emoji } });
+        return;
+      }
+      if (supabase) {
+        const { error } = await supabase.from('announcement_reactions').delete().match({ post_id: postId, member_id: profile?.id || 'admin', emoji });
+        if (error) console.error(error);
+      }
+    } else {
+      const newR = { post_id: postId, member_id: profile?.id || 'admin', emoji };
+      setReactions(prev => [...prev, newR]);
+      if (!navigator.onLine) {
+        window.dispatchOfflineTask && window.dispatchOfflineTask('toggle_reaction', { action: 'insert', row: newR });
+        return;
+      }
+      if (supabase) {
+        const { error } = await supabase.from('announcement_reactions').insert(newR);
+        if (error) console.error(error);
+      }
+    }
+  };
+
+  const handleToggleSave = async (postId) => {
+    vib();
+    const isSaved = saves.includes(postId);
+    if (isSaved) {
+      setSaves(prev => prev.filter(id => id !== postId));
+      if (supabase) {
+        const { error } = await supabase.from('announcement_saves').delete().match({ post_id: postId, member_id: profile?.id || 'admin' });
+        if (error) console.error(error);
+      }
+    } else {
+      setSaves(prev => [...prev, postId]);
+      if (supabase) {
+        const { error } = await supabase.from('announcement_saves').insert({ post_id: postId, member_id: profile?.id || 'admin' });
+        if (error) console.error(error);
+      }
+    }
+  };
+
+  return (
+    <div style={{padding: 16, paddingBottom: 96}} className="aUp">
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
+        <div style={{fontSize:'var(--fs-xl)', fontWeight:900, color:tc, display:'flex', alignItems:'center', gap:8}}>
+          📢 Mural de Comunicados
+        </div>
+        {(profile?.is_admin || true) && (
+          <button onClick={() => setNewPostOpen(true)} className="bp" style={{width:'auto', padding:'8px 16px', borderRadius:100, fontSize:'var(--fs-sm)'}}>
+            + Novo Post
+          </button>
+        )}
+      </div>
+
+      {loading ? <div style={{display:'flex',justifyContent:'center',padding:40}}><Loader/></div> : (
+      <div style={{display:'flex', flexDirection:'column', gap:14}}>
+        {posts.map(post => {
+          const author = members.find(m => m.id === post.created_by) || { name: 'Líder', color: '#7B3FF2', avatar: 'LD' };
+          const postComments = comments.filter(c => c.post_id === post.id);
+          const postReactions = reactions.filter(r => r.post_id === post.id);
+          const isSaved = saves.includes(post.id);
+
+          const emoTypes = ['👍', '🙏', '🎵', '🔥'];
+
+          return (
+            <div key={post.id} className={gc} style={{...CS, position:'relative', borderLeft:`4px solid ${author.color || '#7B3FF2'}`}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10}}>
+                <div style={{display:'flex', alignItems:'center', gap:10}}>
+                  <Ava m={author} size={36} ring />
+                  <div>
+                    <div style={{fontWeight:800, color:tc, fontSize:'var(--fs-sm)'}}>{author.name}</div>
+                    <div style={{fontSize:10, color:t2}}>{new Date(post.created_at).toLocaleString('pt-BR')}</div>
+                  </div>
+                </div>
+                <button onClick={() => handleToggleSave(post.id)} style={{background:'transparent', border:'none', color: isSaved ? '#F59E0B' : t2, cursor:'pointer', fontSize:18}}>
+                  {isSaved ? '★' : '☆'}
+                </button>
+              </div>
+
+              <div style={{fontSize:15, fontWeight:800, color:tc, marginBottom:6}}>{post.title}</div>
+              <div style={{fontSize:'var(--fs-sm)', color:tc, lineHeight:1.6, marginBottom:14, whiteSpace:'pre-wrap'}}>{post.content}</div>
+
+              {/* Reactions strip */}
+              <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom:12}}>
+                {emoTypes.map(emoji => {
+                  const list = postReactions.filter(r => r.emoji === emoji);
+                  const active = list.some(r => r.member_id === (profile?.id || 'admin'));
+                  return (
+                    <button key={emoji} onClick={() => handleToggleReaction(post.id, emoji)} style={{
+                      padding: '5px 10px',
+                      borderRadius: 100,
+                      border: active ? '1px solid rgba(123,63,242,0.3)' : '1px solid transparent',
+                      background: active ? 'rgba(123,63,242,0.12)' : (dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'),
+                      color: tc,
+                      fontSize: 'var(--fs-xs)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      transition: 'all 0.15s'
+                    }}>
+                      <span>{emoji}</span>
+                      {list.length > 0 && <span style={{fontWeight:800}}>{list.length}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Comments Section */}
+              <hr style={{margin:'10px 0', opacity:0.1}} />
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <button onClick={() => setExpandedComments(p => ({ ...p, [post.id]: !p[post.id] }))} style={{background:'transparent', border:'none', color:'#4F46E5', fontSize:'var(--fs-xs)', fontWeight:800, cursor:'pointer'}}>
+                  💬 {postComments.length} comentário{postComments.length !== 1 ? 's' : ''} {expandedComments[post.id] ? '▲' : '▼'}
+                </button>
+              </div>
+
+              {expandedComments[post.id] && (
+                <div style={{marginTop:12, display:'flex', flexDirection:'column', gap:10}} className="aUp">
+                  {postComments.map(c => {
+                    const cMem = members.find(m => m.id === c.member_id) || { name: 'Membro', color: '#94A3B8', avatar: 'MB' };
+                    return (
+                      <div key={c.id} style={{display:'flex', gap:8, alignItems:'flex-start', padding:'6px 0', borderBottom:`1px solid ${dark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)'}`}}>
+                        <Ava m={cMem} size={24} />
+                        <div style={{flex:1}}>
+                          <div style={{display:'flex', justifyContent:'space-between'}}>
+                            <span style={{fontWeight:800, color:tc, fontSize:'var(--fs-xs)'}}>{cMem.name}</span>
+                            <span style={{fontSize:9, color:t2}}>{new Date(c.created_at).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</span>
+                          </div>
+                          <div style={{fontSize:'var(--fs-xs)', color:tc, marginTop:2, lineHeight:1.4}}>{c.text}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div style={{display:'flex', gap:6, marginTop:6}}>
+                    <div className="gIn" style={{flex:1, padding:'0 10px', height:32, display:'flex', alignItems:'center'}}>
+                      <input className="fi" value={newCommentTexts[post.id] || ''} onChange={e => setNewCommentTexts(p => ({ ...p, [post.id]: e.target.value }))} onKeyDown={e => e.key === 'Enter' && handleAddComment(post.id)} placeholder="Escreva um comentário..." style={{fontSize:'var(--fs-xs)', padding:0}} />
+                    </div>
+                    <button onClick={() => handleAddComment(post.id)} className="bp" style={{width:'auto', padding:'0 12px', height:32, borderRadius:'var(--r-md)', fontSize:'var(--fs-xs)'}}>
+                      Enviar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {posts.length === 0 && <EmptyState icon="📢" title="Nenhum comunicado no mural" />}
+      </div>
+      )}
+
+      {newPostOpen && (
+        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+          <div className={gc} style={{width:'100%', maxWidth:400, borderRadius:'var(--r-xl)', padding:20}}>
+            <div style={{fontSize:16, fontWeight:900, color:tc, marginBottom:14}}>Novo Comunicado</div>
+            <div className="gIn" style={{marginBottom:10}}>
+              <input className="fi" value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Título do post *" style={{color:tc}} />
+            </div>
+            <div className="gIn" style={{marginBottom:14}}>
+              <textarea className="fi" value={newContent} onChange={e => setNewContent(e.target.value)} placeholder="Escreva o comunicado aqui..." rows={4} style={{color:tc}} />
+            </div>
+            <div style={{display:'flex', gap:10}}>
+              <button className="bp" onClick={handleCreatePost} style={{flex:1}}>Publicar</button>
+              <button onClick={() => setNewPostOpen(false)} style={{padding:10, borderRadius:'var(--r-md)', border:'none', background:'rgba(0,0,0,0.1)', color:tc, fontWeight:700, cursor:'pointer'}}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+/* ─── MODO ENSAIO COLABORATIVO ─── */
+const Ensaio = memo(({dark, events, songs, members, profile}) => {
+  const tc = dark ? '#E2E8F0' : '#0F172A', t2 = dark ? '#94A3B8' : '#475569';
+  const gc = 'gL1', CS = {borderRadius:'var(--r-xl)', padding:20, marginBottom:16};
+
+  const nextSundayEvent = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0,10);
+    const sorted = [...events].sort((a,b) => a.date.localeCompare(b.date));
+    return sorted.find(e => e.type === 'culto' && new Date(e.date + 'T12:00:00').getDay() === 0 && e.date >= todayStr) || sorted.find(e => e.type === 'culto');
+  }, [events]);
+
+  const setlistSongs = useMemo(() => {
+    if (!nextSundayEvent) return [];
+    return nextSundayEvent.songs.map(id => songs.find(s => s.id === id)).filter(Boolean);
+  }, [nextSundayEvent, songs]);
+
+  const [activeSongId, setActiveSongId] = useState('');
+  const [styleMode, setStyleMode] = useState('Padrão');
+  const [timerActive, setTimerActive] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [notes, setNotes] = useState({});
+  const [currentNote, setCurrentNote] = useState('');
+  const [recordedTakes, setRecordedTakes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Helper to upsert state to rehearsal_sessions
+  const updateSessionState = useCallback((updates) => {
+    if (!supabase || !nextSundayEvent?.id) return;
+    supabase.from('rehearsal_sessions').upsert({
+      event_id: nextSundayEvent.id,
+      ...updates
+    }).catch(console.error);
+  }, [nextSundayEvent?.id]);
+
+  // Load initial notes, takes, and session state
+  useEffect(() => {
+    if (!supabase || !nextSundayEvent?.id) {
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+
+    const loadRehearsalData = async () => {
+      try {
+        // 1. Fetch notes
+        const { data: nData } = await supabase.from('rehearsal_notes').select('*');
+        if (nData) {
+          const notesMap = {};
+          nData.forEach(n => { notesMap[n.song_id] = n.note_text; });
+          setNotes(notesMap);
+        }
+
+        // 2. Fetch active session state
+        const { data: sData } = await supabase.from('rehearsal_sessions').select('*').eq('event_id', nextSundayEvent.id).maybeSingle();
+        if (sData) {
+          if (sData.active_song_id) setActiveSongId(sData.active_song_id);
+          if (sData.style_mode) setStyleMode(sData.style_mode);
+          if (sData.timer_active !== undefined) setTimerActive(sData.timer_active);
+          if (sData.timer_seconds !== undefined) setSeconds(sData.timer_seconds);
+        } else {
+          // If no session exists, select first song of setlist as active
+          if (setlistSongs.length > 0) {
+            setActiveSongId(setlistSongs[0].id);
+          }
+        }
+
+        // 3. Fetch takes from localStorage (as temporary local buffer)
+        try {
+          const stored = localStorage.getItem('ls_rehearsal_takes');
+          if (stored) setRecordedTakes(JSON.parse(stored));
+        } catch {}
+      } catch (err) {
+        console.error('Error loading rehearsal data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRehearsalData();
+  }, [nextSundayEvent?.id, setlistSongs]);
+
+  // Sync active song note on selection change
+  useEffect(() => {
+    if (activeSongId) {
+      setCurrentNote(notes[activeSongId] || '');
+    } else if (setlistSongs.length > 0 && !activeSongId) {
+      setActiveSongId(setlistSongs[0].id);
+    }
+  }, [activeSongId, notes, setlistSongs]);
+
+  // Realtime postgres changes
+  useEffect(() => {
+    if (!supabase || !nextSundayEvent?.id) return;
+
+    const channel = supabase.channel('rehearsal_realtime_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rehearsal_sessions', filter: `event_id=eq.${nextSundayEvent.id}` }, payload => {
+        const data = payload.new;
+        if (data) {
+          if (data.active_song_id !== undefined) setActiveSongId(data.active_song_id || '');
+          if (data.style_mode !== undefined) setStyleMode(data.style_mode || 'Padrão');
+          if (data.timer_active !== undefined) setTimerActive(data.timer_active || false);
+          if (data.timer_seconds !== undefined) setSeconds(data.timer_seconds || 0);
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rehearsal_notes' }, () => {
+        supabase.from('rehearsal_notes').select('*')
+          .then(({ data }) => {
+            if (data) {
+              const notesMap = {};
+              data.forEach(n => { notesMap[n.song_id] = n.note_text; });
+              setNotes(notesMap);
+            }
+          });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [nextSundayEvent?.id]);
+
+  const handleSaveNote = async () => {
+    if (!activeSongId) return;
+    vib();
+    const updated = { ...notes, [activeSongId]: currentNote };
+    setNotes(updated);
+    
+    alert('📝 Anotação de ensaio salva para esta música!');
+if (!navigator.onLine) {
+      window.dispatchOfflineTask && window.dispatchOfflineTask('save_rehearsal_note', { song_id: activeSongId, note_text: currentNote, updated_by: profile?.id || 'admin' });
+      return;
+    }
+    if (supabase) {
+      const { error } = await supabase.from('rehearsal_notes').upsert({ song_id: activeSongId, note_text: currentNote, updated_by: profile?.id || 'admin' });
+      if (error) console.error(error);
+    }
+  };
+
+  const STYLES = [
+    { name: 'Padrão', tip: 'Arranjo original da música.' },
+    { name: 'Worship', tip: 'Leve, com pads de teclado, guitarra com delay e crescendo gradual de dinâmica.' },
+    { name: 'Reggae', tip: 'Batida com contra-tempo (upbeat), baixo presumível e metais marcando a levada.' },
+    { name: 'Jazz/Blues', tip: 'Acordes com sétima e nona, andamento solto, piano em evidência.' },
+    { name: 'Pop/Rock', tip: 'Bateria direta de 4 tempos, guitarras distorcidas com energia constante.' }
+  ];
+
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const timerRef = useRef(null);
+
+  // Client side timer loop
+  useEffect(() => {
+    if (timerActive) {
+      timerRef.current = setInterval(() => {
+        setSeconds(s => s + 1);
+      }, 1000);
+    } else {
+      clearInterval(timerRef.current);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [timerActive]);
+
+  const formatTime = (totalSecs) => {
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const startRecording = async () => {
+    try {
+      vib();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const songObj = songs.find(s => s.id === activeSongId);
+        const takeName = `Rehearsal - ${songObj ? songObj.title : 'Take'} - ${new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`;
+        
+        // Upload to Supabase Storage if available
+        if (supabase) {
+          try {
+            const fileName = `rehearsal_${activeSongId}_${Date.now()}.webm`;
+            const file = new File([audioBlob], fileName, { type: 'audio/webm' });
+            
+            const { data, error } = await supabase.storage
+              .from('rehearsal-audio')
+              .upload(`takes/${fileName}`, file);
+            
+            if (error) throw error;
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('rehearsal-audio')
+              .getPublicUrl(`takes/${fileName}`);
+
+            const newTake = {
+              id: 'take_' + Date.now(),
+              name: takeName,
+              url: publicUrl,
+              created_at: new Date().toISOString()
+            };
+
+            setRecordedTakes(prev => {
+              const next = [newTake, ...prev];
+              localStorage.setItem('ls_rehearsal_takes', JSON.stringify(next));
+              return next;
+            });
+
+            alert('🎉 Gravação salva com sucesso no Supabase Storage!');
+          } catch (err) {
+            print(err)
+            console.error('Error uploading take:', err);
+            alert('⚠️ Erro ao enviar para o Supabase Storage. Salvando em cache local temporário.');
+            
+            // Local fallback
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = () => {
+              const base64data = reader.result;
+              const newTake = {
+                id: 'take_' + Date.now(),
+                name: takeName,
+                url: base64data,
+                created_at: new Date().toISOString()
+              };
+              setRecordedTakes(prev => {
+                const next = [newTake, ...prev];
+                localStorage.setItem('ls_rehearsal_takes', JSON.stringify(next));
+                return next;
+              });
+            };
+          }
+        } else {
+          // Local fallback
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = () => {
+            const base64data = reader.result;
+            const newTake = {
+              id: 'take_' + Date.now(),
+              name: takeName,
+              url: base64data,
+              created_at: new Date().toISOString()
+            };
+            setRecordedTakes(prev => {
+              const next = [newTake, ...prev];
+              localStorage.setItem('ls_rehearsal_takes', JSON.stringify(next));
+              return next;
+            });
+          };
+        }
+
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start();
+      setRecording(true);
+    } catch (err) {
+      alert('Erro ao acessar microfone para gravação.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && recording) {
+      vib();
+      mediaRecorderRef.current.stop();
+      setRecording(false);
+    }
+  };
+
+  const STAGE_ALERTS = [
+    '🔊 Mais Volume!',
+    '🎹 Mais Teclado!',
+    '🎸 Mais Violão!',
+    '🎙️ Mais Vocal!',
+    '🎼 Qual o tom?',
+    '⚠️ Errei a entrada!'
+  ];
+
+  const sendStageAlert = (msgText) => {
+    vib();
+    if (!supabase) return;
+    const channel = supabase.channel('louvesync_realtime');
+    channel.send({
+      type: 'broadcast',
+      event: 'stage_chat',
+      payload: { sender: profile?.name || 'Membro', message: msgText }
+    });
+  };
+
+  const handleDeleteTake = (id) => {
+    setRecordedTakes(prev => {
+      const next = prev.filter(t => t.id !== id);
+      localStorage.setItem('ls_rehearsal_takes', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  return (
+    <div style={{padding: 16, paddingBottom: 110}} className="aUp">
+      <div style={{fontSize:'var(--fs-xl)', fontWeight:900, color:tc, marginBottom:14, display:'flex', alignItems:'center', gap:8}}>
+        🎤 Modo Ensaio Colaborativo
+      </div>
+
+      {loading ? <div style={{display:'flex',justifyContent:'center',padding:40}}><Loader/></div> : (
+      <>
+      {nextSundayEvent ? (
+        <>
+          <div className={gc} style={{...CS, background:'linear-gradient(135deg,rgba(124,58,237,.14),transparent)', border:'1px solid rgba(124,58,237,.2)'}}>
+            <span style={{fontSize:10, fontWeight:800, padding:'3px 9px', borderRadius:100, background:'#7C3AED', color:'#fff'}}>CONECTADO AO CULTO</span>
+            <div className="font-serif" style={{fontSize:18, fontWeight:900, color:tc, marginTop:6}}>{nextSundayEvent.label}</div>
+            <div style={{fontSize:'var(--fs-xs)', color:t2, marginTop:2}}>{fDate(nextSundayEvent.date)} às {nextSundayEvent.time}</div>
+          </div>
+
+          <div className={gc} style={CS}>
+            <div style={{fontSize:'var(--fs-xs)', fontWeight:800, color:t2, textTransform:'uppercase', letterSpacing:'.1em', marginBottom:10}}>Selecione a Música no Ensaio</div>
+            <div style={{display:'flex', flexDirection:'column', gap:8, marginBottom:16}}>
+              {setlistSongs.map((s, idx) => {
+                const isAct = activeSongId === s.id;
+                return (
+                  <button key={s.id} onClick={() => { vib(); setActiveSongId(s.id); updateSessionState({ active_song_id: s.id }); }} style={{
+                    display:'flex',
+                    alignItems:'center',
+                    gap:10,
+                    padding:'10px 14px',
+                    borderRadius:'var(--r-md)',
+                    border: isAct ? '1.5px solid #7C3AED' : '1px solid transparent',
+                    background: isAct ? 'rgba(124,58,237,0.12)' : (dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'),
+                    cursor:'pointer',
+                    transition:'all 0.18s'
+                  }}>
+                    <span style={{width:20, height:20, borderRadius:'50%', background: isAct ? '#7C3AED' : 'rgba(0,0,0,.1)', color: isAct ? '#fff' : t2, fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center'}}>{idx + 1}</span>
+                    <span style={{flex:1, fontWeight:800, color:tc, fontSize:'var(--fs-sm)', textAlign:'left'}}>{s.title}</span>
+                    <KeyChip k={s.key} size={9} />
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeSongId && (() => {
+              const activeSong = songs.find(s => s.id === activeSongId);
+              if (!activeSong) return null;
+              return (
+                <div style={{background: dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', padding:12, borderRadius:'var(--r-md)'}}>
+                  <div style={{fontSize:11, fontWeight:800, color:t2, textTransform:'uppercase', marginBottom:4}}>Tocando Agora:</div>
+                  <div style={{fontWeight:800, fontSize:'var(--fs-base)', color:tc}}>{activeSong.title}</div>
+                  <div style={{fontSize:'var(--fs-xs)', color:t2}}>{activeSong.artist} · Tom {activeSong.key} · {activeSong.bpm} BPM</div>
+                </div>
+              );
+            })()}
+          </div>
+
+          <div className={gc} style={CS}>
+            <div style={{fontSize:'var(--fs-xs)', fontWeight:800, color:t2, textTransform:'uppercase', letterSpacing:'.1em', marginBottom:10}}>📝 Anotações do Ensaio</div>
+            <textarea className="fi" value={currentNote} onChange={e => setCurrentNote(e.target.value)} placeholder="Dobre o coro no final... Junior sola a introdução..." rows={3} style={{
+              background: dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+              borderRadius: 'var(--r-md)',
+              padding: 10,
+              fontSize: 'var(--fs-sm)',
+              color: tc,
+              width: '100%',
+              marginBottom: 10
+            }} />
+            <button className="bp" onClick={handleSaveNote} style={{padding:8, fontSize:'var(--fs-sm)'}}>
+              Salvar Anotação Sincronizada
+            </button>
+          </div>
+
+          <div className={gc} style={CS}>
+            <div style={{fontSize:'var(--fs-xs)', fontWeight:800, color:t2, textTransform:'uppercase', letterSpacing:'.1em', marginBottom:10}}>🎵 Modulador de Estilo Sugerido</div>
+            <div style={{display:'flex', gap:6, overflowX:'auto', paddingBottom:5, marginBottom:10}}>
+              {STYLES.map(st => {
+                const isAct = styleMode === st.name;
+                return (
+                  <button key={st.name} onClick={() => { vib(); setStyleMode(st.name); updateSessionState({ style_mode: st.name }); }} style={{
+                    flexShrink:0,
+                    padding:'6px 12px',
+                    borderRadius:100,
+                    border:'none',
+                    cursor:'pointer',
+                    fontSize:'var(--fs-xs)',
+                    fontWeight:700,
+                    background: isAct ? '#7C3AED' : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'),
+                    color: isAct ? '#fff' : tc
+                  }}>
+                    {st.name}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{background:'rgba(124,58,237,0.06)', borderRadius:'var(--r-sm)', padding:'10px 12px', borderLeft:'3px solid #7C3AED', fontSize:'var(--fs-xs)', color:tc}}>
+              <strong>Dica de Arranjo ({styleMode}):</strong> {STYLES.find(x=>x.name===styleMode)?.tip}
+            </div>
+          </div>
+
+          <div className={gc} style={CS}>
+            <div style={{fontSize:'var(--fs-xs)', fontWeight:800, color:t2, textTransform:'uppercase', letterSpacing:'.1em', marginBottom:10}}>📢 Alertas de Palco (Stage Chat)</div>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:8}}>
+              {STAGE_ALERTS.map(alertText => (
+                <button key={alertText} onClick={() => sendStageAlert(alertText)} className="bSec" style={{
+                  padding: 8,
+                  fontSize: 'var(--fs-xs)',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  marginBottom: 0
+                }}>
+                  {alertText}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={gc} style={{...CS, textAlign:'center'}}>
+            <div style={{fontSize:'var(--fs-xs)', fontWeight:800, color:t2, textTransform:'uppercase', letterSpacing:'.1em', marginBottom:6}}>⏱ Tempo de Ensaio</div>
+            <div style={{fontSize:36, fontWeight:900, color: timerActive ? '#EF4444' : tc, fontFamily:"'JetBrains Mono',monospace", lineHeight:1, marginBottom:10}}>{formatTime(seconds)}</div>
+            <div style={{display:'flex', gap:8}}>
+              <button onClick={() => {
+                const nextAct = !timerActive;
+                setTimerActive(nextAct);
+                updateSessionState({ timer_active: nextAct, timer_seconds: seconds });
+              }} style={{
+                flex:1,
+                padding:8,
+                borderRadius:'var(--r-md)',
+                border:'none',
+                cursor:'pointer',
+                fontWeight:700,
+                fontSize:'var(--fs-sm)',
+                background: timerActive ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
+                color: timerActive ? '#EF4444' : '#10B981'
+              }}>{timerActive ? '⏸ Pausar' : '▶ Iniciar Cronômetro'}</button>
+              <button onClick={() => {
+                setTimerActive(false);
+                setSeconds(0);
+                updateSessionState({ timer_active: false, timer_seconds: 0 });
+              }} style={{
+                padding:8,
+                borderRadius:'var(--r-md)',
+                border:'none',
+                cursor:'pointer',
+                fontWeight:700,
+                fontSize:'var(--fs-sm)',
+                background:'rgba(0,0,0,0.08)',
+                color:tc
+              }}>Zerar</button>
+            </div>
+          </div>
+
+          <div className={gc} style={CS}>
+            <div style={{fontSize:'var(--fs-xs)', fontWeight:800, color:t2, textTransform:'uppercase', letterSpacing:'.1em', marginBottom:12}}>🎤 Gravador de Takes / Ensaios</div>
+            
+            {recording ? (
+              <div style={{textAlign:'center', marginBottom:16}} className="aUp">
+                <div style={{display:'flex', justifyContent:'center', alignItems:'center', gap:10, marginBottom:8}}>
+                  <span style={{width:10, height:10, borderRadius:'50%', background:'#EF4444', animation:'pulse 1s infinite'}} />
+                  <span style={{fontWeight:800, color:'#EF4444', fontSize:'var(--fs-sm)'}}>GRAVANDO TAKE DO ENSAIO...</span>
+                </div>
+                <button onClick={stopRecording} className="bp" style={{background:'#EF4444', width:'auto', padding:'8px 20px', borderRadius:100, margin:'10px auto 0'}}>
+                  ⏹ Parar Gravação
+                </button>
+              </div>
+            ) : (
+              <button onClick={startRecording} className="bp" style={{background:'#10B981', display:'flex', alignItems:'center', gap:8, marginBottom:16}}>
+                🔴 Gravar Take do Ensaio
+              </button>
+            )}
+
+            {recordedTakes.length > 0 && (
+              <div>
+                <div style={{fontSize:11, fontWeight:800, color:t2, textTransform:'uppercase', marginBottom:8}}>Takes Gravados</div>
+                <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                  {recordedTakes.map(take => (
+                    <div key={take.id} style={{background: dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', padding:'10px 12px', borderRadius:'var(--r-md)', display:'flex', flexDirection:'column', gap:6}}>
+                      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                        <span style={{fontWeight:800, color:tc, fontSize:'var(--fs-xs)'}}>{take.name}</span>
+                        <button onClick={() => handleDeleteTake(take.id)} style={{background:'transparent', border:'none', color:'#EF4444', fontSize:14, cursor:'pointer'}}>✖</button>
+                      </div>
+                      <audio src={take.url} controls style={{width:'100%', height:32, outline:'none'}} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <EmptyState icon="🎤" title="Nenhum culto cadastrado" sub="Modo ensaio necessita de pelo menos um culto dominical agendado." />
+      )}
+      </>
+      )}
+    </div>
+  );
+});
+
+/* ─── PUSH SETTINGS MODAL ─── */
+const PushSettingsModal = memo(({dark, onClose}) => {
+  const tc = dark ? '#E2E8F0' : '#0F172A', t2 = dark ? '#94A3B8' : '#475569';
+  const gc = 'gL1';
+
+  const [pushEnabled, setPushEnabled] = useState(() => {
+    return localStorage.getItem('ls_push_enabled') === 'true' && Notification.permission === 'granted';
+  });
+
+  const [simulated, setSimulated] = useState(false);
+
+  const handleTogglePush = async () => {
+    vib();
+    if (!pushEnabled) {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        setPushEnabled(true);
+        localStorage.setItem('ls_push_enabled', 'true');
+        alert('🔔 Notificações push ativadas com sucesso!');
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/sw-push.js').catch(console.error);
+        }
+      } else {
+        alert('⚠️ Permissão negada pelo navegador. Ative nas configurações do site.');
+      }
+    } else {
+      setPushEnabled(false);
+      localStorage.setItem('ls_push_enabled', 'false');
+      alert('🔔 Notificações push desativadas.');
+    }
+  };
+
+  const triggerTestPush = () => {
+    vib();
+    setSimulated(true);
+    setTimeout(() => {
+      if (Notification.permission === 'granted') {
+        new Notification('LouveSync', {
+          body: 'Teste de notificação push: Próximo Culto no Domingo às 18:00!',
+          icon: '/favicon.png'
+        });
+      } else {
+        alert('🔔 Notificação Simulada: "Próximo Culto no Domingo às 18:00!" (Habilite o push para ver como notificação nativa)');
+      }
+      setSimulated(false);
+    }, 3000);
+  };
+
+  return (
+    <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:20, backdropFilter:'blur(8px)'}}>
+      <div className={`aUp ${gc}`} style={{width:'100%', maxWidth:360, padding:24, borderRadius:'var(--r-xl)', background:dark?'rgba(15,23,42,.95)':'rgba(255,255,255,.95)'}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
+          <div style={{fontSize:18, fontWeight:900, color:tc}}>⚙️ Configurações</div>
+          <button onClick={onClose} style={{width:30, height:30, borderRadius:'var(--r-sm)', border:'none', background:'rgba(0,0,0,0.07)', color:tc, cursor:'pointer'}}>✖</button>
+        </div>
+
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:'var(--fs-sm)', fontWeight:900, color:tc, marginBottom:6}}>Notificações Push</div>
+          <div style={{fontSize:'var(--fs-xs)', color:t2, marginBottom:12, lineHeight:1.5}}>Receba avisos instantâneos de novas escalas, postagens no mural e lembretes semanais.</div>
+          
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)', padding:'12px', borderRadius:'var(--r-md)'}}>
+            <span style={{fontSize:'var(--fs-xs)', fontWeight:700, color:tc}}>Habilitar Web Push</span>
+            <button className={`tog${pushEnabled?' on':''}`} onClick={handleTogglePush} style={{background:pushEnabled?'#4F46E5':'#CBD5E1'}} />
+          </div>
+        </div>
+
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:'var(--fs-sm)', fontWeight:900, color:tc, marginBottom:6}}>Testar Subscrição</div>
+          <div style={{fontSize:'var(--fs-xs)', color:t2, marginBottom:10}}>Envie uma notificação push simulada em 3 segundos para testar o recebimento no seu celular.</div>
+          <button onClick={triggerTestPush} disabled={simulated} className="bSec" style={{background:'rgba(16,185,129,0.08)', color:'#10B981', borderColor:'rgba(16,185,129,0.2)'}}>
+            {simulated ? '⏳ Enviando em 3s...' : '🔔 Simular Push'}
+          </button>
+        </div>
+
+        <button className="bp" onClick={onClose} style={{padding:10}}>Concluir</button>
+      </div>
+    </div>
+  );
+});
+
+
 export default function LouveSync() {
   // â”€â”€ Auth
   const [profile,setProfile]=useState(null);
@@ -2876,6 +3846,101 @@ export default function LouveSync() {
     localStorage.setItem('ls_notifs', JSON.stringify(notifs));
   }, [notifs]);
   const [confirmState,setConfirmState]=useState(null);
+  const [pushSettingsOpen, setPushSettingsOpen] = useState(false);
+  const [pwaPromptOpen, setPwaPromptOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [syncQueue, setSyncQueue] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('ls_sync_queue') || '[]');
+    } catch { return []; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ls_sync_queue', JSON.stringify(syncQueue));
+  }, [syncQueue]);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      if (!localStorage.getItem('ls_pwa_prompt_defer') || Date.now() - Number(localStorage.getItem('ls_pwa_prompt_defer')) > 14 * 24 * 3600000) {
+        setPwaPromptOpen(true);
+      }
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  useEffect(() => {
+    window.dispatchOfflineTask = (type, data) => {
+      setSyncQueue(prev => [...prev, { type, data }]);
+    };
+    return () => {
+      delete window.dispatchOfflineTask;
+    };
+  }, []);
+
+  // Offline Sync Queue Processor
+  useEffect(() => {
+    if (isOnline && syncQueue.length > 0) {
+      const processQueue = async () => {
+        const queue = [...syncQueue];
+        let successCount = 0;
+        for (const task of queue) {
+          try {
+            if (task.type === 'confirm') {
+              await setPresence(task.data.eventId, task.data.memberId, task.data.confirmed);
+              successCount++;
+            } else if (task.type === 'create_event') {
+              const toAdd = Array.isArray(task.data) ? task.data : [task.data];
+              for (const ev of toAdd) {
+                const { songs: _s, items: _i, members: _m, confirmations: _c, singerBySong: _sbs, requested_songs: _rs, sequenceBySong: _seq, ...rest } = ev;
+                await upsertEvent(rest);
+                const eventItems = (ev.items || []).map(it => ({ type: it.type, song_id: it.song_id, text: it.text, singer_id: it.singer_id }));
+                await setEventItems(ev.id, eventItems, ev.members || []);
+              }
+              successCount++;
+            } else if (task.type === 'save_song') {
+              const {id:localId,...rest}=task.data;
+              const payload = localId && !String(localId).startsWith('local_')
+                ? {...task.data, created_by: profile?.id}
+                : {...rest, created_by: profile?.id};
+              await upsertSong(payload);
+              successCount++;
+            } else if (task.type === 'create_post') {
+              await supabase.from('announcements').insert(task.data);
+              successCount++;
+            } else if (task.type === 'create_comment') {
+              await supabase.from('announcement_comments').insert(task.data);
+              successCount++;
+            } else if (task.type === 'toggle_reaction') {
+              if (task.data.action === 'insert') {
+                await supabase.from('announcement_reactions').insert(task.data.row);
+              } else {
+                await supabase.from('announcement_reactions').delete().match(task.data.row);
+              }
+              successCount++;
+            } else if (task.type === 'save_rehearsal_note') {
+              await supabase.from('rehearsal_notes').upsert(task.data);
+              successCount++;
+            }
+          } catch (e) {
+            console.error('Failed to sync offline item:', e);
+            break;
+          }
+        }
+        if (successCount === queue.length) {
+          setSyncQueue([]);
+        } else {
+          setSyncQueue(prev => prev.slice(successCount));
+        }
+      };
+      processQueue();
+    }
+  }, [isOnline, syncQueue, profile]);
+  const [stageToast, setStageToast] = useState(null);
+  const [chordColor, setChordColor] = useState('#FF6B35');
+  const [fontFam, setFontFam] = useState("'Nunito', sans-serif");
 
   // â”€â”€ Online/offline
   const [isOnline,setIsOnline]=useState(navigator.onLine);
@@ -3056,6 +4121,11 @@ export default function LouveSync() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, payload => {
          loadData();
       })
+      .on('broadcast', { event: 'stage_chat' }, payload => {
+         const { sender, message } = payload.payload;
+         setStageToast({ sender, message });
+         setTimeout(() => setStageToast(null), 3500);
+      })
       .subscribe();
 
     return () => {
@@ -3138,6 +4208,10 @@ export default function LouveSync() {
   async function handleConfirm(eventId,confirmed){
     if(!profile)return;
     setEvents(evs=>evs.map(ev=>ev.id===eventId?{...ev,confirmations:{...ev.confirmations,[profile.id]:confirmed}}:ev));
+    if (!isOnline) {
+      setSyncQueue(prev => [...prev, { type: 'confirm', data: { eventId, memberId: profile.id, confirmed } }]);
+      return;
+    }
     try{await setPresence(eventId,profile.id,confirmed);}catch(e){console.error('Sync presence failed:',e);}
   }
 
@@ -3150,11 +4224,16 @@ export default function LouveSync() {
 
   const handleUpdateSongOptions=useCallback((songId,newKey,updateOfficial,newBpm,newTs,singerId,eventId)=>{
     if (updateOfficial && singerId) {
-      setSongs(sList=>sList.map(s=>s.id===songId?{...s,vocal_keys:{...(s.vocal_keys||{}),[singerId]:newKey}}:s));
-      const upds = { [`vocal_keys->${singerId}`]: newKey };
-      if (newBpm) upds.bpm = newBpm;
-      if (newTs) upds.time_signature = newTs;
-      supabase.from('songs').update(upds).eq('id',songId).catch(console.error);
+      let updatedVKeys = {};
+      setSongs(sList => {
+        const songObj = sList.find(s => s.id === songId);
+        updatedVKeys = { ...(songObj?.vocal_keys || {}), [singerId]: newKey };
+        const upds = { vocal_keys: updatedVKeys };
+        if (newBpm) upds.bpm = newBpm;
+        if (newTs) upds.time_signature = newTs;
+        supabase.from('songs').update(upds).eq('id',songId).catch(console.error);
+        return sList.map(s=>s.id===songId?{...s,vocal_keys:updatedVKeys}:s);
+      });
     } else {
       if(newKey && eventId) setSequenceForSong(eventId, songId, newKey).catch(console.error);
       if(eventId) {
@@ -3250,11 +4329,15 @@ export default function LouveSync() {
     });
     setCreateEvOpen(false);
     spawnConfetti();
+if (!isOnline) {
+      setSyncQueue(prev => [...prev, { type: 'create_event', data: evs }]);
+      return;
+    }
     try {
       for (const ev of toAdd) {
          const { songs: _s, items: _i, members: _m, confirmations: _c, singerBySong: _sbs, requested_songs: _rs, sequenceBySong: _seq, ...rest } = ev;
          await upsertEvent(rest);
-         const eventItems = (ev.items || []).map(it => ({ type: it.type, song_id: it.song_id, text: it.text }));
+         const eventItems = (ev.items || []).map(it => ({ type: it.type, song_id: it.song_id, text: it.text, singer_id: it.singer_id }));
          await setEventItems(ev.id, eventItems, ev.members || []);
       }
     } catch(e) { console.error('Sync event failed', e); }
@@ -3279,10 +4362,12 @@ export default function LouveSync() {
        return [...p,newSong];
     });
     setAddOpen(false);spawnConfetti();
+if (!isOnline) {
+      setSyncQueue(prev => [...prev, { type: 'save_song', data: newSong }]);
+      return;
+    }
     try{
       const {id:localId,...rest}=newSong;
-      // EdiÃ§Ã£o (id real do Supabase): mantÃ©m o id para UPDATE
-      // CriaÃ§Ã£o (id 'local_...'): remove o id para o Supabase gerar UUID
       const payload = localId && !String(localId).startsWith('local_')
         ? {...newSong, created_by: profile?.id}
         : {...rest, created_by: profile?.id};
@@ -3291,18 +4376,22 @@ export default function LouveSync() {
     }catch(e){console.error('Sync song failed:',e);}
   }
 
-  // â”€â”€ Salvar tom vocal para uma mÃºsica (ex: tom especÃ­fico da Cleide em "QuÃ£o Grande Ã‰ Deus")
+  // ── Salvar tom vocal para uma música (ex: tom específico da Cleide em "Quão Grande É Deus")
   function handleSaveVocalKey(songId, singerId, key) {
-    setSongs(sList => sList.map(s => s.id === songId
-      ? {...s, vocal_keys: {...(s.vocal_keys||{}), [singerId]: key}}
-      : s
-    ));
-    if(supabase) {
-      supabase.from('songs')
-        .update({[`vocal_keys->${singerId}`]: key})
-        .eq('id', songId)
-        .catch(console.error);
-    }
+    setSongs(sList => {
+      const songObj = sList.find(s => s.id === songId);
+      const updatedVKeys = { ...(songObj?.vocal_keys || {}), [singerId]: key };
+      if(supabase) {
+        supabase.from('songs')
+          .update({ vocal_keys: updatedVKeys })
+          .eq('id', songId)
+          .catch(console.error);
+      }
+      return sList.map(s => s.id === songId
+        ? {...s, vocal_keys: updatedVKeys}
+        : s
+      );
+    });
   }
 
   async function sendAI(msg=''){
@@ -3345,6 +4434,8 @@ export default function LouveSync() {
     {id:'home',ico:<IcoHome s={22}/>,l:'InÃ­cio'},
     {id:'repertorio',ico:<IcoMusic s={22}/>,l:'MÃºsicas'},
     {id:'escala',ico:<IcoCal s={22}/>,l:'Escala'},
+    {id:'mural',ico:<IcoMural s={22}/>,l:'Mural'},
+    {id:'ensaio',ico:<IcoMic s={22}/>,l:'Ensaio'},
     {id:'biblia',ico:<IcoBook s={22}/>,l:'BÃ­blia'},
     {id:'devocional',ico:<IcoHeart s={22}/>,l:'Devocional'},
     {id:'treinamento',ico:<IcoGuitar s={22}/>,l:'Treinar'},
@@ -3376,7 +4467,7 @@ export default function LouveSync() {
     </div>
     {/* Shell */}
     <div style={{position:'relative',zIndex:1,height:'100dvh',display:'flex',flexDirection:'column',maxWidth:500,margin:'0 auto',overflow:'hidden'}}>
-      {stageMode&&inCifra&&<Stage song={selSong} tr={tr} mode={mode} setMode={setMode} stageFs={stageFs} setStageFs={setStageFs} dark={dark} onClose={()=>setStageMode(false)} beatIdx={beatIdx}/>}
+      {stageMode&&inCifra&&<Stage song={selSong} tr={tr} mode={mode} setMode={setMode} stageFs={stageFs} setStageFs={setStageFs} dark={dark} onClose={()=>setStageMode(false)} beatIdx={beatIdx} chordColor={chordColor} setChordColor={setChordColor} fontFam={fontFam} setFontFam={setFontFam}/>}
       {!stageMode&&<>
         {/* OFFLINE BANNER */}
         {!isOnline&&<div style={{background:'rgba(239,68,68,.9)',color:'#fff',textAlign:'center',padding:'5px',fontSize:'var(--fs-xs)',fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',gap:6,flexShrink:0}}><IcoWifi s={12} off/>Sem conexÃ£o â€” usando dados locais</div>}
@@ -3397,6 +4488,7 @@ export default function LouveSync() {
             {!inCifra&&<button onClick={()=>setNotifsOpen(true)} style={{position:'relative',width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(123,63,242,.08)',color:'#7B3FF2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
               <IcoBell s={18}/>{unread>0&&<div className="ndot-ring"/>}
             </button>}
+            {!inCifra&&<button onClick={()=>setPushSettingsOpen(true)} style={{position:'relative',width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(79,70,229,.08)',color:'#4F46E5',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'var(--fs-sm)'}}>⚙️</button>}
             {!inCifra&&<button title="Sair" onClick={handleLogout} style={{width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.05)',color:dark?'#94A3B8':'#475569',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><IcoLogout s={15}/></button>}
             <button className={`tog${dark?' on':''}`} onClick={()=>setDark(p=>!p)} style={{background:dark?'#7B3FF2':'#CBD5E1'}} aria-label="Tema"/>
           </div>
@@ -3408,6 +4500,8 @@ export default function LouveSync() {
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={()=>setCreateEvOpen(true)}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
             {inCifra&&<Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} profile={profile} members={allMembers}/>}
+            {tab==='mural'&&!inCifra&&<Mural profile={profile} dark={dark} members={allMembers}/>}
+            {tab==='ensaio'&&!inCifra&&<Ensaio dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
             {tab==='escala'&&!inCifra&&<Escala profile={profile} dark={dark} events={events} songs={songs} members={allMembers} onConfirm={handleConfirm} onEvSheet={setEvSheet} spawnConfetti={spawnConfetti} onCreateEvent={()=>setCreateEvOpen(true)}/>}
             {tab==='membros'&&!inCifra&&<Membros profile={profile} dark={dark} members={allMembers} events={events} selRole={selRole} setSelRole={setSelRole}/>}
             {tab==='ia'&&!inCifra&&<Maestro dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
@@ -3436,6 +4530,37 @@ export default function LouveSync() {
       {evSheet&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotifsSheet dark={dark} notifs={notifs} onClose={()=>setNotifsOpen(false)} onMarkRead={id=>setNotifs(ns=>ns.map(n=>n.id===id?{...n,read:true}:n))} onMarkAllRead={()=>setNotifs(ns=>ns.map(n=>({...n,read:true})))} onAction={n=>{if(n.ctaAction==='addSong'){setAddOpen(true);setNotifsOpen(false);}else if(n.ctaTab){navTo(n.ctaTab);setNotifsOpen(false);}}}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
+      
+      {/* Global Stage Toast Notification */}
+      {stageToast && (
+        <div style={{
+          position: 'fixed',
+          top: 'calc(env(safe-area-inset-top, 0px) + 65px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 'calc(100% - 32px)',
+          maxWidth: 360,
+          background: 'rgba(123, 63, 242, 0.94)',
+          color: '#fff',
+          padding: '12px 18px',
+          borderRadius: 'var(--r-md)',
+          boxShadow: '0 8px 30px rgba(123, 63, 242, 0.45)',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          animation: 'slideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1) both'
+        }}>
+          <span style={{fontSize: 24}}>📢</span>
+          <div style={{flex: 1}}>
+            <div style={{fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.75}}>Alerta de Palco: {stageToast.sender}</div>
+            <div style={{fontSize: 'var(--fs-sm)', fontWeight: 800}}>{stageToast.message}</div>
+          </div>
+        </div>
+      )}
 
       {/* ── Version Update Toast (Anti-cache) ── */}
       {versionToast && (
