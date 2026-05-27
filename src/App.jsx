@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, requestDeleteSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, deleteEvent as dbDelEvent, requestDeleteEvent, rejectDeleteEvent, setEventItems, setSingerForSong } from './lib/supabase';
 import { findSongData, searchSongCandidates, fetchCifraClubContent } from './lib/scraper';
 import { generateSetlist } from './lib/setlist';
@@ -568,10 +568,385 @@ const Treinamento = memo(({dark, profile})=>{
     </div>
 
     <ContentCarousel content={content} dark={dark}/>
+
+    {/* 🎸 Afinador Cromático */}
+    <Afinador dark={dark}/>
   </div>;
 });
 
-/* â”€â”€â”€ PAINEL ADMIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── AFINADOR CROMÁTICO ────────────────────────────────────── */
+const Afinador = memo(({dark})=>{
+  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
+  const [active, setActive] = useState(false);
+  const [note, setNote] = useState(null);        // e.g. { name:'A', octave:4, cents:+12 }
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const rafRef = useRef(null);
+  const streamRef = useRef(null);
+
+  const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const NOTE_PT = {C:'Dó',D:'Ré',E:'Mi',F:'Fá',G:'Sol',A:'Lá',B:'Si','C#':'Dó#','D#':'Ré#','F#':'Fá#','G#':'Sol#','A#':'Lá#'};
+
+  function freqToNote(freq){
+    if(freq<=0) return null;
+    const semitones = 12 * Math.log2(freq/440);
+    const idx = Math.round(semitones) + 57; // A4=69, 69-12=57 offset for 0-indexed
+    const noteIdx = ((idx % 12) + 12) % 12;
+    const octave = Math.floor(idx/12);
+    const cents = Math.round((semitones - Math.round(semitones)) * 100);
+    return { name: NOTE_NAMES[noteIdx], octave, cents };
+  }
+
+  function detectPitch(buf, sampleRate){
+    // Autocorrelation-based pitch detection
+    let best=-1, bestCorr=-1;
+    const minFreq=60, maxFreq=1200;
+    const minLag=Math.floor(sampleRate/maxFreq);
+    const maxLag=Math.ceil(sampleRate/minFreq);
+    for(let lag=minLag;lag<=maxLag;lag++){
+      let corr=0;
+      const n=buf.length-lag;
+      for(let i=0;i<n;i++) corr+=buf[i]*buf[i+lag];
+      corr/=n;
+      if(corr>bestCorr){bestCorr=corr;best=lag;}
+    }
+    if(bestCorr<0.01||best<0) return 0;
+    return sampleRate/best;
+  }
+
+  async function start(){
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      streamRef.current = stream;
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      audioCtxRef.current = ctx;
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 4096;
+      src.connect(analyser);
+      analyserRef.current = analyser;
+      setActive(true);
+      const buf = new Float32Array(analyser.fftSize);
+      function loop(){
+        analyser.getFloatTimeDomainData(buf);
+        const freq = detectPitch(buf, ctx.sampleRate);
+        setNote(freq > 60 ? freqToNote(freq) : null);
+        rafRef.current = requestAnimationFrame(loop);
+      }
+      loop();
+    } catch(e){
+      alert('Microfone não autorizado. Verifique as permissões do navegador.');
+    }
+  }
+
+  function stop(){
+    cancelAnimationFrame(rafRef.current);
+    streamRef.current?.getTracks().forEach(t=>t.stop());
+    audioCtxRef.current?.close();
+    setActive(false); setNote(null);
+  }
+
+  useEffect(()=>()=>{stop();},[]);
+
+  const cents = note?.cents ?? 0;
+  const inTune = Math.abs(cents) < 6;
+  const needleAngle = Math.max(-45, Math.min(45, cents * 0.9));
+  const color = inTune ? '#10B981' : Math.abs(cents)<20 ? '#F59E0B' : '#EF4444';
+
+  return <div className={`${gc} aUp`} style={CS}>
+    <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:14,display:'flex',alignItems:'center',gap:6}}>
+      🎸 Afinador Cromático
+    </div>
+    {/* Mostrador de agulha */}
+    <div style={{textAlign:'center',marginBottom:16}}>
+      <svg viewBox="-60 -50 120 70" style={{width:'100%',maxWidth:220,display:'block',margin:'0 auto'}}>
+        {/* Arco */}
+        <path d="M -50 0 A 50 50 0 0 1 50 0" fill="none" stroke={dark?'rgba(255,255,255,.1)':'rgba(0,0,0,.1)'} strokeWidth="3"/>
+        {/* Marca central */}
+        <line x1="0" y1="-52" x2="0" y2="-44" stroke={dark?'rgba(255,255,255,.3)':'rgba(0,0,0,.3)'} strokeWidth="1.5"/>
+        {/* Agulha */}
+        <line
+          x1="0" y1="0"
+          x2={Math.sin(needleAngle*Math.PI/180)*48}
+          y2={-Math.cos(needleAngle*Math.PI/180)*48}
+          stroke={color} strokeWidth="2.5" strokeLinecap="round"
+          style={{transition:'all .08s'}}
+        />
+        <circle cx="0" cy="0" r="4" fill={color} style={{transition:'fill .15s'}}/>
+      </svg>
+      {note ? (
+        <div>
+          <div style={{fontSize:48,fontWeight:900,color,fontFamily:"'JetBrains Mono',monospace",lineHeight:1,transition:'color .15s'}}>
+            {NOTE_PT[note.name]||note.name}<span style={{fontSize:18,opacity:.6}}>{note.octave}</span>
+          </div>
+          <div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:4}}>
+            {inTune ? '✅ Afinado!' : cents>0 ? `↑ +${cents}¢ (muito agudo)` : `↓ ${cents}¢ (muito grave)`}
+          </div>
+        </div>
+      ) : (
+        <div style={{fontSize:'var(--fs-sm)',color:t2,fontStyle:'italic'}}>
+          {active ? 'Aguardando sinal de áudio...' : 'Pressione Iniciar para afinar'}
+        </div>
+      )}
+    </div>
+    <button onClick={active?stop:start} style={{width:'100%',padding:'11px',borderRadius:'var(--r-md)',border:'none',background:active?'rgba(239,68,68,.1)':'rgba(16,185,129,.1)',color:active?'#EF4444':'#10B981',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+      {active ? '⏹ Parar Afinador' : '🎤 Iniciar Afinador'}
+    </button>
+    {active && <div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:8,textAlign:'center'}}>Usando microfone — mantenha o instrumento próximo</div>}
+  </div>;
+});
+
+/* ─── DASHBOARD ADMIN ───────────────────────────────────────── */
+const AdminDashboard = memo(({pastEvents, members, dark, tc, t2, gc, CS}) => {
+  const chartPoints = useMemo(() => {
+    const evs = pastEvents.slice(0, 5).reverse();
+    if (evs.length === 0) {
+      return [
+        { label: 'Sem dados', rate: 0 },
+        { label: 'Sem dados', rate: 0 }
+      ];
+    }
+    return evs.map(ev => {
+      const confs = ev.confirmations || {};
+      const confirmed = Object.values(confs).filter(v => v === true).length;
+      const total = ev.members?.length || 1;
+      const rate = Math.round((confirmed / total) * 100);
+      const day = ev.date?.split('-')[2] || '00';
+      const mName = ev.label?.split(' ')[0] || 'Culto';
+      return { label: `${mName} ${day}`, rate };
+    });
+  }, [pastEvents]);
+
+  const ranking = useMemo(() => {
+    const counts = {};
+    pastEvents.forEach(ev => {
+      (ev.members || []).forEach(mId => {
+        counts[mId] = (counts[mId] || 0) + 1;
+      });
+    });
+    return Object.entries(counts)
+      .map(([mId, count]) => {
+        const m = members.find(x => x.id === mId);
+        return { name: m ? m.name.split(' ')[0] : 'Membro', count };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [pastEvents, members]);
+
+  const width = 320;
+  const height = 120;
+  const paddingX = 40;
+  const paddingY = 20;
+  const chartW = width - paddingX * 2;
+  const chartH = height - paddingY * 2;
+
+  const pointsSVG = useMemo(() => {
+    if (chartPoints.length < 2) return [];
+    return chartPoints.map((pt, i) => {
+      const x = paddingX + (i * (chartW / (chartPoints.length - 1)));
+      const y = paddingY + chartH - (pt.rate * (chartH / 100));
+      return { x, y, rate: pt.rate, label: pt.label };
+    });
+  }, [chartPoints, chartW, chartH]);
+
+  const pathD = useMemo(() => {
+    if (!pointsSVG || pointsSVG.length < 2) return '';
+    return pointsSVG.reduce((acc, pt, i) => {
+      return acc + `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y} `;
+    }, '');
+  }, [pointsSVG]);
+
+  const areaD = useMemo(() => {
+    if (!pointsSVG || pointsSVG.length < 2) return '';
+    const last = pointsSVG[pointsSVG.length - 1];
+    const first = pointsSVG[0];
+    return `${pathD} L ${last.x} ${paddingY + chartH} L ${first.x} ${paddingY + chartH} Z`;
+  }, [pointsSVG, pathD, chartH]);
+
+  return <div className="aUp">
+    <div className={gc} style={CS}>
+      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12}}>Engajamento nos Últimos Cultos</div>
+      <div style={{position:'relative', width:'100%', height:height, display:'flex', justifyContent:'center'}}>
+        <svg viewBox={`0 0 ${width} ${height}`} style={{width:'100%', height:'100%', display:'block'}}>
+          <defs>
+            <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#4F46E5" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+          {[0, 25, 50, 75, 100].map(val => {
+            const y = paddingY + chartH - (val * (chartH / 100));
+            return <g key={val}>
+              <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke={dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)'} strokeWidth="1" />
+              <text x={paddingX - 10} y={y + 3} fill={t2} fontSize="8" fontWeight="700" textAnchor="end">{val}%</text>
+            </g>;
+          })}
+          {areaD && <path d={areaD} fill="url(#chartGrad)" />}
+          {pathD && <path d={pathD} fill="none" stroke="#4F46E5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+          {pointsSVG && pointsSVG.map((pt, i) => (
+            <g key={i}>
+              <circle cx={pt.x} cy={pt.y} r="4" fill="#4F46E5" stroke={dark?'#0F0524':'#FFF'} strokeWidth="1.5" />
+              <text x={pt.x} y={pt.y - 8} fill={tc} fontSize="8" fontWeight="800" textAnchor="middle">{pt.rate}%</text>
+              <text x={pt.x} y={height - 2} fill={t2} fontSize="7" fontWeight="700" textAnchor="middle">{pt.label}</text>
+            </g>
+          ))}
+        </svg>
+      </div>
+    </div>
+
+    <div className={gc} style={CS}>
+      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12}}>Ranking de Escalas (Membros Ativos)</div>
+      {ranking.length === 0 ? (
+        <div style={{fontSize:'var(--fs-xs)',color:t2,fontStyle:'italic',textAlign:'center',padding:10}}>Sem dados de ministração suficientes...</div>
+      ) : (
+        <div style={{display:'flex', flexDirection:'column', gap:10}}>
+          {ranking.map((item, idx) => {
+            const maxVal = ranking[0]?.count || 1;
+            const barW = Math.round((item.count / maxVal) * 60) + 15;
+            return <div key={idx} style={{display:'flex', alignItems:'center', gap:12}}>
+              <div style={{width:65, fontSize:'var(--fs-xs)', fontWeight:700, color:tc, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{item.name}</div>
+              <div style={{flex:1, height:12, background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)', borderRadius:6, overflow:'hidden'}}>
+                <div style={{width:`${barW}%`, height:'100%', background:'linear-gradient(90deg,#4F46E5,#818CF8)', borderRadius:6}} />
+              </div>
+              <div style={{width:25, fontSize:'var(--fs-xs)', fontWeight:800, color:'#4F46E5', textAlign:'right'}}>{item.count}x</div>
+            </div>;
+          })}
+        </div>
+      )}
+    </div>
+  </div>;
+});
+
+/* ─── PATRIMÔNIO ADMIN ──────────────────────────────────────── */
+const AdminPatrimonio = memo(({members, dark, tc, t2, gc, CS}) => {
+  const [equipment, setEquipment] = useState(() => {
+    const stored = localStorage.getItem('ls_equipment');
+    if (stored) {
+      try { return JSON.parse(stored); } catch(e) {}
+    }
+    return [
+      { id: 'eq_1', name: 'Microfone sem fio SM58', brand: 'Shure', status: 'Disponível', custodian_id: null, serial_number: 'SN-SHURE-581' },
+      { id: 'eq_2', name: 'Violão Eletroacústico', brand: 'Tanglewood', status: 'Em uso', custodian_id: members[0]?.id || null, serial_number: 'SN-TANG-202' },
+      { id: 'eq_3', name: 'Mesa de Som UI24R', brand: 'Soundcraft', status: 'Disponível', custodian_id: null, serial_number: 'SN-SOUND-24' }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ls_equipment', JSON.stringify(equipment));
+    if (supabase) {
+      equipment.forEach(item => {
+        supabase.from('equipment').upsert({
+          id: item.id,
+          name: item.name,
+          brand: item.brand,
+          status: item.status,
+          custodian_id: item.custodian_id,
+          serial_number: item.serial_number
+        }).catch(console.error);
+      });
+    }
+  }, [equipment]);
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [editItem, setEditItem] = useState(null);
+
+  const filtered = useMemo(() => {
+    return equipment.filter(eq => {
+      const matchSearch = eq.name.toLowerCase().includes(search.toLowerCase()) || eq.brand.toLowerCase().includes(search.toLowerCase());
+      const matchFilter = statusFilter === 'all' || eq.status === statusFilter;
+      return matchSearch && matchFilter;
+    });
+  }, [equipment, search, statusFilter]);
+
+  const handleSave = () => {
+    if (!editItem.name) return alert('Nome do equipamento é obrigatório!');
+    setEquipment(prev => {
+      const exists = prev.some(x => x.id === editItem.id);
+      if (exists) return prev.map(x => x.id === editItem.id ? editItem : x);
+      return [...prev, editItem];
+    });
+    setEditItem(null);
+  };
+
+  const handleDelete = (id) => {
+    if (!window.confirm('Tem certeza que deseja excluir este equipamento?')) return;
+    setEquipment(prev => prev.filter(x => x.id !== id));
+    setEditItem(null);
+    if (supabase) {
+      supabase.from('equipment').delete().eq('id', id).catch(console.error);
+    }
+  };
+
+  return <div className="aUp">
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em'}}>Controle de Patrimônio</div>
+      <button onClick={() => setEditItem({id: 'eq_' + Date.now(), name: '', brand: '', status: 'Disponível', custodian_id: null, serial_number: ''})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>
+    </div>
+
+    <div style={{display:'flex', gap:8, marginBottom:12}}>
+      <div className="gIn" style={{flex:1, display:'flex', alignItems:'center', padding:'0 10px'}}>
+        <input className="fi" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar equipamento..." style={{color:tc, padding:0, fontSize:'var(--fs-xs)'}} />
+      </div>
+      <select className="gIn" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={{color:tc, padding:'6px 10px', fontSize:'var(--fs-xs)', border:'1px solid rgba(79,70,229,.12)', borderRadius:'var(--r-sm)'}}>
+        <option value="all">Todos</option>
+        <option value="Disponível">Disponível</option>
+        <option value="Em uso">Em uso</option>
+        <option value="Manutenção">Manutenção</option>
+      </select>
+    </div>
+
+    <div style={{display:'flex', flexDirection:'column', gap:10}}>
+      {filtered.map(eq => {
+        const custodian = members.find(m => m.id === eq.custodian_id);
+        const statusColor = eq.status === 'Disponível' ? '#10B981' : eq.status === 'Em uso' ? '#4F46E5' : '#EF4444';
+        return <div key={eq.id} className={gc} style={{...CS, padding:14, marginBottom:0, display:'flex', justifyContent:'space-between', alignItems:'center', borderLeft:`3px solid ${statusColor}`}}>
+          <div>
+            <div style={{fontWeight:800, color:tc, fontSize:'var(--fs-sm)'}}>{eq.name}</div>
+            <div style={{fontSize:'var(--fs-xs)', color:t2}}>{eq.brand} {eq.serial_number ? `· SN: ${eq.serial_number}` : ''}</div>
+            <div style={{display:'flex', alignItems:'center', gap:6, marginTop:6}}>
+              <span style={{background: statusColor + '15', color: statusColor, padding:'2px 8px', borderRadius:100, fontSize:10, fontWeight:800}}>{eq.status}</span>
+              {custodian && <span style={{fontSize:10, color:t2, display:'flex', alignItems:'center', gap:4}}><Ava m={custodian} size={16} /> Custódia: {custodian.name.split(' ')[0]}</span>}
+            </div>
+          </div>
+          <button onClick={() => setEditItem({...eq})} style={{padding:'5px 10px', borderRadius:'var(--r-sm)', border:'none', background:'rgba(79,70,229,.1)', color:'#4F46E5', fontWeight:700, fontSize:'var(--fs-xs)', cursor:'pointer'}}>Editar</button>
+        </div>;
+      })}
+      {filtered.length === 0 && <EmptyState icon="🏛️" title="Nenhum equipamento cadastrado" />}
+    </div>
+
+    {editItem && <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div className={gc} style={{width:'100%',maxWidth:360,borderRadius:'var(--r-xl)',padding:20}}>
+        <div style={{fontSize:16,fontWeight:900,color:tc,marginBottom:14}}>{equipment.some(x=>x.id===editItem.id) ? 'Editar Equipamento' : 'Novo Equipamento'}</div>
+        <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editItem.name} onChange={e=>setEditItem(x=>({...x,name:e.target.value}))} placeholder="Nome do Equipamento *" style={{color:tc, fontSize:'var(--fs-sm)'}}/></div>
+        <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editItem.brand} onChange={e=>setEditItem(x=>({...x,brand:e.target.value}))} placeholder="Marca/Fabricante" style={{color:tc, fontSize:'var(--fs-sm)'}}/></div>
+        <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editItem.serial_number} onChange={e=>setEditItem(x=>({...x,serial_number:e.target.value}))} placeholder="Número de Série" style={{color:tc, fontSize:'var(--fs-sm)'}}/></div>
+        
+        <div style={{fontSize:11, fontWeight:800, color:t2, marginBottom:4, textTransform:'uppercase'}}>Status</div>
+        <div className="gIn" style={{marginBottom:10}}><select className="fi" value={editItem.status} onChange={e=>setEditItem(x=>({...x,status:e.target.value}))} style={{color:tc, padding:'6px 10px', fontSize:'var(--fs-sm)'}}>
+          <option value="Disponível">Disponível</option>
+          <option value="Em uso">Em uso</option>
+          <option value="Manutenção">Manutenção</option>
+        </select></div>
+
+        <div style={{fontSize:11, fontWeight:800, color:t2, marginBottom:4, textTransform:'uppercase'}}>Responsável (Custódia)</div>
+        <div className="gIn" style={{marginBottom:16}}><select className="fi" value={editItem.custodian_id || ''} onChange={e=>setEditItem(x=>({...x,custodian_id:e.target.value || null}))} style={{color:tc, padding:'6px 10px', fontSize:'var(--fs-sm)'}}>
+          <option value="">- Ninguém (Disponível no estúdio) -</option>
+          {members.map(m => <option key={m.id} value={m.id}>{m.name} ({m.instrument})</option>)}
+        </select></div>
+
+        <div style={{display:'flex',gap:10}}>
+          <button className="bp" onClick={handleSave} style={{flex:1, padding:10, fontSize:'var(--fs-sm)'}}>Salvar</button>
+          <button onClick={()=>setEditItem(null)} style={{padding:10,borderRadius:'var(--r-md)',border:'none',background:'rgba(0,0,0,.1)',color:tc,fontWeight:700,cursor:'pointer', fontSize:'var(--fs-sm)'}}>Cancelar</button>
+        </div>
+        {equipment.some(x=>x.id===editItem.id) && <button onClick={()=>handleDelete(editItem.id)} style={{width:'100%',padding:8,borderRadius:'var(--r-md)',border:'none',background:'transparent',color:'#EF4444',fontWeight:700,cursor:'pointer',marginTop:10, fontSize:'var(--fs-xs)'}}>Excluir Equipamento</button>}
+      </div>
+    </div>}
+  </div>;
+});
+
+/* ─── PAINEL ADMIN ──────────────────────────────────────────── */
 const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState, setMembers})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
@@ -642,6 +1017,27 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     rejectDeleteSong(songId).catch(console.error);
   };
   
+  const [adminTab, setAdminTab] = useState('geral'); // 'geral'|'dashboard'|'patrimonio'
+
+  const [featSong, setFeatSong] = useState(songs?.find(s=>s.featured_week)?.id || '');
+  const [featNote, setFeatNote] = useState(songs?.find(s=>s.featured_week)?.featured_note || '');
+
+  const saveFeaturedSong = async () => {
+    try {
+      setSongs(prev => prev.map(s => s.id === featSong ? {...s, featured_week: true, featured_note: featNote} : {...s, featured_week: false, featured_note: null}));
+      if (supabase) {
+        await supabase.from('songs').update({ featured_week: false, featured_note: null }).eq('featured_week', true);
+        if (featSong) {
+          await supabase.from('songs').update({ featured_week: true, featured_note: featNote }).eq('id', featSong);
+        }
+      }
+      alert('✅ Música da Semana atualizada com sucesso!');
+    } catch(e) {
+      console.error(e);
+      alert('Erro ao salvar Música da Semana.');
+    }
+  };
+
   if(!profile?.is_admin) return <div style={{padding:40,textAlign:'center',color:t2}}>Acesso Restrito</div>;
 
   // KPIs
@@ -657,16 +1053,24 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
       <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoPeople s={20}/>Painel Admin</div>
     </div>
 
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}} className="aUp">
-      <div className={gc} style={{padding:16,borderRadius:'var(--r-lg)',textAlign:'center'}}>
-         <div style={{fontSize:28,fontWeight:900,color:'#10B981'}}>{avgAttendance}%</div>
-         <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,textTransform:'uppercase'}}>Engajamento MÃ©dio</div>
-      </div>
-      <div className={gc} style={{padding:16,borderRadius:'var(--r-lg)',textAlign:'center'}}>
-         <div style={{fontSize:28,fontWeight:900,color:'#4F46E5'}}>{pastEvents.length}</div>
-         <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,textTransform:'uppercase'}}>MinistraÃ§Ãµes</div>
-      </div>
+    {/* Admin tabs */}
+    <div style={{display:'flex',gap:6,marginBottom:16}} className="aUp">
+      {[['geral','⚙️ Geral'],['dashboard','📊 Dashboard'],['patrimonio','🏛️ Patrimônio']].map(([k,l])=>
+        <button key={k} onClick={()=>setAdminTab(k)} style={{padding:'7px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:700,background:adminTab===k?'#4F46E5':'rgba(79,70,229,.08)',color:adminTab===k?'#fff':'#4F46E5'}}>{l}</button>
+      )}
     </div>
+
+    {adminTab === 'geral' && <>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}} className="aUp">
+        <div className={gc} style={{padding:16,borderRadius:'var(--r-lg)',textAlign:'center'}}>
+           <div style={{fontSize:28,fontWeight:900,color:'#10B981'}}>{avgAttendance}%</div>
+           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,textTransform:'uppercase'}}>Engajamento Médio</div>
+        </div>
+        <div className={gc} style={{padding:16,borderRadius:'var(--r-lg)',textAlign:'center'}}>
+           <div style={{fontSize:28,fontWeight:900,color:'#4F46E5'}}>{pastEvents.length}</div>
+           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,textTransform:'uppercase'}}>Ministrações</div>
+        </div>
+      </div>
 
     {pendingDeletes.length > 0 && <div className={`${gc} aUp`} style={{...CS, border:'1px solid rgba(239,68,68,.2)'}}>
        <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'#EF4444',marginBottom:10,textTransform:'uppercase'}}>SolicitaÃ§Ãµes de ExclusÃ£o (MÃºsicas)</div>
@@ -773,6 +1177,39 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
        </div>
     </div>
 
+    {/* ── Música da Semana (Foco de Estudo) ── */}
+    <div className={`${gc} aUp`} style={CS}>
+       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+         📌 Configurar Música da Semana (Estudo)
+       </div>
+       <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:10,lineHeight:1.4}}>
+         Escolha a música que receberá a marcação especial de estudo na tela de Início de todos os membros.
+       </div>
+       <div className="gIn" style={{marginBottom:10}}>
+         <select
+           className="fi"
+           value={featSong}
+           onChange={e=>setFeatSong(e.target.value)}
+           style={{color:tc,padding:'10px',background:'transparent',border:'none',outline:'none',fontSize:'var(--fs-sm)'}}
+         >
+           <option value="">-- Selecione uma música --</option>
+           {songs.map(s => <option key={s.id} value={s.id}>{s.title} ({s.artist})</option>)}
+         </select>
+       </div>
+       <div className="gIn" style={{marginBottom:14}}>
+         <input
+           className="fi"
+           value={featNote}
+           onChange={e=>setFeatNote(e.target.value)}
+           placeholder="Observação para estudo (ex: Foco nas transições)"
+           style={{color:tc}}
+         />
+       </div>
+       <button className="bp" onClick={saveFeaturedSong} style={{padding:'10px',fontSize:'var(--fs-sm)',width:'100%',fontWeight:800}}>
+         Salvar Música da Semana
+       </button>
+    </div>
+
     {/* Member Edit Modal */}
     {editMember && <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
        <div className={gc} style={{width:'100%',maxWidth:420,borderRadius:'var(--r-xl)',padding:24,maxHeight:'85vh',overflowY:'auto'}}>
@@ -833,6 +1270,47 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
        </div>
     </div>}
 
+    {/* ── QR Code de Convite ── */}
+    <div className={`${gc} aUp`} style={CS}>
+      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+        <IcoShare s={14}/>QR Code — Convite para o App
+      </div>
+      <div style={{display:'flex',gap:12,alignItems:'center'}}>
+        <img
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin)}&color=4F46E5&bgcolor=F8FAFC`}
+          alt="QR Code do app"
+          style={{borderRadius:'var(--r-md)',width:100,height:100,flexShrink:0}}
+        />
+        <div>
+          <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:6,lineHeight:1.5}}>Mostre este QR Code para novos membros escanearem com a câmera do celular. Eles chegarão direto na tela de login do app.</div>
+          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#4F46E5',background:'rgba(79,70,229,.08)',padding:'5px 10px',borderRadius:'var(--r-sm)',wordBreak:'break-all'}}>{window.location.origin}</div>
+        </div>
+      </div>
+    </div>
+    </>}
+
+    {adminTab === 'dashboard' && (
+      <AdminDashboard
+        pastEvents={pastEvents}
+        members={members}
+        dark={dark}
+        tc={tc}
+        t2={t2}
+        gc={gc}
+        CS={CS}
+      />
+    )}
+
+    {adminTab === 'patrimonio' && (
+      <AdminPatrimonio
+        members={members}
+        dark={dark}
+        tc={tc}
+        t2={t2}
+        gc={gc}
+        CS={CS}
+      />
+    )}
   </div>;
 });
 const MetroDots = ({beatIdx,timeSignature,active,dark})=>{
@@ -1020,14 +1498,27 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
       <div className="aUp" style={{marginBottom:16,background:'rgba(245,158,11,.15)',borderLeft:'4px solid #F59E0B',padding:12,borderRadius:'var(--r-md)',animationDelay:'.2s'}}>
         <div style={{fontSize:'var(--fs-sm)',color:tc,fontWeight:700,marginBottom:4}}>ðŸŽ¤ Lembrete para Vocais</div>
         <div style={{fontSize:'var(--fs-xs)',color:t2}}>
-          AtenÃ§Ã£o! VocÃª Ã© responsÃ¡vel por alimentar o nosso repertÃ³rio com novas mÃºsicas das seguintes categorias: <strong>{vocalCats.join(', ')}</strong>.
+          Atenção! Você é responsável por alimentar o nosso repertório com novas músicas das seguintes categorias: <strong>{vocalCats.join(', ')}</strong>.
         </div>
       </div>
     )}
 
-    {/* ConfirmaÃ§Ãµes Pendentes */}
+    {/* 🎵 Música da Semana */}
+    {songs.find(s=>s.featured_week)&&(()=>{
+      const feat=songs.find(s=>s.featured_week);
+      return <div className={`${gc} aUp`} style={{...CS,animationDelay:'.03s',background:'linear-gradient(135deg,rgba(79,70,229,.12),rgba(124,58,237,.06))',border:'1px solid rgba(79,70,229,.2)',position:'relative',overflow:'hidden'}} onClick={()=>onSelectSong(feat)}>
+        <div style={{position:'absolute',top:-20,right:-20,fontSize:80,opacity:.06}}>🎵</div>
+        <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#4F46E5',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:6,display:'flex',alignItems:'center',gap:5}}>📌 Música da Semana</div>
+        <div className="font-serif" style={{fontSize:20,fontWeight:900,color:tc,lineHeight:1.2}}>{feat.title}</div>
+        <div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:3,marginBottom:10}}>{feat.artist} · Tom {feat.key}</div>
+        {feat.featured_note&&<div style={{fontSize:'var(--fs-xs)',color:'#4F46E5',background:'rgba(79,70,229,.08)',borderRadius:'var(--r-sm)',padding:'6px 10px',marginBottom:8,fontStyle:'italic'}}>"​{feat.featured_note}​"</div>}
+        <div style={{fontSize:'var(--fs-xs)',color:'#4F46E5',fontWeight:700}}>Toque para estudar →</div>
+      </div>;
+    })()}
+
+    {/* Confirmações Pendentes */}
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.08s',border:'1px solid rgba(245,158,11,.2)',background:dark?'rgba(245,158,11,.04)':'rgba(245,158,11,.03)'}}>
-        <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#F59E0B',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:6}}><IcoBell s={12}/> ConfirmaÃ§Ãµes Pendentes (PrÃ³x. 3 dias)</div>
+        <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#F59E0B',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:6}}><IcoBell s={12}/> Confirmações Pendentes (Próx. 3 dias)</div>
         {nxtPending ? (
             <div>
               <div style={{fontSize:16,fontWeight:900,color:tc,lineHeight:1.2,marginBottom:4}}>{nxtPending.label}</div>
@@ -1220,8 +1711,22 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     } catch(e) {}
     return null;
   };
-  const embedUrl = getEmbedUrl(song.media_url);
-  
+  // Usa ytUrl como fallback quando media_url não está preenchida
+  const embedUrl = getEmbedUrl(song.media_url || song.ytUrl);
+
+  // 🦶 Pedal Bluetooth — qualquer pedal que emule PageDown/seta rola a cifra
+  useEffect(() => {
+    const onKey = (e) => {
+      if (['ArrowDown','ArrowRight','PageDown',' '].includes(e.key)) {
+        e.preventDefault(); window.scrollBy({top:240,behavior:'smooth'});
+      } else if (['ArrowUp','ArrowLeft','PageUp'].includes(e.key)) {
+        e.preventDefault(); window.scrollBy({top:-240,behavior:'smooth'});
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const [seqStr, setSeqStr] = useState(event?.sequenceBySong?.[song.id] || '');
   useEffect(() => {
      if(event) setSeqStr(event.sequenceBySong?.[song.id] || '');
@@ -1288,7 +1793,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     {/* Mode controls */}
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.1s'}}>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-        {[{l:mode==='chords'?'Cifras':'Letra',a:()=>setMode(m=>m==='chords'?'lyrics':'chords'),act:mode==='chords',c:'#4F46E5'},{l:metro?'Metro â—':'MetrÃ´nomo',a:()=>setMetro(m=>!m),act:metro,c:'#10B981'},{l:'Palco',a:()=>setStageMode(true),act:false,c:'#F59E0B'}].map((b,i)=>
+        {[{l:mode==='chords'?'Cifras':'Letra',a:()=>setMode(m=>m==='chords'?'lyrics':'chords'),act:mode==='chords',c:'#4F46E5'},{l:metro?'Metro â— ':'MetrÃ´nomo',a:()=>setMetro(m=>!m),act:metro,c:'#10B981'},{l:'Palco',a:()=>setStageMode(true),act:false,c:'#F59E0B'}].map((b,i)=>
           <button key={i} onClick={b.a} style={{padding:'10px 6px',borderRadius:'var(--r-md)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:700,background:b.act?`${b.c}18`:'rgba(0,0,0,.04)',color:b.act?b.c:t2}}>{b.l}</button>)}
       </div>
     </div>
@@ -1309,8 +1814,17 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     <button className="bp aUp" style={{marginBottom:8,animationDelay:'.18s'}} onClick={()=>{onSendAI(`Analise "${song.title}" (tom ${curKey}, ${CAT[song.cat]?.label || song.cat || 'Sem Categoria'}, ${song.bpm}bpm, compasso ${song.time_signature||'4/4'}) e sugira 3 mÃºsicas complementares para setlist com justificativa de fluxo.`);onNavTo('ia');}}>
       <IcoSpark s={16}/>Analisar com Maestro
     </button>
+    <button onClick={()=>window.print()} style={{width:'100%',marginBottom:8,padding:'11px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.05)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+      <IcoShare s={14}/>Imprimir / Salvar PDF
+    </button>
     {profile?.is_admin&&<button onClick={()=>onDeleteSong(song.id)} style={{width:'100%',marginBottom:16,padding:'11px',borderRadius:'var(--r-md)',border:'1px solid rgba(239,68,68,.22)',background:'rgba(239,68,68,.05)',color:'#DC2626',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoTrash s={14}/>Excluir mÃºsica</button>}
     <div style={{height:16}}/>
+    {/* ── Div oculta usada pelo @media print ── */}
+    {typeof window !== 'undefined' && <div id="print-cifra" style={{display:'none'}}>
+      <div className="print-title">{song.title}</div>
+      <div className="print-sub">{song.artist} Â· Tom: {curKey} {tr!==0?`(${tr>0?'+':''}${tr} st)`:''} Â· {song.bpm} BPM Â· {song.time_signature||'4/4'}</div>
+      <pre style={{fontFamily:'monospace',whiteSpace:'pre-wrap',fontSize:13,lineHeight:1.7}}>{song.lyrics||'(sem letra cadastrada)'}</pre>
+    </div>}
   </div>;
 });
 
@@ -1336,7 +1850,7 @@ const Stage = memo(({song,tr,mode,setMode,stageFs,setStageFs,dark,onClose,beatId
       <button onClick={onClose} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',borderRadius:'var(--r-sm)',border:'1px solid rgba(255,255,255,.14)',background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.7)',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer'}}><IcoChevL s={14}/>Sair</button>
       <div style={{textAlign:'center'}}><div className="font-serif" style={{fontSize:22,fontWeight:800,color:'#E2E8F0'}}>{song.title}</div><div style={{fontSize:'var(--fs-xs)',color:'rgba(255,255,255,.4)'}}>{song.artist}</div></div>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
-        <button onClick={()=>setAutoScroll(a=>!a)} title="Auto-scroll" style={{display:'flex',alignItems:'center',gap:4,padding:'6px 10px',borderRadius:'var(--r-sm)',border:`1px solid ${autoScroll?'rgba(16,185,129,.5)':'rgba(255,255,255,.14)'}`,background:autoScroll?'rgba(16,185,129,.18)':'rgba(255,255,255,.05)',color:autoScroll?'#10B981':'rgba(255,255,255,.7)',fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}><IcoScroll s={12}/>{autoScroll?'â¹':'â–¶'}</button>
+        <button onClick={()=>setAutoScroll(a=>!a)} title="Auto-scroll" style={{display:'flex',alignItems:'center',gap:4,padding:'6px 10px',borderRadius:'var(--r-sm)',border:`1px solid ${autoScroll?'rgba(16,185,129,.5)':'rgba(255,255,255,.14)'}`,background:autoScroll?'rgba(16,185,129,.18)':'rgba(255,255,255,.05)',color:autoScroll?'#10B981':'rgba(255,255,255,.7)',fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}><IcoScroll s={12}/>{autoScroll?'â ¹':'â–¶'}</button>
         <div style={{background:'rgba(79,70,229,.22)',border:'1px solid rgba(99,102,241,.4)',borderRadius:'var(--r-sm)',padding:'5px 12px',textAlign:'center'}}>
           <div style={{fontSize:8,color:'rgba(255,255,255,.4)',letterSpacing:'.08em'}}>TOM</div>
           <div style={{fontSize:18,fontWeight:900,color:'#818CF8',fontFamily:"'JetBrains Mono',monospace",lineHeight:1}}>{curK}</div>
@@ -1383,6 +1897,11 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
     const idx = monthWeeks.findIndex(w => w.some(d => d.toISOString().slice(0, 10) === todayStr));
     return Math.max(0, idx);
   });
+  const [showHistory, setShowHistory] = useState(false);
+  const pastEvents = useMemo(()=>events
+    .filter(e=>e.date<todayStr)
+    .sort((a,b)=>b.date.localeCompare(a.date))
+  ,[events,todayStr]);
 
   const weekEvents = useMemo(()=>{
     const w = monthWeeks[selWeekIdx];
@@ -1407,10 +1926,33 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
     }
   }, [selWeekIdx]);
 
+  const exportCSV = () => {
+    let csv = '\uFEFFData,Compromisso,Tipo,Confirmados,Recusados,Pendentes\n';
+    pastEvents.forEach(ev => {
+      const confirmedCount = Object.values(ev.confirmations || {}).filter(v => v === true).length;
+      const rejectedCount = Object.values(ev.confirmations || {}).filter(v => v === false).length;
+      const pendingCount = ev.members.length - confirmedCount - rejectedCount;
+      csv += `"${ev.date}","${ev.label}","${ev.type || 'culto'}",${confirmedCount},${rejectedCount},${pendingCount}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `historico_escalas_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return <div style={{padding:16}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
-      <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoCal s={20}/>Escala</div>
-      <button onClick={onCreateEvent} style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:100,border:'none',background:'#4F46E5',color:'#fff',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer',boxShadow:'0 4px 14px rgba(79,70,229,.35)'}}><IcoCalPlus s={14}/>Novo</button>
+      <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoCal s={20}/>{showHistory?'Histórico':'Escala'}</div>
+      <div style={{display:'flex',gap:6}}>
+        {showHistory && pastEvents.length > 0 && (
+          <button onClick={exportCSV} style={{display:'flex',alignItems:'center',gap:5,padding:'7px 12px',borderRadius:100,border:'none',background:'rgba(16,185,129,.15)',color:'#059669',fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>📥 Exportar CSV</button>
+        )}
+        <button onClick={()=>setShowHistory(h=>!h)} style={{display:'flex',alignItems:'center',gap:5,padding:'7px 12px',borderRadius:100,border:'none',background:showHistory?'rgba(245,158,11,.15)':'rgba(79,70,229,.08)',color:showHistory?'#D97706':'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>{showHistory?'← Agenda':'📋 Histórico'}</button>
+        {!showHistory&&<button onClick={onCreateEvent} style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:100,border:'none',background:'#4F46E5',color:'#fff',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer',boxShadow:'0 4px 14px rgba(79,70,229,.35)'}}><IcoCalPlus s={14}/>Novo</button>}
+      </div>
     </div>
 
     {/* My summary */}
@@ -1462,6 +2004,34 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
       </div>
     </div>
 
+    {/* ── HISTÓRICO de eventos passados ── */}
+    {showHistory&&<div className="aUp">
+      {pastEvents.length===0&&<EmptyState icon={<IcoCal s={32}/>} title="Nenhum evento anterior encontrado"/>}
+      {pastEvents.map((ev,ei)=>{
+        const evS=ev.songs.map(id=>songs.find(s=>s.id===id)).filter(Boolean);
+        const evM=ev.members.map(id=>members.find(m=>m.id===id)).filter(Boolean);
+        const myConf=ev.confirmations[profile?.id];
+        return <div key={ev.id} className={`${gc} aUp`} style={{...CS,animationDelay:`${ei*.04}s`,opacity:.85,borderLeft:`3px solid ${ev.type==='culto'?'#4F46E5':'#10B981'}`}} onClick={()=>onEvSheet(ev)}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+            <div>
+              <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.08em',marginBottom:3}}>{ev.type?.toUpperCase()} Â· {fDate(ev.date)}</div>
+              <div style={{fontSize:15,fontWeight:800,color:tc}}>{ev.label}</div>
+              {ev.theme&&<div style={{fontSize:'var(--fs-xs)',color:'#4F46E5',marginTop:2}}>ðŸ“– {ev.theme}</div>}
+            </div>
+            <div style={{padding:'4px 10px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:800,background:myConf===true?'rgba(16,185,129,.15)':myConf===false?'rgba(239,68,68,.12)':'rgba(148,163,184,.1)',color:myConf===true?'#10B981':myConf===false?'#EF4444':'#94A3B8'}}>
+              {myConf===true?'âœ“ Conf.':myConf===false?'âœ— Rec.':'â€”'}
+            </div>
+          </div>
+          {evS.length>0&&<div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:8}}>
+            {evS.map(s=><span key={s.id} style={{padding:'3px 9px',borderRadius:100,fontSize:11,fontWeight:700,background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}14`,color:(CAT[s.cat]||{color:'#94A3B8'}).color}}>{s.title}</span>)}
+          </div>}
+          <div style={{display:'flex',gap:3}}>{evM.slice(0,6).map((m,i)=><div key={m.id} style={{marginLeft:i?-6:0}}><Ava m={m} size={22} ring/></div>)}</div>
+        </div>;
+      })}
+    </div>}
+
+    {/* Agenda normal */}
+    {!showHistory&&<>
     {/* Events */}
     {weekEvents.length===0&&<EmptyState icon={<IcoCal s={32}/>} title="Nenhum evento esta semana" sub="Use as setas para navegar para outra semana."/>}
     {weekEvents.map((ev,ei)=>{
@@ -1527,14 +2097,15 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
                <span style={{fontSize:'var(--fs-xs)',color:t2,fontStyle:'italic'}}>Nenhum escalado</span>
             )}
           </div>
-          <button onClick={()=>onEvSheet(ev)} style={{fontSize:'var(--fs-xs)',color:'#4F46E5',border:'none',background:'transparent',cursor:'pointer',fontWeight:700}}>Ver detalhes â†’</button>
+          <button onClick={()=>onEvSheet(ev)} style={{fontSize:'var(--fs-xs)',color:'#4F46E5',border:'none',background:'transparent',cursor:'pointer',fontWeight:700}}>Ver detalhes →</button>
         </div>
       </div>;
     })}
+    </>}
   </div>;
 });
 
-/* â”€â”€â”€ MEMBROS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── MEMBROS ─── */
 const Membros = memo(({profile,dark,members,events,selRole,setSelRole})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
@@ -2159,6 +2730,15 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           const txt=`ðŸŽµ *${ev.label}* â€” ${fDate(ev.date)} Â· ${ev.time}\n${ev.theme?`ðŸ“– ${ev.theme}\n`:''}\n*Setlist:*\n${evS.map((s,i)=>`${i+1}. ${s.title} (${s.artist}) â€” ${s.key}`).join('\n')}\n\n_Via LouveSync Â· IMWAL_`;
           navigator.clipboard.writeText(txt).then(()=>{const btn=document.getElementById('shareBtn');if(btn){btn.style.animation='shareBtn .3s ease';setTimeout(()=>btn.style.animation='',400);}}).catch(()=>alert(txt));
         }} id="shareBtn" style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.06)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoShare s={14}/>Copiar setlist para WhatsApp</button>}
+        {/* Link público do setlist (operador de datashow) */}
+        {profile?.is_admin && ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0 && <button
+          onClick={()=>{
+            const url = `${window.location.origin}/api/setlist?id=${ev.id}`;
+            navigator.clipboard.writeText(url).catch(()=>{});
+            alert('✅ Link copiado! Cole no navegador do telão para exibir o setlist sem login.');
+          }}
+          style={{width:'100%',marginBottom:6,padding:'9px',borderRadius:'var(--r-md)',border:'1px solid rgba(16,185,129,.2)',background:'rgba(16,185,129,.06)',color:'#059669',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}
+        ><IcoShare s={14}/>Link Setlist (Telão / Datashow)</button>}
         {isMyEvent&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
           <button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===true?'#10B981':'rgba(16,185,129,.1)',color:myConf===true?'#fff':'#059669',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoCheck/>Confirmar</button>
           <button onClick={()=>onConfirm(ev.id,false)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===false?'#EF4444':'rgba(239,68,68,.08)',color:myConf===false?'#fff':'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX/>Recusar</button>
@@ -2303,6 +2883,16 @@ export default function LouveSync() {
     const on=()=>setIsOnline(true); const off=()=>setIsOnline(false);
     window.addEventListener('online',on); window.addEventListener('offline',off);
     return()=>{window.removeEventListener('online',on);window.removeEventListener('offline',off);};
+  },[]);
+
+  // ── PWA Version Check (anti-cache stale)
+  const [versionToast, setVersionToast] = useState(false);
+  useEffect(()=>{
+    fetch('/api/version').then(r=>r.json()).then(({version})=>{
+      const stored = localStorage.getItem('ls_app_version');
+      if(stored && stored !== version) setVersionToast(true);
+      localStorage.setItem('ls_app_version', version);
+    }).catch(()=>{});
   },[]);
 
   // â”€â”€ Landscape lock
@@ -2846,6 +3436,14 @@ export default function LouveSync() {
       {evSheet&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotifsSheet dark={dark} notifs={notifs} onClose={()=>setNotifsOpen(false)} onMarkRead={id=>setNotifs(ns=>ns.map(n=>n.id===id?{...n,read:true}:n))} onMarkAllRead={()=>setNotifs(ns=>ns.map(n=>({...n,read:true})))} onAction={n=>{if(n.ctaAction==='addSong'){setAddOpen(true);setNotifsOpen(false);}else if(n.ctaTab){navTo(n.ctaTab);setNotifsOpen(false);}}}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
+
+      {/* ── Version Update Toast (Anti-cache) ── */}
+      {versionToast && (
+        <div style={{position:'fixed', bottom: 85, left:'50%', transform:'translateX(-50%)', width:'calc(100% - 32px)', maxWidth:360, background:'rgba(79,70,229,.96)', color:'#fff', padding:'12px 16px', borderRadius:'var(--r-md)', display:'flex', justifyContent:'space-between', alignItems:'center', zIndex:9999, boxShadow:'0 8px 30px rgba(79,70,229,.35)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)'}} className="aUp">
+          <span style={{fontSize:'var(--fs-sm)', fontWeight:800}}>✨ Nova versão disponível!</span>
+          <button onClick={()=>{ vib(); window.location.reload(true); }} style={{padding:'6px 14px', borderRadius:100, border:'none', background:'#fff', color:'#4F46E5', fontWeight:800, fontSize:'var(--fs-xs)', cursor:'pointer', boxShadow:'0 2px 8px rgba(0,0,0,.15)'}}>Atualizar</button>
+        </div>
+      )}
     </div>
   </div>;
 }
