@@ -7,7 +7,20 @@ if (!url || !anon) {
   console.warn('[LouveSync] Variáveis VITE_SUPABASE_URL ou VITE_SUPABASE_ANON_KEY ausentes. Operando em modo local.');
 }
 
-export const supabase = url && anon ? createClient(url, anon) : null;
+let client = null;
+if (url && anon) {
+  try {
+    let cleanUrl = String(url).trim();
+    if (!cleanUrl.startsWith('http')) {
+      cleanUrl = 'https://' + cleanUrl;
+    }
+    client = createClient(cleanUrl, String(anon).trim());
+  } catch (err) {
+    console.error('[LouveSync] Erro crítico ao inicializar o cliente Supabase. Verifique suas variáveis de ambiente no Vercel:', err);
+  }
+}
+
+export const supabase = client;
 
 /* ── helpers ──────────────────────────────────────────────── */
 
