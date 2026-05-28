@@ -3881,6 +3881,7 @@ export default function LouveSync() {
   }, []);
 
   // Offline Sync Queue Processor
+  const [isOnline,setIsOnline]=useState(navigator.onLine);
   useEffect(() => {
     if (isOnline && syncQueue.length > 0) {
       const processQueue = async () => {
@@ -3943,7 +3944,6 @@ export default function LouveSync() {
   const [fontFam, setFontFam] = useState("'Nunito', sans-serif");
 
   // â”€â”€ Online/offline
-  const [isOnline,setIsOnline]=useState(navigator.onLine);
   useEffect(()=>{
     const on=()=>setIsOnline(true); const off=()=>setIsOnline(false);
     window.addEventListener('online',on); window.addEventListener('offline',off);
