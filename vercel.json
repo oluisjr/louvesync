@@ -1,4 +1,7 @@
 {
+  "installCommand": "npm install --include=optional",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "headers": [
     {
       "source": "/(.*)",
@@ -38,6 +41,9 @@
     }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api|assets).*)",
+      "destination": "/index.html"
+    }
   ]
 }
