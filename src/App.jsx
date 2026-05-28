@@ -212,12 +212,35 @@ const MOCK_EVENTS = [
 function tNote(n,st){if(!n)return '';let i=SH.indexOf(n);if(i===-1)i=FL.indexOf(n);if(i===-1)return n;return(n.includes('b')&&n!=='B')?FL[((i+st)%12+12)%12]:SH[((i+st)%12+12)%12];}
 function tChord(ch,st){if(!ch)return '';const m=ch.match(/^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?)(.*))?$/);if(!m)return ch;const r=tNote(m[1],st),q=m[2]||'';if(m[3])return r+q+'/'+tNote(m[3],st)+(m[4]||'');return r+q;}
 function tLyrics(txt,st){if(!txt)return '';if(!st)return txt;return txt.replace(/\[([A-G][#b]?[^\]]*)\]/g,(_,c)=>'['+tChord(c,st)+']');}
-function getKey(k,st){if(!k)return 'N/A';const i=SH.indexOf(k);if(i===-1)return k;return SH[((i+st)%12+12)%12];}
+function getKey(k,st){if(!k)return 'N/A';const strK = String(k);const i=SH.indexOf(strK);if(i===-1)return strK;return SH[((i+st)%12+12)%12];}
 function fDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});}
 function today(){return new Date().toISOString().slice(0,10);}
 function isSundaySecond(dateStr){const d=new Date(dateStr+'T12:00:00');const dom=d.getDate();const dow=d.getDay();return dow===0&&dom>=8&&dom<=14;}
 function parseLine(line){const segs=[];const parts=line.split(/(\[[^\]]+\])/);let i=0;while(i<parts.length){if(parts[i]?.startsWith('[')&&parts[i]?.endsWith(']')){const ch=parts[i].slice(1,-1);const nx=parts[i+1];const ly=(nx&&!nx.startsWith('['))?nx:'';segs.push({ch,ly});i+=(nx&&!nx.startsWith('['))?2:1;}else{if(parts[i])segs.push({ch:'',ly:parts[i]});i++;}}return segs;}
-function normalizeEvent(ev){const sorted=[...(ev.event_songs||[])].sort((a,b)=>a.order_index-b.order_index);return{id:ev.id,date:ev.date,type:ev.type,label:ev.label,time:ev.time,theme:ev.theme,songs:sorted.filter(es=>es.item_type!=='note').map(es=>es.song_id),items:sorted.map(es=>({id:es.id,type:es.item_type||'song',song_id:es.song_id,text:es.note_text})),members:(ev.event_members||[]).map(em=>em.member_id),confirmations:Object.fromEntries((ev.event_members||[]).map(em=>[em.member_id,em.confirmed])),singerBySong:Object.fromEntries(sorted.filter(es=>es.item_type!=='note').map(es=>[es.song_id,es.singer_member_id])),requested_songs:ev.requested_songs||[],santa_ceia_song:ev.santa_ceia_song||null,sequenceBySong:Object.fromEntries(sorted.filter(es=>es.item_type!=='note').map(es=>[es.song_id,es.sequence]))};}
+function normalizeEvent(ev){
+  const sorted = [...(ev.event_songs || [])].filter(Boolean).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+  return {
+    id: ev.id,
+    date: ev.date,
+    type: ev.type,
+    label: ev.label,
+    time: ev.time,
+    theme: ev.theme,
+    songs: sorted.filter(es => es && es.item_type !== 'note').map(es => es.song_id).filter(Boolean),
+    items: sorted.map(es => ({
+      id: es.id,
+      type: es.item_type || 'song',
+      song_id: es.song_id,
+      text: es.note_text
+    })),
+    members: (ev.event_members || []).filter(Boolean).map(em => em.member_id),
+    confirmations: Object.fromEntries((ev.event_members || []).filter(Boolean).map(em => [em.member_id, em.confirmed])),
+    singerBySong: Object.fromEntries(sorted.filter(es => es && es.item_type !== 'note' && es.song_id).map(es => [es.song_id, es.singer_member_id])),
+    requested_songs: ev.requested_songs || [],
+    santa_ceia_song: ev.santa_ceia_song || null,
+    sequenceBySong: Object.fromEntries(sorted.filter(es => es && es.item_type !== 'note' && es.song_id).map(es => [es.song_id, es.sequence]))
+  };
+}
 function vib(){if(navigator.vibrate)navigator.vibrate(10);}
 
 function useDraggableScroll(ref) {
@@ -363,9 +386,9 @@ const IcoLogout  = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill=
 /* ─── ATOMS ─────────────────────────────────────────────────── */
 const Ava = memo(({m,size=36,ring=false})=><div style={{width:size,height:size,borderRadius:'50%',background:m.color,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*.32,fontWeight:900,flexShrink:0,border:ring?'2.5px solid rgba(255,255,255,.9)':`${size>30?2:1.5}px solid rgba(255,255,255,.8)`,boxShadow:`0 2px 10px ${m.color}50`}}>{m.avatar}</div>);
 const Bdg = ({cat})=>{const c=CAT[cat]||{cls:'',label:cat||'Sem Cat.'};return <span className={`bdg ${c.cls}`} style={!CAT[cat]?{background:'rgba(0,0,0,.05)',color:'#64748B',border:'1px solid rgba(0,0,0,.1)'}:{}}>{c.label}</span>;};
-const KeyChip = ({k,size=11})=><span style={{background:'rgba(123,63,242,.1)',color:'#7B3FF2',border:'1px solid rgba(123,63,242,.2)',borderRadius:100,padding:`${size<12?2:3}px ${size<12?8:12}px`,fontSize:size,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",flexShrink:0}}>{k}</span>;
-const BpmChip = ({bpm})=><span style={{background:'rgba(255,107,53,.1)',color:'#D94E1A',border:'1px solid rgba(255,107,53,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700}}>♩{bpm}</span>;
-const TimeSigChip = ({ts})=><span style={{background:'rgba(0,201,167,.08)',color:'#00956E',border:'1px solid rgba(0,201,167,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{ts}</span>;
+const KeyChip = ({k,size=11})=><span style={{background:'rgba(123,63,242,.1)',color:'#7B3FF2',border:'1px solid rgba(123,63,242,.2)',borderRadius:100,padding:`${size<12?2:3}px ${size<12?8:12}px`,fontSize:size,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",flexShrink:0}}>{String(k || 'N/A')}</span>;
+const BpmChip = ({bpm})=><span style={{background:'rgba(255,107,53,.1)',color:'#D94E1A',border:'1px solid rgba(255,107,53,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700}}>♩{String(bpm || '80')}</span>;
+const TimeSigChip = ({ts})=><span style={{background:'rgba(0,201,167,.08)',color:'#00956E',border:'1px solid rgba(0,201,167,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{String(ts || '4/4')}</span>;
 const Loader = ()=><div style={{width:20,height:20,borderRadius:'50%',border:'2.5px solid rgba(123,63,242,.2)',borderTopColor:'#7B3FF2',animation:'spin .7s linear infinite'}}/>;
 const Skeleton = ({dark, h=60, count=3}) => <div style={{display:'flex', flexDirection:'column', gap:10, padding:16}}>{Array.from({length:count}).map((_,i) => <div key={i} style={{height:h, borderRadius:'var(--r-md)', background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)', animation:'pulse 1.5s infinite ease-in-out', animationDelay:`${i*0.15}s`}}/>)}</div>;
 const Sec = ({t})=><div style={{fontSize:'var(--fs-xs)',fontWeight:900,color:'#FF6B35',letterSpacing:'.14em',textTransform:'uppercase',margin:'18px 0 6px',display:'flex',alignItems:'center',gap:6}}><div style={{width:16,height:1.5,background:'#FF6B35',opacity:.5}}/>{t}<div style={{flex:1,height:1.5,background:'#FF6B35',opacity:.5}}/></div>;
@@ -386,18 +409,27 @@ const ConfirmDialog = ({dark, title, msg, onConfirm, onCancel, isAlert}) => (
 /* ─── LYRIC VIEW ────────────────────────────────────────────── */
 const LyricView = memo(({text,dark,fs=17,fontFam})=>{
   const tc=dark?'#E2E8F0':'#1E293B';
-  if(!text)return null;
-  const lines=text.split('\n');
+  const txt = String(text || '').trim();
+  if(!txt)return null;
+  const lines=txt.split('\n');
   return <div style={{fontFamily: fontFam || "'Montserrat',sans-serif"}}>{lines.map((line,li)=>{
-    const cleanLine = line.replace(/\[[^\]]+\]/g, '').trimEnd();
-    // Se a linha original tinha colchetes e após limpar ficou vazia (era linha de acordes), nós a ocultamos
-    if(line.includes('[') && cleanLine.trim() === '') return null;
-    if(!cleanLine.trim())return <div key={li} style={{height:8}}/>;
-    
-    let secMatch = cleanLine.match(/^\[?(Verso|Coro|Refrão|Pré-Refrão|Pré-Coro|Ponte|Intro|Final|Outro|Bridge|Primeira Parte|Segunda Parte|Terceira Parte|Quarta Parte)[\s:]?(\d*)\]?$/i);
-    if(secMatch)return <Sec key={li} t={(secMatch[1] + (secMatch[2]?` ${secMatch[2]}`:'')).toUpperCase()}/>;
-    
-    return <div key={li} style={{fontSize:fs,lineHeight:1.8,color:tc,marginBottom:1,whiteSpace:'pre-wrap'}}>{cleanLine}</div>;
+    try {
+      const cleanLine = line.replace(/\[[^\]]+\]/g, '').trimEnd();
+      // Se a linha original tinha colchetes e após limpar ficou vazia (era linha de acordes), nós a ocultamos
+      if(line.includes('[') && cleanLine.trim() === '') return null;
+      if(!cleanLine.trim())return <div key={li} style={{height:8}}/>;
+      
+      let secMatch = cleanLine.match(/^\[?(Verso|Coro|Refrão|Pré-Refrão|Pré-Coro|Ponte|Intro|Final|Outro|Bridge|Primeira Parte|Segunda Parte|Terceira Parte|Quarta Parte)[\s:]?(\d*)\]?$/i);
+      if(secMatch) {
+         const secTitle = (secMatch[1] || '') + (secMatch[2] ? ` ${secMatch[2]}` : '');
+         return <Sec key={li} t={secTitle.toUpperCase()}/>;
+      }
+      
+      return <div key={li} style={{fontSize:fs,lineHeight:1.8,color:tc,marginBottom:1,whiteSpace:'pre-wrap'}}>{cleanLine}</div>;
+    } catch(e) {
+      console.error('Failed to parse line:', e);
+      return <div key={li} style={{fontSize:fs,lineHeight:1.8,color:tc,marginBottom:1,whiteSpace:'pre-wrap'}}>{line}</div>;
+    }
   }).filter(Boolean)}</div>;
 });
 
@@ -1920,6 +1952,15 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
 /* ─── CIFRA ─────────────────────────────────────────────────── */
 const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatIdx,stageMode,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,onSaveVocalKey,profile,members})=>{
   if(!song)return null;
+
+  // Coerção de tipos extremamente robusta para blindar contra campos do tipo Objeto em JSON
+  const sTitle = String(song.title || 'Música Sem Título');
+  const sArtist = String(song.artist || 'Ministério');
+  const sKey = String(song.key || 'N/A');
+  const sLyrics = String(song.lyrics || '');
+  const sBpm = parseInt(song.bpm) || 80;
+  const sTimeSignature = String(song.time_signature || '4/4');
+
   const iframeRef = useRef(null);
   const sendYoutubeCommand = (func, args=[]) => {
     if (iframeRef.current) {
@@ -1932,8 +1973,8 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
   };
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
-  const curKey=getKey(song.key,tr);
-  const beats=parseInt(String(song.time_signature||'4/4').split('/')[0])||4;
+  const curKey=getKey(sKey,tr);
+  const beats=parseInt(sTimeSignature.split('/')[0])||4;
   
   const getEmbedUrl = (url) => {
     if(!url || typeof url !== 'string') return null;
@@ -1991,8 +2032,8 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     {/* Key info card */}
     <div className={`${gc} aUp`} style={CS}>
       <Bdg cat={song.cat}/>
-      <div className="font-serif" style={{fontSize:26,fontWeight:900,color:tc,marginTop:8,letterSpacing:'-.02em',lineHeight:1.15}}>{song.title}</div>
-      <div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:3,marginBottom:14}}>{song.artist}</div>
+      <div className="font-serif" style={{fontSize:26,fontWeight:900,color:tc,marginTop:8,letterSpacing:'-.02em',lineHeight:1.15}}>{sTitle}</div>
+      <div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:3,marginBottom:14}}>{sArtist}</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
         <div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-md)',padding:13,border:'1px solid rgba(79,70,229,.14)',textAlign:'center'}}>
           <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:4}}>Tom Atual</div>
@@ -2000,10 +2041,10 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
           {tr!==0&&<div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:3}}>{tr>0?'+':''}{tr} st</div>}
         </div>
         <div onClick={()=>setMetro(m=>!m)} style={{background:metro?'rgba(16,185,129,.09)':'rgba(245,158,11,.07)',borderRadius:'var(--r-md)',padding:13,border:`1px solid ${metro?'rgba(16,185,129,.22)':'rgba(245,158,11,.14)'}`,textAlign:'center',cursor:'pointer',transition:'all .2s'}}>
-          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:4}}>BPM · {song.time_signature||'4/4'}</div>
-          <div style={{fontSize:30,fontWeight:900,color:metro?'#10B981':'#F59E0B',fontFamily:"'JetBrains Mono',monospace",lineHeight:1,transition:'color .15s'}}>{song.bpm}</div>
+          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:4}}>BPM · {sTimeSignature}</div>
+          <div style={{fontSize:30,fontWeight:900,color:metro?'#10B981':'#F59E0B',fontFamily:"'JetBrains Mono',monospace",lineHeight:1,transition:'color .15s'}}>{sBpm}</div>
           <div style={{fontSize:'var(--fs-xs)',color:metro?'#059669':t2,marginTop:3,fontWeight:700}}>{metro?'● Tocando':'● Ativar'}</div>
-          <MetroDots beatIdx={beatIdx} timeSignature={song.time_signature} active={metro} dark={dark}/>
+          <MetroDots beatIdx={beatIdx} timeSignature={sTimeSignature} active={metro} dark={dark}/>
         </div>
       </div>
     </div>
@@ -2038,10 +2079,10 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     </div>}
 
     {/* Lyrics */}
-    <div className={`${gc} aUp`} style={{...CS,animationDelay:'.14s'}}><LyricView text={song.lyrics||''} st={tr} mode={mode} dark={dark} chordColor={chordColor} fontFam={fontFam}/></div>
+    <div className={`${gc} aUp`} style={{...CS,animationDelay:'.14s'}}><LyricView text={sLyrics} dark={dark} fontFam={fontFam}/></div>
 
     {/* AI button */}
-    <button className="bp aUp" style={{marginBottom:8,animationDelay:'.18s'}} onClick={()=>{onSendAI(`Analise "${song.title}" (tom ${curKey}, ${CAT[song.cat]?.label || song.cat || 'Sem Categoria'}, ${song.bpm}bpm, compasso ${song.time_signature||'4/4'}) e sugira 3 músicas complementares para setlist com justificativa de fluxo.`);onNavTo('ia');}}>
+    <button className="bp aUp" style={{marginBottom:8,animationDelay:'.18s'}} onClick={()=>{onSendAI(`Analise "${sTitle}" (tom ${curKey}, ${CAT[song.cat]?.label || song.cat || 'Sem Categoria'}, ${sBpm}bpm, compasso ${sTimeSignature}) e sugira 3 músicas complementares para setlist com justificativa de fluxo.`);onNavTo('ia');}}>
       <IcoSpark s={16}/>Analisar com Maestro
     </button>
     <button onClick={()=>window.print()} style={{width:'100%',marginBottom:8,padding:'11px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.05)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
@@ -2051,9 +2092,9 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     <div style={{height:16}}/>
     {/* ── Div oculta usada pelo @media print ── */}
     {typeof window !== 'undefined' && <div id="print-cifra" style={{display:'none'}}>
-      <div className="print-title">{song.title}</div>
-      <div className="print-sub">{song.artist} · Tom: {curKey} {tr!==0?`(${tr>0?'+':''}${tr} st)`:''} · {song.bpm} BPM · {song.time_signature||'4/4'}</div>
-      <pre style={{fontFamily:'monospace',whiteSpace:'pre-wrap',fontSize:13,lineHeight:1.7}}>{song.lyrics||'(sem letra cadastrada)'}</pre>
+      <div className="print-title">{sTitle}</div>
+      <div className="print-sub">{sArtist} · Tom: {curKey} {tr!==0?`(${tr>0?'+':''}${tr} st)`:''} · {sBpm} BPM · {sTimeSignature}</div>
+      <pre style={{fontFamily:'monospace',whiteSpace:'pre-wrap',fontSize:13,lineHeight:1.7}}>{sLyrics||'(sem letra cadastrada)'}</pre>
     </div>}
   </div>;
 });
@@ -2079,7 +2120,7 @@ const Stage = memo(({song,tr,mode,setMode,stageFs,setStageFs,dark,onClose,beatId
   return <div className="stage-wrap" style={{background:dark?'#05091A':'#0A0F1E',color:'#E2E8F0',display:'flex',flexDirection:'column'}}>
     <div style={{background:dark?'rgba(5,9,26,.95)':'rgba(10,15,30,.95)',padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.07)'}}>
       <button onClick={onClose} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',borderRadius:'var(--r-sm)',border:'1px solid rgba(255,255,255,.14)',background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.7)',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer'}}><IcoChevL s={14}/>Sair</button>
-      <div style={{textAlign:'center'}}><div className="font-serif" style={{fontSize:22,fontWeight:800,color:'#E2E8F0'}}>{song.title}</div><div style={{fontSize:'var(--fs-xs)',color:'rgba(255,255,255,.4)'}}>{song.artist}</div></div>
+      <div style={{textAlign:'center'}}><div className="font-serif" style={{fontSize:22,fontWeight:800,color:'#E2E8F0'}}>{String(song.title || 'Música Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:'rgba(255,255,255,.4)'}}>{String(song.artist || 'Ministério')}</div></div>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
         <button onClick={()=>setAutoScroll(a=>!a)} title="Auto-scroll" style={{display:'flex',alignItems:'center',gap:4,padding:'6px 10px',borderRadius:'var(--r-sm)',border:`1px solid ${autoScroll?'rgba(16,185,129,.5)':'rgba(255,255,255,.14)'}`,background:autoScroll?'rgba(16,185,129,.18)':'rgba(255,255,255,.05)',color:autoScroll?'#10B981':'rgba(255,255,255,.7)',fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}><IcoScroll s={12}/>{autoScroll?'⏸':'▶'}</button>
         <div style={{background:'rgba(79,70,229,.22)',border:'1px solid rgba(99,102,241,.4)',borderRadius:'var(--r-sm)',padding:'5px 12px',textAlign:'center'}}>
@@ -4396,9 +4437,17 @@ export default function LouveSync() {
         o.start(ctx.currentTime);o.stop(ctx.currentTime+.055);
         if(idx===0&&navigator.vibrate)navigator.vibrate(20);
       };
-      tick();metroTimer.current=setInterval(tick,(60/selSong.bpm)*1000);
+      tick();
+      const bpm = parseInt(selSong.bpm) || 80;
+      metroTimer.current=setInterval(tick,(60/bpm)*1000);
     }else{setBeatIdx(-1);}
-    return()=>{clearInterval(metroTimer.current);if(audioCtx.current){audioCtx.current.close();audioCtx.current=null;}};
+    return()=>{
+      clearInterval(metroTimer.current);
+      if(audioCtx.current){
+        try { audioCtx.current.close(); } catch(e) {}
+        audioCtx.current=null;
+      }
+    };
   },[metro,selSong]);
 
   /* ── Handlers ── */
@@ -4419,7 +4468,25 @@ export default function LouveSync() {
   function selectSong(s,ev=null,activeKey=null){
     if(!s) return alert('Ops! Esta música ainda não foi adicionada no Repertório.');
     vib();setSelSong(s);setSelEvent(ev);
-    setTr(0);
+    
+    // Transposição automática baseada no tom ativo da escala
+    let trDiff = 0;
+    if (activeKey && s.key) {
+      const fromStr = String(s.key).trim();
+      const toStr = String(activeKey).trim();
+      let fromIdx = SH.indexOf(fromStr);
+      if (fromIdx === -1) fromIdx = FL.indexOf(fromStr);
+      let toIdx = SH.indexOf(toStr);
+      if (toIdx === -1) toIdx = FL.indexOf(toStr);
+      
+      if (fromIdx !== -1 && toIdx !== -1) {
+        trDiff = toIdx - fromIdx;
+        if (trDiff > 5) trDiff -= 12;
+        if (trDiff < -6) trDiff += 12;
+      }
+    }
+    setTr(trDiff);
+    
     setMetro(false);setBeatIdx(-1);setTab('repertorio');
   }
 
@@ -4699,7 +4766,7 @@ if (!isOnline) {
         <div className="gL0" style={{padding:'11px 16px', paddingTop:'calc(env(safe-area-inset-top, 0px) + 11px)', display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${dark?'rgba(168,85,247,.1)':'rgba(123,63,242,.06)'}`,position:'sticky',top:0,zIndex:30,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             {inCifra&&<button onClick={()=>{vib();setSelSong(null);}} style={{padding:'8px 16px',borderRadius:'var(--r-full)',border:'none',background:'rgba(123,63,242,.14)',color:'#7B3FF2',display:'flex',alignItems:'center',gap:6,fontWeight:800,fontSize:'var(--fs-sm)',cursor:'pointer',boxShadow:'0 2px 10px rgba(123,63,242,.15)'}}><IcoChevL s={16}/> Voltar</button>}
-            {inCifra?<div style={{lineHeight:1.3,textAlign:'right'}}><div className="font-serif" style={{fontSize:16,fontWeight:900,color:tc}}>{selSong.title}</div><div style={{fontSize:'var(--fs-xs)',color:dark?'#94A3B8':'#475569'}}>{selSong.artist}</div></div>
+            {inCifra?<div style={{lineHeight:1.3,textAlign:'right'}}><div className="font-serif" style={{fontSize:16,fontWeight:900,color:tc}}>{String(selSong.title || 'Música Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:dark?'#94A3B8':'#475569'}}>{String(selSong.artist || 'Ministério')}</div></div>
             :<div style={{display:'flex',alignItems:'center',gap:10}}>
               <img src="/logo_solo.png" alt="Louve" style={{height:34, objectFit:'contain', filter: dark?'drop-shadow(0 2px 8px rgba(123,63,242,0.5))':'drop-shadow(0 2px 4px rgba(123,63,242,0.2))'}} />
               <div>

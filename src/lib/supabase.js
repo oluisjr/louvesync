@@ -67,7 +67,7 @@ export async function fetchEvents() {
     .from('events')
     .select(`
       *,
-      event_songs ( song_id, order_index, singer_member_id, sequence ),
+      event_songs ( id, song_id, item_type, note_text, order_index, singer_member_id, sequence ),
       event_members ( member_id, confirmed )
     `)
     .order('date');
