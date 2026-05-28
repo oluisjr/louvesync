@@ -3975,7 +3975,26 @@ export default function LouveSync() {
   useEffect(()=>{
     fetch('/api/version').then(r=>r.json()).then(({version})=>{
       const stored = localStorage.getItem('ls_app_version');
-      if(stored && stored !== version) setVersionToast(true);
+      if (stored && stored !== version) {
+        // Nova versão detectada! Limpa caches do navegador para deletar arquivos velhos
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            for (let name of names) caches.delete(name);
+          });
+        }
+        // Desregistra Service Workers legados que possam reter cache estático
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (let r of registrations) r.unregister();
+          });
+        }
+        // Salva a versão atualizada e força um reload total ignorando o cache
+        localStorage.setItem('ls_app_version', version);
+        setTimeout(() => {
+          window.location.reload(true);
+        }, 100);
+        return;
+      }
       localStorage.setItem('ls_app_version', version);
     }).catch(()=>{});
   },[]);
