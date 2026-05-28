@@ -385,7 +385,11 @@ const IcoLogout  = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill=
 
 /* ─── ATOMS ─────────────────────────────────────────────────── */
 const Ava = memo(({m,size=36,ring=false})=><div style={{width:size,height:size,borderRadius:'50%',background:m.color,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*.32,fontWeight:900,flexShrink:0,border:ring?'2.5px solid rgba(255,255,255,.9)':`${size>30?2:1.5}px solid rgba(255,255,255,.8)`,boxShadow:`0 2px 10px ${m.color}50`}}>{m.avatar}</div>);
-const Bdg = ({cat})=>{const c=CAT[cat]||{cls:'',label:cat||'Sem Cat.'};return <span className={`bdg ${c.cls}`} style={!CAT[cat]?{background:'rgba(0,0,0,.05)',color:'#64748B',border:'1px solid rgba(0,0,0,.1)'}:{}}>{c.label}</span>;};
+const Bdg = ({cat})=>{
+  const sCat = (cat && typeof cat === 'string') ? cat : '';
+  const c = CAT[sCat] || { cls: '', label: sCat || 'Sem Cat.' };
+  return <span className={`bdg ${c.cls}`} style={!CAT[sCat]?{background:'rgba(0,0,0,.05)',color:'#64748B',border:'1px solid rgba(0,0,0,.1)'}:{}}>{String(c.label)}</span>;
+};
 const KeyChip = ({k,size=11})=><span style={{background:'rgba(123,63,242,.1)',color:'#7B3FF2',border:'1px solid rgba(123,63,242,.2)',borderRadius:100,padding:`${size<12?2:3}px ${size<12?8:12}px`,fontSize:size,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",flexShrink:0}}>{String(k || 'N/A')}</span>;
 const BpmChip = ({bpm})=><span style={{background:'rgba(255,107,53,.1)',color:'#D94E1A',border:'1px solid rgba(255,107,53,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700}}>♩{String(bpm || '80')}</span>;
 const TimeSigChip = ({ts})=><span style={{background:'rgba(0,201,167,.08)',color:'#00956E',border:'1px solid rgba(0,201,167,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{String(ts || '4/4')}</span>;
@@ -1845,7 +1849,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:7}}>Setlist</div>
           {nS.map((s,i)=><div key={s.id} onClick={()=>onSelectSong(s,evt)} className="touch-scale" style={{display:'flex',alignItems:'center',gap:9,padding:'8px 0',borderBottom:i<nS.length-1?`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`:''}}> 
             <span style={{width:22,height:22,borderRadius:7,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
-            <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc,lineHeight:1.2}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
+            <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc,lineHeight:1.2}}>{String(s.title || 'Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{String(s.artist || 'Ministério')}</div></div>
             <KeyChip k={s.key} size={10}/>
           </div>)}
         </div>}
@@ -1926,8 +1930,8 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
         {cs.map((s,i)=><div key={s.id} className={`${gc} sc ${catC.acc} aUp`} style={{animationDelay:`${i*.05}s`}} onClick={()=>onSelectSong(s)}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:800,fontSize:'var(--fs-base)',color:tc,marginBottom:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.title}</div>
-              <div style={{fontSize:'var(--fs-sm)',color:t2,marginBottom:8}}>{s.artist}</div>
+              <div style={{fontWeight:800,fontSize:'var(--fs-base)',color:tc,marginBottom:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{String(s.title || 'Sem Título')}</div>
+              <div style={{fontSize:'var(--fs-sm)',color:t2,marginBottom:8}}>{String(s.artist || 'Ministério')}</div>
               <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
                 <Bdg cat={s.cat}/>
                 {s.time_signature&&s.time_signature!=='4/4'&&<TimeSigChip ts={s.time_signature}/>}
@@ -3043,7 +3047,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
             return <div key={it.id} style={{display:'flex',flexDirection:'column',gap:5,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
               <div style={{display:'flex',alignItems:'center',gap:11}}>
                 <span onClick={()=>onSelectSong(s, ev, activeKey)} style={{cursor:'pointer',width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
-                <div onClick={()=>onSelectSong(s, ev, activeKey)} style={{flex:1,cursor:'pointer'}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{s.title}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{s.artist}</div></div>
+                <div onClick={()=>onSelectSong(s, ev, activeKey)} style={{flex:1,cursor:'pointer'}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{String(s.title || 'Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{String(s.artist || 'Ministério')}</div></div>
                 <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
                   <KeyChip k={activeKey} size={10}/>
                   <button onClick={()=>setExpandSong(expandSong===s.id?null:s.id)} style={{background:'none',border:'none',color:'#4F46E5',fontSize:'var(--fs-xs)',cursor:'pointer',fontWeight:700}}>Ajustar</button>
