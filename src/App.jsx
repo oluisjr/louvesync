@@ -3284,11 +3284,19 @@ const Ensaio = memo(({dark, events, songs, members, profile}) => {
           }
         }
 
-        // 3. Fetch takes from localStorage (as temporary local buffer)
+        // 3. Fetch takes from database
         try {
+          const { data: tData } = await supabase.from('rehearsal_takes').select('*').eq('event_id', nextSundayEvent.id).order('created_at', { ascending: false });
+          if (tData) {
+            setRecordedTakes(tData);
+          } else {
+            const stored = localStorage.getItem('ls_rehearsal_takes');
+            if (stored) setRecordedTakes(JSON.parse(stored));
+          }
+        } catch {
           const stored = localStorage.getItem('ls_rehearsal_takes');
           if (stored) setRecordedTakes(JSON.parse(stored));
-        } catch {}
+        }
       } catch (err) {
         console.error('Error loading rehearsal data:', err);
       } finally {
@@ -3331,6 +3339,10 @@ const Ensaio = memo(({dark, events, songs, members, profile}) => {
               setNotes(notesMap);
             }
           });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rehearsal_takes', filter: `event_id=eq.${nextSundayEvent.id}` }, () => {
+        supabase.from('rehearsal_takes').select('*').eq('event_id', nextSundayEvent.id).order('created_at', { ascending: false })
+          .then(({ data }) => { if (data) setRecordedTakes(data); });
       })
       .subscribe();
 
@@ -3424,10 +3436,13 @@ if (!navigator.onLine) {
 
             const newTake = {
               id: 'take_' + Date.now(),
+              event_id: nextSundayEvent?.id || '',
               name: takeName,
               url: publicUrl,
               created_at: new Date().toISOString()
             };
+
+            await supabase.from('rehearsal_takes').insert(newTake);
 
             setRecordedTakes(prev => {
               const next = [newTake, ...prev];
@@ -3517,12 +3532,15 @@ if (!navigator.onLine) {
     });
   };
 
-  const handleDeleteTake = (id) => {
+  const handleDeleteTake = async (id) => {
     setRecordedTakes(prev => {
       const next = prev.filter(t => t.id !== id);
       localStorage.setItem('ls_rehearsal_takes', JSON.stringify(next));
       return next;
     });
+    if (supabase) {
+      await supabase.from('rehearsal_takes').delete().eq('id', id).catch(console.error);
+    }
   };
 
   return (
