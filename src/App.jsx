@@ -382,6 +382,7 @@ const IcoEdit    = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill=
 const IcoArrowUp = ({s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>;
 const IcoBook    = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>;
 const IcoLogout  = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;
+const IcoBox     = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>;
 
 /* ─── ATOMS ─────────────────────────────────────────────────── */
 const Ava = memo(({m,size=36,ring=false})=><div style={{width:size,height:size,borderRadius:'50%',background:m.color,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*.32,fontWeight:900,flexShrink:0,border:ring?'2.5px solid rgba(255,255,255,.9)':`${size>30?2:1.5}px solid rgba(255,255,255,.8)`,boxShadow:`0 2px 10px ${m.color}50`}}>{m.avatar}</div>);
@@ -642,20 +643,37 @@ const Afinador = memo(({dark})=>{
   }
 
   function detectPitch(buf, sampleRate){
-    // Autocorrelation-based pitch detection
-    let best=-1, bestCorr=-1;
-    const minFreq=60, maxFreq=1200;
-    const minLag=Math.floor(sampleRate/maxFreq);
-    const maxLag=Math.ceil(sampleRate/minFreq);
-    for(let lag=minLag;lag<=maxLag;lag++){
-      let corr=0;
-      const n=buf.length-lag;
-      for(let i=0;i<n;i++) corr+=buf[i]*buf[i+lag];
-      corr/=n;
-      if(corr>bestCorr){bestCorr=corr;best=lag;}
+    // RMS volume check to safeguard against background noise
+    let rms = 0;
+    for (let i = 0; i < buf.length; i++) {
+      rms += buf[i] * buf[i];
     }
-    if(bestCorr<0.01||best<0) return 0;
-    return sampleRate/best;
+    rms = Math.sqrt(rms / buf.length);
+    if (rms < 0.005) return 0; // Signal too quiet, return 0
+
+    let bestLag = -1;
+    let bestValue = Infinity;
+    const minFreq = 65; // C2 (~65Hz) covers bass guitar and guitar strings
+    const maxFreq = 1000;
+    const minLag = Math.floor(sampleRate / maxFreq);
+    const maxLag = Math.ceil(sampleRate / minFreq);
+
+    // AMDF (Average Magnitude Difference Function)
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let diff = 0;
+      const n = buf.length - lag;
+      for (let i = 0; i < n; i++) {
+        diff += Math.abs(buf[i] - buf[i + lag]);
+      }
+      diff /= n;
+      if (diff < bestValue) {
+        bestValue = diff;
+        bestLag = lag;
+      }
+    }
+
+    if (bestLag < 0 || bestValue > 0.5) return 0;
+    return sampleRate / bestLag;
   }
 
   async function start(){
@@ -1013,10 +1031,13 @@ const AdminDashboard = memo(({pastEvents, members, songs = [], dark, tc, t2, gc,
   </div>;
 });
 
-/* ─── PATRIMÔNIO ADMIN ──────────────────────────────────────── */
-const AdminPatrimonio = memo(({members, dark, tc, t2, gc, CS}) => {
+/* ─── PATRIMÔNIO SCREEN ─────────────────────────────────────── */
+const PatrimonioScreen = memo(({members, profile, dark}) => {
   const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
+  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
+  const isAdm = !!profile?.is_admin;
 
   // Carrega e sincroniza com o banco de dados Supabase em tempo real!
   useEffect(() => {
@@ -1131,10 +1152,10 @@ const AdminPatrimonio = memo(({members, dark, tc, t2, gc, CS}) => {
     }
   };
 
-  return <div className="aUp">
+  return <div className="aUp" style={{padding: '16px', paddingBottom: '96px'}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em'}}>Controle de Patrimônio</div>
-      <button onClick={() => setEditItem({id: 'eq_' + Date.now(), name: '', brand: '', status: 'Disponível', custodian_id: null, serial_number: ''})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>
+      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em'}}>{isAdm ? 'Controle de Patrimônio' : 'Patrimônio da Igreja'}</div>
+      {isAdm && <button onClick={() => setEditItem({id: 'eq_' + Date.now(), name: '', brand: '', status: 'Disponível', custodian_id: null, serial_number: ''})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>}
     </div>
 
     <div style={{display:'flex', gap:8, marginBottom:12}}>
@@ -1149,24 +1170,26 @@ const AdminPatrimonio = memo(({members, dark, tc, t2, gc, CS}) => {
       </select>
     </div>
 
-    <div style={{display:'flex', flexDirection:'column', gap:10}}>
-      {filtered.map(eq => {
-        const custodian = members.find(m => m.id === eq.custodian_id);
-        const statusColor = eq.status === 'Disponível' ? '#10B981' : eq.status === 'Em uso' ? '#4F46E5' : '#EF4444';
-        return <div key={eq.id} className={gc} style={{...CS, padding:14, marginBottom:0, display:'flex', justifyContent:'space-between', alignItems:'center', borderLeft:`3px solid ${statusColor}`}}>
-          <div>
-            <div style={{fontWeight:800, color:tc, fontSize:'var(--fs-sm)'}}>{eq.name}</div>
-            <div style={{fontSize:'var(--fs-xs)', color:t2}}>{eq.brand} {eq.serial_number ? `· SN: ${eq.serial_number}` : ''}</div>
-            <div style={{display:'flex', alignItems:'center', gap:6, marginTop:6}}>
-              <span style={{background: statusColor + '15', color: statusColor, padding:'2px 8px', borderRadius:100, fontSize:10, fontWeight:800}}>{eq.status}</span>
-              {custodian && <span style={{fontSize:10, color:t2, display:'flex', alignItems:'center', gap:4}}><Ava m={custodian} size={16} /> Custódia: {custodian.name.split(' ')[0]}</span>}
+    {loading ? <div style={{textAlign:'center',padding:30}}><Loader/></div> : (
+      <div style={{display:'flex', flexDirection:'column', gap:10}}>
+        {filtered.map(eq => {
+          const custodian = members.find(m => m.id === eq.custodian_id);
+          const statusColor = eq.status === 'Disponível' ? '#10B981' : eq.status === 'Em uso' ? '#4F46E5' : '#EF4444';
+          return <div key={eq.id} className={gc} style={{...CS, padding:14, marginBottom:0, display:'flex', justifyContent:'space-between', alignItems:'center', borderLeft:`3px solid ${statusColor}`}}>
+            <div>
+              <div style={{fontWeight:800, color:tc, fontSize:'var(--fs-sm)'}}>{eq.name}</div>
+              <div style={{fontSize:'var(--fs-xs)', color:t2}}>{eq.brand} {eq.serial_number ? `· SN: ${eq.serial_number}` : ''}</div>
+              <div style={{display:'flex', alignItems:'center', gap:6, marginTop:6}}>
+                <span style={{background: statusColor + '15', color: statusColor, padding:'2px 8px', borderRadius:100, fontSize:10, fontWeight:800}}>{eq.status}</span>
+                {custodian && <span style={{fontSize:10, color:t2, display:'flex', alignItems:'center', gap:4}}><Ava m={custodian} size={16} /> Custódia: {custodian.name.split(' ')[0]}</span>}
+              </div>
             </div>
-          </div>
-          <button onClick={() => setEditItem({...eq})} style={{padding:'5px 10px', borderRadius:'var(--r-sm)', border:'none', background:'rgba(79,70,229,.1)', color:'#4F46E5', fontWeight:700, fontSize:'var(--fs-xs)', cursor:'pointer'}}>Editar</button>
-        </div>;
-      })}
-      {filtered.length === 0 && <EmptyState icon="🏛️" title="Nenhum equipamento cadastrado" />}
-    </div>
+            {isAdm && <button onClick={() => setEditItem({...eq})} style={{padding:'5px 10px', borderRadius:'var(--r-sm)', border:'none', background:'rgba(79,70,229,.1)', color:'#4F46E5', fontWeight:700, fontSize:'var(--fs-xs)', cursor:'pointer'}}>Editar</button>}
+          </div>;
+        })}
+        {filtered.length === 0 && <EmptyState icon="🏛️" title="Nenhum equipamento cadastrado" />}
+      </div>
+    )}
 
     {editItem && <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
       <div className={gc} style={{width:'100%',maxWidth:360,borderRadius:'var(--r-xl)',padding:20}}>
@@ -1394,7 +1417,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     <div className={`${gc} aUp`} style={CS}>
        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
          <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>Gerenciar Membros</div>
-         <button onClick={()=>setEditMember({id:crypto.randomUUID(), name:'', pin:'', role:'Membro', instrument:'', is_admin:false, status:'ativo', permissions:['home','repertorio','escala','devocional','treinamento','membros'], unavailableDays:[], color: '#4F46E5', avatar: 'NM'})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>
+         <button onClick={()=>setEditMember({id:crypto.randomUUID(), name:'', pin:'', role:'Membro', instrument:'', is_admin:false, status:'ativo', permissions:['home','repertorio','escala','devocional','treinamento','membros','patrimonio'], unavailableDays:[], color: '#4F46E5', avatar: 'NM'})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>
        </div>
        {members.map(m => (
          <div key={m.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'6px 0',borderBottom:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
@@ -1501,7 +1524,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
 
           <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Permissões de Telas</div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
-             {['home','repertorio','escala','devocional','treinamento','membros','admin'].map(p=>
+             {['home','repertorio','escala','devocional','treinamento','patrimonio','membros','admin'].map(p=>
                <label key={p} style={{display:'flex',alignItems:'center',gap:4,fontSize:'var(--fs-xs)',color:tc,fontWeight:600,padding:'4px 8px',borderRadius:100,background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',cursor:'pointer'}}>
                  <input type="checkbox" checked={(editMember.permissions||[]).includes(p) || (editMember.is_admin && p==='admin')} onChange={e=>{
                     let perms = editMember.permissions || [];
@@ -1568,13 +1591,10 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     )}
 
     {adminTab === 'patrimonio' && (
-      <AdminPatrimonio
+      <PatrimonioScreen
         members={members}
+        profile={profile}
         dark={dark}
-        tc={tc}
-        t2={t2}
-        gc={gc}
-        CS={CS}
       />
     )}
   </div>;
@@ -1955,6 +1975,26 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
 
 /* ─── CIFRA ─────────────────────────────────────────────────── */
 const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatIdx,stageMode,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,onSaveVocalKey,profile,members})=>{
+  const iframeRef = useRef(null);
+  const [seqStr, setSeqStr] = useState(event?.sequenceBySong?.[song?.id] || '');
+
+  // 🦶 Pedal Bluetooth — qualquer pedal que emule PageDown/seta rola a cifra
+  useEffect(() => {
+    const onKey = (e) => {
+      if (['ArrowDown','ArrowRight','PageDown',' '].includes(e.key)) {
+        e.preventDefault(); window.scrollBy({top:240,behavior:'smooth'});
+      } else if (['ArrowUp','ArrowLeft','PageUp'].includes(e.key)) {
+        e.preventDefault(); window.scrollBy({top:-240,behavior:'smooth'});
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+     if(event && song) setSeqStr(event.sequenceBySong?.[song.id] || '');
+  }, [event, song?.id]);
+
   if(!song)return null;
 
   // Coerção de tipos extremamente robusta para blindar contra campos do tipo Objeto em JSON
@@ -1965,7 +2005,6 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
   const sBpm = parseInt(song.bpm) || 80;
   const sTimeSignature = String(song.time_signature || '4/4');
 
-  const iframeRef = useRef(null);
   const sendYoutubeCommand = (func, args=[]) => {
     if (iframeRef.current) {
       iframeRef.current.contentWindow.postMessage(JSON.stringify({
@@ -2013,24 +2052,6 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
   };
   // Usa ytUrl como fallback quando media_url não está preenchida
   const embedUrl = getEmbedUrl(song.media_url || song.ytUrl);
-
-  // 🦶 Pedal Bluetooth — qualquer pedal que emule PageDown/seta rola a cifra
-  useEffect(() => {
-    const onKey = (e) => {
-      if (['ArrowDown','ArrowRight','PageDown',' '].includes(e.key)) {
-        e.preventDefault(); window.scrollBy({top:240,behavior:'smooth'});
-      } else if (['ArrowUp','ArrowLeft','PageUp'].includes(e.key)) {
-        e.preventDefault(); window.scrollBy({top:-240,behavior:'smooth'});
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  const [seqStr, setSeqStr] = useState(event?.sequenceBySong?.[song.id] || '');
-  useEffect(() => {
-     if(event) setSeqStr(event.sequenceBySong?.[song.id] || '');
-  }, [event, song.id]);
 
   return <div style={{padding:16}}>
     {/* Key info card */}
@@ -2105,12 +2126,11 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
 
 /* ─── STAGE ─────────────────────────────────────────────────── */
 const Stage = memo(({song,tr,mode,setMode,stageFs,setStageFs,dark,onClose,beatIdx,chordColor,setChordColor,fontFam,setFontFam})=>{
-  if(!song)return null;
-  const curK=getKey(song.key,tr);
   const [autoScroll,setAutoScroll]=useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const lyricsRef=useRef(null);
   const scrollTimer=useRef(null);
+
   useEffect(()=>{
     if(autoScroll&&lyricsRef.current){
       scrollTimer.current=setInterval(()=>{
@@ -2121,6 +2141,10 @@ const Stage = memo(({song,tr,mode,setMode,stageFs,setStageFs,dark,onClose,beatId
     }else{clearInterval(scrollTimer.current);}
     return()=>clearInterval(scrollTimer.current);
   },[autoScroll]);
+
+  if(!song)return null;
+
+  const curK=getKey(song.key,tr);
   return <div className="stage-wrap" style={{background:dark?'#05091A':'#0A0F1E',color:'#E2E8F0',display:'flex',flexDirection:'column'}}>
     <div style={{background:dark?'rgba(5,9,26,.95)':'rgba(10,15,30,.95)',padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.07)'}}>
       <button onClick={onClose} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',borderRadius:'var(--r-sm)',border:'1px solid rgba(255,255,255,.14)',background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.7)',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer'}}><IcoChevL s={14}/>Sair</button>
@@ -4723,9 +4747,16 @@ if (!isOnline) {
       const convMsgs=history.map(m=>({role:m.r==='u'?'user':'assistant',content:m.c}));
       const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`},body:JSON.stringify({model:'llama-3.1-8b-instant',max_tokens:400,messages:[sysMsgAI,...convMsgs]})});
       const data=await res.json();
-      const reply=data.choices?.[0]?.message?.content||'Sem resposta.';
-      setAiMsgs(p=>[...p,{r:'a',c:reply}]);
-    }catch{setAiMsgs(p=>[...p,{r:'a',c:'Erro de conexão. Verifique sua internet.',err:true}]);}
+      if (!res.ok || data.error) {
+        const errMsg = data.error?.message || `Erro HTTP ${res.status}: ${res.statusText || 'Não autorizado'}`;
+        setAiMsgs(p=>[...p,{r:'a',c:`⚠️ Erro no Maestro (IA): ${errMsg}. Verifique a chave de API (VITE_GROQ_API_KEY) no arquivo .env ou no painel de configurações do Vercel.`,err:true}]);
+      } else {
+        const reply=data.choices?.[0]?.message?.content||'Sem resposta.';
+        setAiMsgs(p=>[...p,{r:'a',c:reply}]);
+      }
+    }catch(err){
+      setAiMsgs(p=>[...p,{r:'a',c:`Erro de conexão: ${err.message || 'Falha ao se conectar à API'}. Verifique sua internet.`,err:true}]);
+    }
     setAiLoad(false);
   }
 
@@ -4751,6 +4782,7 @@ if (!isOnline) {
     {id:'repertorio',ico:<IcoMusic s={22}/>,l:'Músicas'},
     {id:'escala',ico:<IcoCal s={22}/>,l:'Escala'},
     {id:'mural',ico:<IcoMural s={22}/>,l:'Mural'},
+    {id:'patrimonio',ico:<IcoBox s={22}/>,l:'Patrimônio'},
     {id:'ensaio',ico:<IcoMic s={22}/>,l:'Ensaio'},
     {id:'biblia',ico:<IcoBook s={22}/>,l:'Bíblia'},
     {id:'devocional',ico:<IcoHeart s={22}/>,l:'Devocional'},
@@ -4820,6 +4852,7 @@ if (!isOnline) {
             {inCifra&&<Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} profile={profile} members={allMembers}/>}
             {tab==='mural'&&!inCifra&&<Mural profile={profile} dark={dark} members={allMembers}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
+            {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
             {tab==='escala'&&!inCifra&&<Escala profile={profile} dark={dark} events={events} songs={songs} members={allMembers} onConfirm={handleConfirm} onEvSheet={setEvSheet} spawnConfetti={spawnConfetti} onCreateEvent={()=>setCreateEvOpen(true)}/>}
             {tab==='membros'&&!inCifra&&<Membros profile={profile} dark={dark} members={allMembers} events={events} selRole={selRole} setSelRole={setSelRole}/>}
             {tab==='ia'&&!inCifra&&<Maestro dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
