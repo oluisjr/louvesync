@@ -4451,6 +4451,27 @@ export default function LouveSync() {
   },[metro,selSong]);
 
   /* ── Handlers ── */
+  const handleAppUpdate = async () => {
+    vib();
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (let r of registrations) {
+          await r.unregister();
+        }
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        for (let key of keys) {
+          await caches.delete(key);
+        }
+      }
+      window.location.href = window.location.origin + '?u=' + Date.now();
+    } catch (e) {
+      window.location.reload(true);
+    }
+  };
+
   function handleLogin(member, pin) {
     if (member.pin !== pin) return false;
     const {pin:_, ...safe} = member;
@@ -4779,7 +4800,9 @@ if (!isOnline) {
             {!inCifra&&<button onClick={()=>setNotifsOpen(true)} style={{position:'relative',width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(123,63,242,.08)',color:'#7B3FF2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
               <IcoBell s={18}/>{unread>0&&<div className="ndot-ring"/>}
             </button>}
-            {!inCifra&&<button onClick={()=>setPushSettingsOpen(true)} style={{position:'relative',width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(79,70,229,.08)',color:'#4F46E5',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'var(--fs-sm)'}}>⚙️</button>}
+            {!inCifra&&<button title="Atualizar App" onClick={handleAppUpdate} style={{position:'relative',width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(16,185,129,.12)',color:'#10B981',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>}
             {!inCifra&&<button title="Sair" onClick={handleLogout} style={{width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.05)',color:dark?'#94A3B8':'#475569',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><IcoLogout s={15}/></button>}
             <button className={`tog${dark?' on':''}`} onClick={()=>setDark(p=>!p)} style={{background:dark?'#7B3FF2':'#CBD5E1'}} aria-label="Tema"/>
           </div>
