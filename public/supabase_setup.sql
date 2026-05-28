@@ -3,7 +3,7 @@
 
 -- 1. Tabela: members (Membros da equipe)
 CREATE TABLE IF NOT EXISTS members (
-    id TEXT PRIMARY KEY, -- Alterado para TEXT para suportar qualquer formato de ID
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text, -- Suporte a ID gerado automática ou manualmente
     name TEXT NOT NULL,
     role TEXT,
     instrument TEXT,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS members (
 
 -- 2. Tabela: songs (Repertório de Músicas)
 CREATE TABLE IF NOT EXISTS songs (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text, -- CRÍTICO: Gera o ID caso o frontend envie vazio (novas músicas locais)
     title TEXT NOT NULL,
     artist TEXT,
     cat TEXT,
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS songs (
 
 -- 3. Tabela: events (Eventos e Cultos)
 CREATE TABLE IF NOT EXISTS events (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text, -- Gera ID padrão se omitido
     date TEXT NOT NULL,
     time TEXT,
     type TEXT,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS event_members (
 
 -- 6. Tabela: announcements (Posts no Mural)
 CREATE TABLE IF NOT EXISTS announcements (
-    id TEXT PRIMARY KEY, -- Alinhado com o ID string gerado pelo frontend
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text, -- Suporte a ID gerado automática ou manualmente
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS announcements (
 
 -- 7. Tabela: announcement_comments (Comentários no Mural)
 CREATE TABLE IF NOT EXISTS announcement_comments (
-    id TEXT PRIMARY KEY, -- Alinhado com o ID string gerado pelo frontend
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text, -- Suporte a ID gerado automática ou manualmente
     post_id TEXT REFERENCES announcements(id) ON DELETE CASCADE,
     member_id TEXT REFERENCES members(id) ON DELETE CASCADE,
     member_name TEXT,
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS rehearsal_notes (
 
 -- 12. Tabela: equipment (Patrimônio/Instrumentos)
 CREATE TABLE IF NOT EXISTS equipment (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     name TEXT NOT NULL,
     brand TEXT,
     status TEXT,
