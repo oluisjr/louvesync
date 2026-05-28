@@ -190,15 +190,13 @@ async function searchCifraClub(title, artist) {
 }
 
 export async function searchSongCandidates(title, artist) {
-  const [vag, let_, lrc, cifraclub] = await Promise.allSettled([
+  const [vag, let_, lrc] = await Promise.allSettled([
     searchVagalumeCandidates(title, artist),
     searchLetrasCandidates(title, artist),
-    searchLRCLibCandidates(title, artist),
-    searchCifraClub(title, artist)
+    searchLRCLibCandidates(title, artist)
   ]);
 
   return [
-    ...(cifraclub.status === 'fulfilled' ? cifraclub.value : []),
     ...(lrc.status === 'fulfilled' ? lrc.value : []),
     ...(vag.status === 'fulfilled' ? vag.value : []),
     ...(let_.status === 'fulfilled' ? let_.value : []),
@@ -227,13 +225,6 @@ export async function fetchCifraClubContent(url) {
 export async function findSongData(title, artist, onStatus) {
   onStatus?.('iniciando');
   const candidates = await searchSongCandidates(title, artist);
-
-  // Buscar conteúdo apenas de fontes com URL (CifraClub)
-  for (const c of candidates.filter(c => c.source === 'CifraClub' && c.url)) {
-    onStatus?.(c.source);
-    const full = await fetchCifraClubContent(c.url);
-    if (full) { onStatus?.('found:' + c.source); return { ...c, ...full }; }
-  }
 
   const fallback = candidates.find(c => c.text);
   if (fallback) { onStatus?.('found:' + fallback.source); return fallback; }
