@@ -19,7 +19,20 @@ html, body {
 /* ── @media print: exibe só a cifra, esconde tudo mais ─────────── */
 @media print {
   body * { visibility: hidden; }
-  #print-cifra, #print-cifra * { visibility: visible; }
+  #print-cifra, #print-cifra *, #print-dashboard, #print-dashboard * { visibility: visible; }
+  #print-dashboard {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 10px;
+    background: #fff !important;
+    color: #000 !important;
+  }
+  #print-dashboard .no-print, #print-dashboard button {
+    display: none !important;
+    visibility: hidden !important;
+  }
   #print-cifra {
     position: fixed; inset: 0;
     padding: 24px 32px;

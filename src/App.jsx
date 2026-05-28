@@ -209,15 +209,15 @@ const MOCK_EVENTS = [
 ];
 
 /* ─── HELPERS ───────────────────────────────────────────────── */
-function tNote(n,st){let i=SH.indexOf(n);if(i===-1)i=FL.indexOf(n);if(i===-1)return n;return(n.includes('b')&&n!=='B')?FL[((i+st)%12+12)%12]:SH[((i+st)%12+12)%12];}
-function tChord(ch,st){const m=ch.match(/^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?)(.*))?$/);if(!m)return ch;const r=tNote(m[1],st),q=m[2]||'';if(m[3])return r+q+'/'+tNote(m[3],st)+(m[4]||'');return r+q;}
-function tLyrics(txt,st){if(!st)return txt;return txt.replace(/\[([A-G][#b]?[^\]]*)\]/g,(_,c)=>'['+tChord(c,st)+']');}
-function getKey(k,st){const i=SH.indexOf(k);if(i===-1)return k;return SH[((i+st)%12+12)%12];}
+function tNote(n,st){if(!n)return '';let i=SH.indexOf(n);if(i===-1)i=FL.indexOf(n);if(i===-1)return n;return(n.includes('b')&&n!=='B')?FL[((i+st)%12+12)%12]:SH[((i+st)%12+12)%12];}
+function tChord(ch,st){if(!ch)return '';const m=ch.match(/^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?)(.*))?$/);if(!m)return ch;const r=tNote(m[1],st),q=m[2]||'';if(m[3])return r+q+'/'+tNote(m[3],st)+(m[4]||'');return r+q;}
+function tLyrics(txt,st){if(!txt)return '';if(!st)return txt;return txt.replace(/\[([A-G][#b]?[^\]]*)\]/g,(_,c)=>'['+tChord(c,st)+']');}
+function getKey(k,st){if(!k)return 'N/A';const i=SH.indexOf(k);if(i===-1)return k;return SH[((i+st)%12+12)%12];}
 function fDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});}
 function today(){return new Date().toISOString().slice(0,10);}
 function isSundaySecond(dateStr){const d=new Date(dateStr+'T12:00:00');const dom=d.getDate();const dow=d.getDay();return dow===0&&dom>=8&&dom<=14;}
 function parseLine(line){const segs=[];const parts=line.split(/(\[[^\]]+\])/);let i=0;while(i<parts.length){if(parts[i]?.startsWith('[')&&parts[i]?.endsWith(']')){const ch=parts[i].slice(1,-1);const nx=parts[i+1];const ly=(nx&&!nx.startsWith('['))?nx:'';segs.push({ch,ly});i+=(nx&&!nx.startsWith('['))?2:1;}else{if(parts[i])segs.push({ch:'',ly:parts[i]});i++;}}return segs;}
-function normalizeEvent(ev){const sorted=[...(ev.event_songs||[])].sort((a,b)=>a.order_index-b.order_index);return{id:ev.id,date:ev.date,type:ev.type,label:ev.label,time:ev.time,theme:ev.theme,songs:sorted.filter(es=>es.item_type!=='note').map(es=>es.song_id),items:sorted.map(es=>({id:es.id,type:es.item_type||'song',song_id:es.song_id,text:es.note_text})),members:(ev.event_members||[]).map(em=>em.member_id),confirmations:Object.fromEntries((ev.event_members||[]).map(em=>[em.member_id,em.confirmed])),singerBySong:Object.fromEntries(sorted.filter(es=>es.item_type!=='note').map(es=>[es.song_id,es.singer_member_id])),requested_songs:ev.requested_songs||[],santa_ceia_song:ev.santa_ceia_song||null};}
+function normalizeEvent(ev){const sorted=[...(ev.event_songs||[])].sort((a,b)=>a.order_index-b.order_index);return{id:ev.id,date:ev.date,type:ev.type,label:ev.label,time:ev.time,theme:ev.theme,songs:sorted.filter(es=>es.item_type!=='note').map(es=>es.song_id),items:sorted.map(es=>({id:es.id,type:es.item_type||'song',song_id:es.song_id,text:es.note_text})),members:(ev.event_members||[]).map(em=>em.member_id),confirmations:Object.fromEntries((ev.event_members||[]).map(em=>[em.member_id,em.confirmed])),singerBySong:Object.fromEntries(sorted.filter(es=>es.item_type!=='note').map(es=>[es.song_id,es.singer_member_id])),requested_songs:ev.requested_songs||[],santa_ceia_song:ev.santa_ceia_song||null,sequenceBySong:Object.fromEntries(sorted.filter(es=>es.item_type!=='note').map(es=>[es.song_id,es.sequence]))};}
 function vib(){if(navigator.vibrate)navigator.vibrate(10);}
 
 function useDraggableScroll(ref) {
@@ -384,24 +384,21 @@ const ConfirmDialog = ({dark, title, msg, onConfirm, onCancel, isAlert}) => (
 );
 
 /* ─── LYRIC VIEW ────────────────────────────────────────────── */
-const LyricView = memo(({text,st=0,mode='chords',dark,fs=17,chordColor,fontFam})=>{
+const LyricView = memo(({text,dark,fs=17,fontFam})=>{
   const tc=dark?'#E2E8F0':'#1E293B';
-  const lines=tLyrics(text,st).split('\n');
+  if(!text)return null;
+  const lines=text.split('\n');
   return <div style={{fontFamily: fontFam || "'Montserrat',sans-serif"}}>{lines.map((line,li)=>{
-    if(!line.trim())return <div key={li} style={{height:8}}/>;
-    let secMatch = line.trim().match(/^\[?(Verso|Coro|Refrão|Pré-Refrão|Pré-Coro|Ponte|Intro|Final|Outro|Bridge|Primeira Parte|Segunda Parte|Terceira Parte|Quarta Parte)[\s:]?(\d*)\]?$/i);
+    const cleanLine = line.replace(/\[[^\]]+\]/g, '').trimEnd();
+    // Se a linha original tinha colchetes e após limpar ficou vazia (era linha de acordes), nós a ocultamos
+    if(line.includes('[') && cleanLine.trim() === '') return null;
+    if(!cleanLine.trim())return <div key={li} style={{height:8}}/>;
+    
+    let secMatch = cleanLine.match(/^\[?(Verso|Coro|Refrão|Pré-Refrão|Pré-Coro|Ponte|Intro|Final|Outro|Bridge|Primeira Parte|Segunda Parte|Terceira Parte|Quarta Parte)[\s:]?(\d*)\]?$/i);
     if(secMatch)return <Sec key={li} t={(secMatch[1] + (secMatch[2]?` ${secMatch[2]}`:'')).toUpperCase()}/>;
-    if(mode==='lyrics'||!line.includes('['))return <div key={li} style={{fontSize:fs,lineHeight:1.8,color:tc,marginBottom:1,whiteSpace:'pre-wrap'}}>{line.replace(/\[[^\]]+\]/g,'')}</div>;
     
-    // Check if line is ONLY chords and spaces (common in CifraClub imports)
-    const isOnlyChords = line.replace(/\[[^\]]+\]/g, '').trim() === '' && line.includes('[');
-    if(isOnlyChords) {
-       // Render the line as a single pre-formatted text with chords highlighted
-       return <div key={li} style={{fontSize:fs,lineHeight:1.7,color: chordColor || '#FF6B35',fontWeight:800,whiteSpace:'pre',fontFamily:"'JetBrains Mono',monospace",marginBottom:-6}}>{line.replace(/\[|\]/g,'')}</div>;
-    }
-    
-    return <div key={li} style={{display:'flex',flexWrap:'wrap',marginBottom:5,alignItems:'flex-end'}}>{parseLine(line).map((seg,si)=><span key={si} style={{display:'inline-flex',flexDirection:'column',alignItems:'flex-start'}}><span className="chord" style={chordColor ? {color: chordColor} : {}}>{seg.ch||' '}</span><span style={{fontSize:fs,lineHeight:1.7,color:tc,whiteSpace:'pre'}}>{seg.ly||(seg.ch?' ':'')}</span></span>)}</div>;
-  })}</div>;
+    return <div key={li} style={{fontSize:fs,lineHeight:1.8,color:tc,marginBottom:1,whiteSpace:'pre-wrap'}}>{cleanLine}</div>;
+  }).filter(Boolean)}</div>;
 });
 
 /* ─── BIBLIA ────────────────────────────────────────────────── */
@@ -708,7 +705,7 @@ const Afinador = memo(({dark})=>{
 });
 
 /* ─── DASHBOARD ADMIN ───────────────────────────────────────── */
-const AdminDashboard = memo(({pastEvents, members, dark, tc, t2, gc, CS}) => {
+const AdminDashboard = memo(({pastEvents, members, songs = [], dark, tc, t2, gc, CS}) => {
   const chartPoints = useMemo(() => {
     const evs = pastEvents.slice(0, 5).reverse();
     if (evs.length === 0) {
@@ -744,6 +741,54 @@ const AdminDashboard = memo(({pastEvents, members, dark, tc, t2, gc, CS}) => {
       .slice(0, 5);
   }, [pastEvents, members]);
 
+  // 📊 Cálculo de Faltas e Presenças dos Membros
+  const memberStats = useMemo(() => {
+    const stats = {};
+    members.forEach(m => {
+      stats[m.id] = { name: m.name, instrument: m.instrument, color: m.color || '#7B3FF2', presence: 0, absence: 0, pending: 0, scaled: 0 };
+    });
+    pastEvents.forEach(ev => {
+      const confs = ev.confirmations || {};
+      (ev.members || []).forEach(mId => {
+        if (stats[mId]) {
+          stats[mId].scaled += 1;
+          if (confs[mId] === true) {
+            stats[mId].presence += 1;
+          } else if (confs[mId] === false) {
+            stats[mId].absence += 1;
+          } else {
+            stats[mId].pending += 1;
+          }
+        }
+      });
+    });
+    return Object.values(stats)
+      .sort((a, b) => b.absence - a.absence || b.scaled - a.scaled)
+      .slice(0, 8);
+  }, [pastEvents, members]);
+
+  // 📊 Cálculo de Repetição de Músicas
+  const songStats = useMemo(() => {
+    const counts = {};
+    pastEvents.forEach(ev => {
+      (ev.songs || []).forEach(songId => {
+        counts[songId] = (counts[songId] || 0) + 1;
+      });
+    });
+    return Object.entries(counts)
+      .map(([songId, count]) => {
+        const s = songs.find(x => x.id === songId);
+        return {
+          title: s ? s.title : 'Música Removida',
+          artist: s ? s.artist || 'Ministério' : 'Desconhecido',
+          category: s ? s.cat || 'adoracao' : 'adoracao',
+          count
+        };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [pastEvents, songs]);
+
   const width = 320;
   const height = 120;
   const paddingX = 40;
@@ -774,7 +819,42 @@ const AdminDashboard = memo(({pastEvents, members, dark, tc, t2, gc, CS}) => {
     return `${pathD} L ${last.x} ${paddingY + chartH} L ${first.x} ${paddingY + chartH} Z`;
   }, [pointsSVG, pathD, chartH]);
 
-  return <div className="aUp">
+  // 💾 Função para exportar CSV de Faltas
+  const exportAbsencesCSV = () => {
+    vib();
+    const headers = ['Membro', 'Instrumento', 'Escalas', 'Presencas', 'Faltas (Recusou)', 'Pendente'];
+    const rows = memberStats.map(m => [m.name, m.instrument, m.scaled, m.presence, m.absence, m.pending]);
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
+      + [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `relatorio_faltas_membros_${today()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // 💾 Função para exportar CSV de Músicas
+  const exportSongsCSV = () => {
+    vib();
+    const headers = ['Musica', 'Artista', 'Categoria', 'Quantidade de Vezes Tocada'];
+    const rows = songStats.map(s => [s.title, s.artist, s.category, s.count]);
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
+      + [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `repeticao_musicas_${today()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return <div className="aUp" id="print-dashboard">
+    <div style={{display:'flex', gap:10, marginBottom:16}} className="no-print">
+      <button onClick={() => window.print()} className="bp" style={{flex:1, padding:11, fontSize:'var(--fs-xs)'}}>🖨️ Exportar PDF / Imprimir Relatório</button>
+    </div>
+
+    {/* ── Bloco 1: Gráfico de Engajamento ── */}
     <div className={gc} style={CS}>
       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12}}>Engajamento nos Últimos Cultos</div>
       <div style={{position:'relative', width:'100%', height:height, display:'flex', justifyContent:'center'}}>
@@ -805,6 +885,75 @@ const AdminDashboard = memo(({pastEvents, members, dark, tc, t2, gc, CS}) => {
       </div>
     </div>
 
+    {/* ── Bloco 2: Gráfico de Faltas/Ausências de Membros ── */}
+    <div className={gc} style={CS}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+        <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>Relatório de Faltas por Membro (Top 8)</div>
+        <button onClick={exportAbsencesCSV} className="no-print" style={{padding:'4px 10px', borderRadius:100, border:'none', background:'rgba(239,68,68,0.12)', color:'#EF4444', fontSize:10, fontWeight:800, cursor:'pointer'}}>💾 CSV</button>
+      </div>
+      {memberStats.filter(m => m.scaled > 0).length === 0 ? (
+        <div style={{fontSize:'var(--fs-xs)',color:t2,fontStyle:'italic',textAlign:'center',padding:10}}>Nenhum registro de falta encontrado...</div>
+      ) : (
+        <div style={{display:'flex', flexDirection:'column', gap:10}}>
+          {memberStats.map((item, idx) => {
+            const total = item.scaled || 1;
+            const presenceRate = Math.round((item.presence / total) * 100);
+            const absenceRate = Math.round((item.absence / total) * 100);
+            const pendingRate = Math.round((item.pending / total) * 100);
+
+            return <div key={idx} style={{display:'flex', flexDirection:'column', gap:4}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <div style={{fontSize:'var(--fs-xs)', fontWeight:800, color:tc}}>{item.name} <span style={{fontSize:10, fontWeight:500, color:t2}}>({item.instrument})</span></div>
+                <div style={{fontSize:10, fontWeight:800, color:'#EF4444'}}>{item.absence} Faltas / {item.scaled} Escalas</div>
+              </div>
+              <div style={{height:10, background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)', borderRadius:100, overflow:'hidden', display:'flex'}}>
+                {item.presence > 0 && <div style={{width: `${presenceRate}%`, background:'#10B981'}} title={`Presenças: ${item.presence}`} />}
+                {item.pending > 0 && <div style={{width: `${pendingRate}%`, background:'#F59E0B'}} title={`Pendentes: ${item.pending}`} />}
+                {item.absence > 0 && <div style={{width: `${absenceRate}%`, background:'#EF4444'}} title={`Faltas: ${item.absence}`} />}
+              </div>
+              <div style={{display:'flex', gap:10, fontSize:9, fontWeight:700, color:t2}}>
+                <span style={{display:'flex', alignItems:'center', gap:3}}><span style={{width:6, height:6, background:'#10B981', borderRadius:'50%'}} /> Presenças: {item.presence}</span>
+                <span style={{display:'flex', alignItems:'center', gap:3}}><span style={{width:6, height:6, background:'#EF4444', borderRadius:'50%'}} /> Recusados/Faltas: {item.absence}</span>
+                {item.pending > 0 && <span style={{display:'flex', alignItems:'center', gap:3}}><span style={{width:6, height:6, background:'#F59E0B', borderRadius:'50%'}} /> Sem Resposta: {item.pending}</span>}
+              </div>
+            </div>;
+          })}
+        </div>
+      )}
+    </div>
+
+    {/* ── Bloco 3: Repetição de Músicas (Top 10) ── */}
+    <div className={gc} style={CS}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+        <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>Músicas Mais Tocadas (Top 10)</div>
+        <button onClick={exportSongsCSV} className="no-print" style={{padding:'4px 10px', borderRadius:100, border:'none', background:'rgba(79,70,229,0.12)', color:'#4F46E5', fontSize:10, fontWeight:800, cursor:'pointer'}}>💾 CSV</button>
+      </div>
+      {songStats.length === 0 ? (
+        <div style={{fontSize:'var(--fs-xs)',color:t2,fontStyle:'italic',textAlign:'center',padding:10}}>Nenhuma música tocada recentemente...</div>
+      ) : (
+        <div style={{display:'flex', flexDirection:'column', gap:10}}>
+          {songStats.map((item, idx) => {
+            const maxVal = songStats[0]?.count || 1;
+            const barW = Math.round((item.count / maxVal) * 70) + 10;
+            const catColor = CAT[item.category]?.color || '#7B3FF2';
+            return <div key={idx} style={{display:'flex', flexDirection:'column', gap:2}}>
+              <div style={{display:'flex', justifyContent:'space-between', fontSize:'var(--fs-xs)'}}>
+                <div style={{fontWeight:800, color:tc, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>{item.title} <span style={{fontSize:9, fontWeight:500, color:t2}}>· {item.artist}</span></div>
+                <div style={{fontWeight:800, color:'#7B3FF2', marginLeft:10}}>{item.count}x</div>
+              </div>
+              <div style={{display:'flex', alignItems:'center', gap:8}}>
+                <div style={{width:6, height:6, borderRadius:'50%', background:catColor}} />
+                <div style={{flex:1, height:10, background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)', borderRadius:5, overflow:'hidden'}}>
+                  <div style={{width:`${barW}%`, height:'100%', background:`linear-gradient(90deg, #7B3FF2, #EC4899)`, borderRadius:5}} />
+                </div>
+              </div>
+            </div>;
+          })}
+        </div>
+      )}
+    </div>
+
+    {/* ── Bloco 4: Ranking Geral de Escalas ── */}
     <div className={gc} style={CS}>
       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12}}>Ranking de Escalas (Membros Ativos)</div>
       {ranking.length === 0 ? (
@@ -830,31 +979,70 @@ const AdminDashboard = memo(({pastEvents, members, dark, tc, t2, gc, CS}) => {
 
 /* ─── PATRIMÔNIO ADMIN ──────────────────────────────────────── */
 const AdminPatrimonio = memo(({members, dark, tc, t2, gc, CS}) => {
-  const [equipment, setEquipment] = useState(() => {
-    const stored = localStorage.getItem('ls_equipment');
-    if (stored) {
-      try { return JSON.parse(stored); } catch(e) {}
-    }
-    return [
-      { id: 'eq_1', name: 'Microfone sem fio SM58', brand: 'Shure', status: 'Disponível', custodian_id: null, serial_number: 'SN-SHURE-581' },
-      { id: 'eq_2', name: 'Violão Eletroacústico', brand: 'Tanglewood', status: 'Em uso', custodian_id: members[0]?.id || null, serial_number: 'SN-TANG-202' },
-      { id: 'eq_3', name: 'Mesa de Som UI24R', brand: 'Soundcraft', status: 'Disponível', custodian_id: null, serial_number: 'SN-SOUND-24' }
-    ];
-  });
+  const [equipment, setEquipment] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // Carrega e sincroniza com o banco de dados Supabase em tempo real!
   useEffect(() => {
-    localStorage.setItem('ls_equipment', JSON.stringify(equipment));
-    if (supabase) {
-      equipment.forEach(item => {
-        supabase.from('equipment').upsert({
-          id: item.id,
-          name: item.name,
-          brand: item.brand,
-          status: item.status,
-          custodian_id: item.custodian_id,
-          serial_number: item.serial_number
-        }).catch(console.error);
-      });
+    async function loadEquipment() {
+      if (!supabase) {
+        // Fallback local se o Supabase não estiver conectado
+        const stored = localStorage.getItem('ls_equipment');
+        if (stored) {
+          try { setEquipment(JSON.parse(stored)); } catch(e) {}
+        } else {
+          setEquipment([
+            { id: 'eq_1', name: 'Microfone sem fio SM58', brand: 'Shure', status: 'Disponível', custodian_id: null, serial_number: 'SN-SHURE-581' },
+            { id: 'eq_2', name: 'Violão Eletroacústico', brand: 'Tanglewood', status: 'Em uso', custodian_id: (members || [])[0]?.id || null, serial_number: 'SN-TANG-202' },
+            { id: 'eq_3', name: 'Mesa de Som UI24R', brand: 'Soundcraft', status: 'Disponível', custodian_id: null, serial_number: 'SN-SOUND-24' }
+          ]);
+        }
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.from('equipment').select('*');
+        if (!error && data) {
+          if (data.length === 0) {
+            // Inicializar dados padrão se o banco estiver vazio
+            const defaults = [
+              { id: 'eq_1', name: 'Microfone sem fio SM58', brand: 'Shure', status: 'Disponível', custodian_id: null, serial_number: 'SN-SHURE-581' },
+              { id: 'eq_2', name: 'Violão Eletroacústico', brand: 'Tanglewood', status: 'Em uso', custodian_id: (members || [])[0]?.id || null, serial_number: 'SN-TANG-202' },
+              { id: 'eq_3', name: 'Mesa de Som UI24R', brand: 'Soundcraft', status: 'Disponível', custodian_id: null, serial_number: 'SN-SOUND-24' }
+            ];
+            await supabase.from('equipment').upsert(defaults);
+            setEquipment(defaults);
+          } else {
+            setEquipment(data);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadEquipment();
+
+    if (!supabase) return;
+    const channel = supabase.channel('equipment_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, () => {
+         loadEquipment();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [members]);
+
+  // Salva no localStorage como backup local
+  useEffect(() => {
+    if (equipment.length > 0) {
+      localStorage.setItem('ls_equipment', JSON.stringify(equipment));
     }
   }, [equipment]);
 
@@ -864,13 +1052,13 @@ const AdminPatrimonio = memo(({members, dark, tc, t2, gc, CS}) => {
 
   const filtered = useMemo(() => {
     return equipment.filter(eq => {
-      const matchSearch = eq.name.toLowerCase().includes(search.toLowerCase()) || eq.brand.toLowerCase().includes(search.toLowerCase());
+      const matchSearch = (eq.name || '').toLowerCase().includes(search.toLowerCase()) || (eq.brand || '').toLowerCase().includes(search.toLowerCase());
       const matchFilter = statusFilter === 'all' || eq.status === statusFilter;
       return matchSearch && matchFilter;
     });
   }, [equipment, search, statusFilter]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editItem.name) return alert('Nome do equipamento é obrigatório!');
     setEquipment(prev => {
       const exists = prev.some(x => x.id === editItem.id);
@@ -878,14 +1066,32 @@ const AdminPatrimonio = memo(({members, dark, tc, t2, gc, CS}) => {
       return [...prev, editItem];
     });
     setEditItem(null);
+    if (supabase) {
+      try {
+        await supabase.from('equipment').upsert({
+          id: editItem.id,
+          name: editItem.name,
+          brand: editItem.brand || '',
+          status: editItem.status,
+          custodian_id: editItem.custodian_id || null,
+          serial_number: editItem.serial_number || ''
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (!window.confirm('Tem certeza que deseja excluir este equipamento?')) return;
     setEquipment(prev => prev.filter(x => x.id !== id));
     setEditItem(null);
     if (supabase) {
-      supabase.from('equipment').delete().eq('id', id).catch(console.error);
+      try {
+        await supabase.from('equipment').delete().eq('id', id);
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
@@ -1316,6 +1522,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
       <AdminDashboard
         pastEvents={pastEvents}
         members={members}
+        songs={songs}
         dark={dark}
         tc={tc}
         t2={t2}
@@ -1651,7 +1858,7 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1';
   const allKeys=useMemo(()=>[...new Set(songs.map(s=>s.key))].filter(Boolean).sort(),[songs]);
-  const filtered=useMemo(()=>{let s=catF==='fav'?songs.filter(x=>favorites?.includes(x.id)):catF==='all'?songs:songs.filter(x=>x.cat===catF);if(keyF)s=s.filter(x=>x.key===keyF);if(search.trim())s=s.filter(x=>x.title.toLowerCase().includes(search.toLowerCase())||x.artist?.toLowerCase().includes(search.toLowerCase()));return s;},[songs,catF,keyF,search,favorites]);
+  const filtered=useMemo(()=>{let s=catF==='fav'?songs.filter(x=>favorites?.includes(x.id)):catF==='all'?songs:songs.filter(x=>x.cat===catF);if(keyF)s=s.filter(x=>x.key===keyF);if(search.trim())s=s.filter(x=>x.title.toLowerCase().includes(search.toLowerCase())||(x.artist || '').toLowerCase().includes(search.toLowerCase()));return s;},[songs,catF,keyF,search,favorites]);
 
   return <div style={{padding:16}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
@@ -1813,43 +2020,11 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
       </div>
     )}
 
-    {/* Transposer */}
-    <div className={`${gc} aUp`} style={{...CS,animationDelay:'.07s'}}>
-      <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10,display:'flex',alignItems:'center',gap:6}}><IcoGuitar s={12}/>Transpositor de Tom</div>
-      <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6, marginBottom:8}}>
-        {['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'].map(k=>{
-          const isAct = curKey === k;
-          return <button key={k} onClick={()=>{
-             vib();
-             const origIdx = SH.indexOf(song.key);
-             const tgtIdx = SH.indexOf(k);
-             if(origIdx!==-1 && tgtIdx!==-1) {
-                let d = tgtIdx - origIdx;
-                if(d > 6) d -= 12;
-                if(d < -5) d += 12;
-                setTr(d);
-             }
-          }} style={{padding:'8px 0',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:isAct?'#4F46E5':dark?'rgba(255,255,255,.05)':'rgba(79,70,229,.07)',color:isAct?'#fff':dark?'#E2E8F0':'#4F46E5',boxShadow:isAct?'0 4px 12px rgba(79,70,229,.32)':'',transition:'all .15s'}}>{k}</button>
-        })}
-      </div>
-      {tr!==0&&<button onClick={()=>{vib();setTr(0);}} style={{width:'100%',padding:8,borderRadius:'var(--r-sm)',border:'none',cursor:'pointer',background:'rgba(245,158,11,.08)',color:'#D97706',fontSize:'var(--fs-sm)',fontWeight:700,marginBottom:8}}>↩ Voltar ao tom original ({song.key})</button>}
-      {event?.singerBySong?.[song.id] && (() => {
-        const sid = event.singerBySong[song.id];
-        const sMem = members?.find(m=>m.id===sid);
-        if(!sMem) return null;
-        const currentVocalKey = song.vocal_keys?.[sid];
-        const isSaved = currentVocalKey === curKey;
-        return <button onClick={()=>{vib();onSaveVocalKey(song.id, sid, curKey);}} disabled={isSaved} style={{width:'100%',padding:8,borderRadius:'var(--r-sm)',border:'none',cursor:isSaved?'default':'pointer',background:isSaved?'rgba(16,185,129,.1)':'rgba(79,70,229,.1)',color:isSaved?'#059669':'#4F46E5',fontSize:'var(--fs-sm)',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:'all .15s'}}>
-          {isSaved ? <><IcoCheck s={14}/> Tom ({curKey}) salvo para {sMem.name}</> : <><IcoEdit s={14}/> Salvar tom ({curKey}) para {sMem.name}</>}
-        </button>
-      })()}
-    </div>
-
     {/* Mode controls */}
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.1s'}}>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-        {[{l:mode==='chords'?'Cifras':'Letra',a:()=>setMode(m=>m==='chords'?'lyrics':'chords'),act:mode==='chords',c:'#4F46E5'},{l:metro?'Metro ◠':'Metrônomo',a:()=>setMetro(m=>!m),act:metro,c:'#10B981'},{l:'Palco',a:()=>setStageMode(true),act:false,c:'#F59E0B'}].map((b,i)=>
-          <button key={i} onClick={b.a} style={{padding:'10px 6px',borderRadius:'var(--r-md)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:700,background:b.act?`${b.c}18`:'rgba(0,0,0,.04)',color:b.act?b.c:t2}}>{b.l}</button>)}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        <button onClick={()=>setMetro(m=>!m)} style={{padding:'10px 6px',borderRadius:'var(--r-md)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:700,background:metro?'rgba(16,185,129,.18)':'rgba(0,0,0,.04)',color:metro?'#10B981':t2}}>{metro?'Metrônomo ● Ativo':'Ativar Metrônomo'}</button>
+        <button onClick={()=>setStageMode(true)} style={{padding:'10px 6px',borderRadius:'var(--r-md)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:700,background:'rgba(0,0,0,.04)',color:t2}}>Modo Palco 🖥️</button>
       </div>
     </div>
 
@@ -3524,12 +3699,26 @@ if (!navigator.onLine) {
   const sendStageAlert = (msgText) => {
     vib();
     if (!supabase) return;
-    const channel = supabase.channel('louvesync_realtime');
-    channel.send({
-      type: 'broadcast',
-      event: 'stage_chat',
-      payload: { sender: profile?.name || 'Membro', message: msgText }
-    });
+    const activeChannel = realtimeChannelRef.current || supabase.channel('louvesync_realtime');
+    if (activeChannel) {
+      if (!realtimeChannelRef.current) {
+        activeChannel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            activeChannel.send({
+              type: 'broadcast',
+              event: 'stage_chat',
+              payload: { sender: profile?.name || 'Membro', message: msgText }
+            });
+          }
+        });
+      } else {
+        activeChannel.send({
+          type: 'broadcast',
+          event: 'stage_chat',
+          payload: { sender: profile?.name || 'Membro', message: msgText }
+        });
+      }
+    }
   };
 
   const handleDeleteTake = async (id) => {
@@ -4040,6 +4229,7 @@ export default function LouveSync() {
 
   const audioCtx=useRef(null);
   const metroTimer=useRef(null);
+  const realtimeChannelRef = useRef(null);
   const [keyF,setKeyF]=useState('');
   // inCifra: qualquer tab pode abrir a cifra de uma música
   const inCifra = !!selSong;
@@ -4147,7 +4337,7 @@ export default function LouveSync() {
 
     // ── Supabase Realtime ──
     if(!supabase) return;
-    const channel = supabase.channel('louvesync_realtime')
+    const channel = supabase.channel('louvesync_realtime', { config: { broadcast: { self: true } } })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, payload => {
          loadData();
       })
@@ -4167,7 +4357,10 @@ export default function LouveSync() {
       })
       .subscribe();
 
+    realtimeChannelRef.current = channel;
+
     return () => {
+      realtimeChannelRef.current = null;
       supabase.removeChannel(channel);
     };
   },[profile]);
@@ -4223,18 +4416,10 @@ export default function LouveSync() {
     setProfile(null); setSelSong(null); setSelEvent(null); setTab('home');
   }
   function navTo(t){vib();setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}}
-  function selectSong(s,ev=null){
+  function selectSong(s,ev=null,activeKey=null){
+    if(!s) return alert('Ops! Esta música ainda não foi adicionada no Repertório.');
     vib();setSelSong(s);setSelEvent(ev);
-    let defTr = 0;
-    if(ev && ev.singerBySong && ev.singerBySong[s.id]) {
-      const singerId = ev.singerBySong[s.id];
-      if(s.vocal_keys && s.vocal_keys[singerId]) {
-         const sh1 = SH.indexOf(s.vocal_keys[singerId]);
-         const sh2 = SH.indexOf(s.key);
-         if(sh1!==-1 && sh2!==-1) defTr = sh1 - sh2;
-      }
-    }
-    setTr(defTr);
+    setTr(0);
     setMetro(false);setBeatIdx(-1);setTab('repertorio');
   }
 
