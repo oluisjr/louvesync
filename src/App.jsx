@@ -1,7 +1,26 @@
-import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, memo, useCallback, Component } from 'react';
 import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, requestDeleteSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, deleteEvent as dbDelEvent, requestDeleteEvent, rejectDeleteEvent, setEventItems, setSingerForSong } from './lib/supabase';
 import { findSongData, searchSongCandidates, fetchCifraClubContent } from './lib/scraper';
 import { generateSetlist } from './lib/setlist';
+
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('🔴 React Error Boundary:', error, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{padding:24,background:'#1a0000',color:'#ff6b6b',fontFamily:'monospace',fontSize:13,minHeight:'100dvh',overflowY:'auto'}}>
+          <div style={{fontSize:18,fontWeight:900,marginBottom:12}}>⚠️ Erro de renderização capturado</div>
+          <div style={{background:'rgba(255,0,0,.1)',padding:12,borderRadius:8,marginBottom:12,whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{String(this.state.error?.message || this.state.error)}</div>
+          <div style={{fontSize:11,opacity:.7,whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{this.state.error?.stack}</div>
+          <button onClick={()=>this.setState({error:null})} style={{marginTop:16,padding:'8px 16px',background:'#7B3FF2',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontWeight:700}}>Tentar novamente</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -1978,6 +1997,8 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
   const iframeRef = useRef(null);
   const [seqStr, setSeqStr] = useState(event?.sequenceBySong?.[song?.id] || '');
 
+  console.log('🎵 Cifra component rendering with song:', song?.title);
+
   // 🦶 Pedal Bluetooth — qualquer pedal que emule PageDown/seta rola a cifra
   useEffect(() => {
     const onKey = (e) => {
@@ -1995,7 +2016,10 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
      if(event && song) setSeqStr(event.sequenceBySong?.[song.id] || '');
   }, [event, song?.id]);
 
-  if(!song)return null;
+  if(!song){
+    console.log('🎵 Cifra: song is null/undefined, returning null');
+    return null;
+  }
 
   // Coerção de tipos extremamente robusta para blindar contra campos do tipo Objeto em JSON
   const sTitle = String(song.title || 'Música Sem Título');
@@ -2004,6 +2028,8 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
   const sLyrics = String(song.lyrics || '');
   const sBpm = parseInt(song.bpm) || 80;
   const sTimeSignature = String(song.time_signature || '4/4');
+
+  console.log('🎵 Cifra component initialized:', {sTitle, sArtist, sKey, sBpm, sTimeSignature, lyricsLength: sLyrics.length});
 
   const sendYoutubeCommand = (func, args=[]) => {
     if (iframeRef.current) {
@@ -4516,6 +4542,7 @@ export default function LouveSync() {
   function navTo(t){vib();setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}}
   function selectSong(s,ev=null,activeKey=null){
     if(!s) return alert('Ops! Esta música ainda não foi adicionada no Repertório.');
+    console.log('🎵 selectSong called with:', {title: s.title, artist: s.artist, id: s.id});
     vib();setSelSong(s);setSelEvent(ev);
     
     // Transposição automática baseada no tom ativo da escala
@@ -4536,6 +4563,7 @@ export default function LouveSync() {
     }
     setTr(trDiff);
     
+    console.log('🎵 About to render Cifra component, inCifra will be:', true);
     setMetro(false);setBeatIdx(-1);setTab('repertorio');
   }
 
@@ -4802,7 +4830,8 @@ if (!isOnline) {
   });
   const tc=dark?'#E2E8F0':'#0F172A';
 
-  return <div className={`ls${dark?' dark':''}`}>
+  return <ErrorBoundary>
+  <div className={`ls${dark?' dark':''}`}>
     <style>{CSS}</style>
     {/* Confetti */}
     {confetti.map(c=><div key={c.id} className="conf-p" style={{left:`${c.x}vw`,top:'-20px',width:c.size,height:c.size,background:c.color,borderRadius:c.size>10?'50%':'2px',animationDelay:`${c.dl}s`,transform:`rotate(${c.rot}deg)`}}/>)}
@@ -4849,7 +4878,8 @@ if (!isOnline) {
           {dataLoading&&!inCifra?<Skeleton dark={dark} count={6}/>:<>
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={()=>setCreateEvOpen(true)}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
-            {inCifra&&<Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} profile={profile} members={allMembers}/>}
+            {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} profile={profile} members={allMembers}/></ErrorBoundary>}
+
             {tab==='mural'&&!inCifra&&<Mural profile={profile} dark={dark} members={allMembers}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
             {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
@@ -4921,6 +4951,7 @@ if (!isOnline) {
         </div>
       )}
     </div>
-  </div>;
+  </div>
+  </ErrorBoundary>;
 }
 
