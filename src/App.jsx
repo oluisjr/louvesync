@@ -260,6 +260,29 @@ function normalizeEvent(ev){
     sequenceBySong: Object.fromEntries(sorted.filter(es => es && es.item_type !== 'note' && es.song_id).map(es => [es.song_id, es.sequence]))
   };
 }
+// Garante que um evento já no formato do app tenha todos os campos obrigatórios
+function patchEvent(ev){
+  if (!ev) return ev;
+  // Se veio do Supabase sem normalizar (tem event_songs), normaliza
+  if (ev.event_songs !== undefined) return normalizeEvent(ev);
+  // Caso contrário, apenas garante campos ausentes
+  return {
+    songs: [],
+    items: [],
+    members: [],
+    confirmations: {},
+    singerBySong: {},
+    sequenceBySong: {},
+    requested_songs: [],
+    santa_ceia_song: null,
+    ...ev,
+    songs: ev.songs || [],
+    members: ev.members || [],
+    confirmations: ev.confirmations || {},
+    singerBySong: ev.singerBySong || {},
+    sequenceBySong: ev.sequenceBySong || {},
+  };
+}
 function vib(){if(navigator.vibrate)navigator.vibrate(10);}
 
 function useDraggableScroll(ref) {
@@ -1420,8 +1443,8 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     <div className={`${gc} aUp`} style={CS}>
        <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12}}>Comprometimento (Últimos Eventos)</div>
        {members.filter(m=>m.status==='ativo').slice(0,5).map(m=>{
-          const myEvs = pastEvents.filter(e => e.members.includes(m.id));
-          const presences = myEvs.filter(e => e.confirmations[m.id] === true).length;
+          const myEvs = pastEvents.filter(e => (e.members||[]).includes(m.id));
+          const presences = myEvs.filter(e => (e.confirmations||{})[m.id] === true).length;
           const rate = myEvs.length ? Math.round(presences/myEvs.length*100) : 0;
           return <div key={m.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'6px 0',borderBottom:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
              <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -1764,7 +1787,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
   const d3 = new Date();
   d3.setDate(d3.getDate() + 3);
   const d3Str = d3.toISOString().slice(0,10);
-  const pendingEvents = upcoming.filter(e => e.date <= d3Str && e.members.includes(profile?.id) && e.confirmations[profile?.id] === undefined);
+  const pendingEvents = upcoming.filter(e => e.date <= d3Str && (e.members||[]).includes(profile?.id) && (e.confirmations||{})[profile?.id] === undefined);
   const nxtPending = pendingEvents[0];
   
   const isVocal = profile?.instrument?.toLowerCase().includes('vocal');
@@ -2253,12 +2276,12 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
     const d2 = w[6].toISOString().slice(0,10);
     let evs = events.filter(e => e.date >= d1 && e.date <= d2).sort((a,b)=>a.date.localeCompare(b.date));
     if (!profile?.is_admin) {
-      evs = evs.filter(e => e.members.includes(profile?.id));
+      evs = evs.filter(e => (e.members||[]).includes(profile?.id));
     }
     return evs;
   },[events, monthWeeks, selWeekIdx, profile]);
 
-  const confirmed=events.reduce((a,e)=>a+(e.confirmations[profile?.id]===true?1:0),0);
+  const confirmed=events.reduce((a,e)=>a+((e.confirmations||{})[profile?.id]===true?1:0),0);
 
   // Sync scroll with index
   const scrollRef = useRef(null);
@@ -2302,13 +2325,13 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.04s'}}>
       <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Minha Confirmação</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:10}}>
-        {[{l:'Confirmados',v:confirmed,c:'#10B981'},{l:'Recusados',v:events.reduce((a,e)=>a+(e.confirmations[profile?.id]===false?1:0),0),c:'#EF4444'},{l:'Eventos',v:events.filter(e=>e.members.includes(profile?.id)).length,c:'#4F46E5'}].map(s=>
+        {[{l:'Confirmados',v:confirmed,c:'#10B981'},{l:'Recusados',v:events.reduce((a,e)=>a+((e.confirmations||{})[profile?.id]===false?1:0),0),c:'#EF4444'},{l:'Eventos',v:events.filter(e=>e.members.includes(profile?.id)).length,c:'#4F46E5'}].map(s=>
           <div key={s.l} style={{textAlign:'center',padding:'10px 6px',borderRadius:'var(--r-sm)',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
             <div style={{fontSize:19,fontWeight:900,color:s.c,lineHeight:1}}>{s.v}</div>
             <div style={{fontSize:8,color:t2,marginTop:3,fontWeight:700}}>{s.l}</div>
           </div>)}
       </div>
-      <div className="pbar"><div className="pbar-fill" style={{width:`${(confirmed/Math.max(events.filter(e=>e.members.includes(profile?.id)).length,1))*100}%`}}/></div>
+      <div className="pbar"><div className="pbar-fill" style={{width:`${(confirmed/Math.max(events.filter(e=>(e.members||[]).includes(profile?.id)).length,1))*100}%`}}/></div>
     </div>
 
     {/* Monthly Carousel */}
@@ -2351,9 +2374,9 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
     {showHistory&&<div className="aUp">
       {pastEvents.length===0&&<EmptyState icon={<IcoCal s={32}/>} title="Nenhum evento anterior encontrado"/>}
       {pastEvents.map((ev,ei)=>{
-        const evS=ev.songs.map(id=>songs.find(s=>s.id===id)).filter(Boolean);
-        const evM=ev.members.map(id=>members.find(m=>m.id===id)).filter(Boolean);
-        const myConf=ev.confirmations[profile?.id];
+        const evS=(ev.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean);
+        const evM=(ev.members||[]).map(id=>members.find(m=>m.id===id)).filter(Boolean);
+        const myConf=(ev.confirmations||{})[profile?.id];
         return <div key={ev.id} className={`${gc} aUp`} style={{...CS,animationDelay:`${ei*.04}s`,opacity:.85,borderLeft:`3px solid ${ev.type==='culto'?'#4F46E5':'#10B981'}`}} onClick={()=>onEvSheet(ev)}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
             <div>
@@ -2378,10 +2401,10 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
     {/* Events */}
     {weekEvents.length===0&&<EmptyState icon={<IcoCal s={32}/>} title="Nenhum evento esta semana" sub="Use as setas para navegar para outra semana."/>}
     {weekEvents.map((ev,ei)=>{
-      const evM=ev.members.map(id=>members.find(m=>m.id===id)).filter(Boolean);
-      const evS=ev.songs.map(id=>songs.find(s=>s.id===id)).filter(Boolean);
-      const isMyEvent=ev.members.includes(profile?.id);
-      let myConf=ev.confirmations[profile?.id];
+      const evM=(ev.members||[]).map(id=>members.find(m=>m.id===id)).filter(Boolean);
+      const evS=(ev.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean);
+      const isMyEvent=(ev.members||[]).includes(profile?.id);
+      let myConf=(ev.confirmations||{})[profile?.id];
 
       // Dynamic status
       const evDateTime = new Date(`${ev.date}T${ev.time}:00`);
@@ -2465,7 +2488,7 @@ const Membros = memo(({profile,dark,members,events,selRole,setSelRole})=>{
     {/* Member list — 1 column */}
     <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:18}}>
       {filtered.map((m,i)=>{
-        const cCount=events.filter(e=>e.members.includes(m.id)&&e.type==='culto').length;
+        const cCount=events.filter(e=>(e.members||[]).includes(m.id)&&e.type==='culto').length;
         return <div key={m.id} className={`${gc} aUp`} style={{borderRadius:'var(--r-xl)',padding:'14px 16px',animationDelay:`${i*.04}s`,opacity:m.status==='licença'?.7:1,display:'flex',alignItems:'center',gap:14}}>
           <div style={{position:'relative',flexShrink:0}}>
             <Ava m={m} size={52} ring/>
@@ -3053,10 +3076,10 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
   if(!ev)return null;
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const evItems=(ev.items?.length > 0 ? ev.items : (ev.songs||[]).map(id=>({id:'old_'+id, type:'song', song_id:id}))).map(it=>it.type==='song'?{...it,song:songs.find(s=>s.id===it.song_id)}:it).filter(it=>it.type==='note'||it.song);
-  const evS=ev.songs.map(id=>songs.find(s=>s.id===id)).filter(Boolean);
-  const evM=ev.members.map(id=>members.find(m=>m.id===id)).filter(Boolean);
-  const myConf=ev.confirmations[profile?.id];
-  const isMyEvent=ev.members.includes(profile?.id);
+  const evS=(ev.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean);
+  const evM=(ev.members||[]).map(id=>members.find(m=>m.id===id)).filter(Boolean);
+  const myConf=(ev.confirmations||{})[profile?.id];
+  const isMyEvent=(ev.members||[]).includes(profile?.id);
 
   return <>
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:99,backdropFilter:'blur(7px)',WebkitBackdropFilter:'blur(7px)',animation:'fadeIn .2s'}} onClick={onClose}/>
@@ -3134,7 +3157,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
         </>}
         <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',margin:'16px 0 10px'}}>Equipe ({evM.length})</div>
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {evM.map(m=>{const conf=ev.confirmations[m.id];return <div key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:'var(--r-md)',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
+          {evM.map(m=>{const conf=(ev.confirmations||{})[m.id];return <div key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:'var(--r-md)',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
             <Ava m={m} size={32} ring/>
             <div style={{flex:1}}><div style={{fontSize:'var(--fs-sm)',fontWeight:700,color:tc}}>{m.name}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{m.instrument}</div></div>
             <span style={{fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 9px',borderRadius:100,background:conf===true?'rgba(16,185,129,.12)':conf===false?'rgba(239,68,68,.1)':'rgba(0,0,0,.05)',color:conf===true?'#059669':conf===false?'#DC2626':t2}}>{conf===true?'Confirmado':conf===false?'Recusou':'Pendente'}</span>
@@ -4418,13 +4441,13 @@ export default function LouveSync() {
             setEvents(rawEvents.map(normalizeEvent));
         } else {
             const lsE = localStorage.getItem('ls_events');
-            setEvents(lsE ? JSON.parse(lsE) : MOCK_EVENTS);
+            setEvents(lsE ? JSON.parse(lsE).map(patchEvent) : MOCK_EVENTS);
         }
       }catch{
         const lsS = localStorage.getItem('ls_songs');
         setSongs(lsS ? JSON.parse(lsS) : MOCK_SONGS);
         const lsE = localStorage.getItem('ls_events');
-        setEvents(lsE ? JSON.parse(lsE) : MOCK_EVENTS);
+        setEvents(lsE ? JSON.parse(lsE).map(patchEvent) : MOCK_EVENTS);
       }
       setDataLoading(false);
     }
