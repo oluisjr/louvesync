@@ -177,55 +177,8 @@ const BIBLE_BOOKS = [
   {a:'jude',n:'Judas',c:1}, {a:'revelation',n:'Apocalipse',c:22}
 ];
 
-const MOCK_SONGS = [
-  { id:'song_1', title:'Algo Novo', artist:'Kemuel', cat:'adoracao', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=wWU1Bn6wy9o', lyrics:'' },
-  { id:'song_2', title:'Bondade de Deus', artist:'Isaias Saad', cat:'adoracao', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=BEkStuKw5Ow', lyrics:'' },
-  { id:'song_3', title:'Consagração', artist:'Aline Barros', cat:'adoracao', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=YxgHK8rt52U', lyrics:'' },
-  { id:'song_4', title:'Ele é Exaltado', artist:'Adhemar de Campos', cat:'adoracao', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=ExpGtxTmirU', lyrics:'' },
-  { id:'song_5', title:'Grande é o Senhor', artist:'Adhemar de Campos', cat:'adoracao', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=4_rv9Jmgc78', lyrics:'' },
-  { id:'song_6', title:'Um Novo Dia', artist:'Get Worship', cat:'adoracao', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/shorts/G93VHUOJdNo', lyrics:'' },
-  { id:'song_7', title:'Alfa e Ômega', artist:'Asaph Borba', cat:'adoracao', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=qaEZb7xI6s4', lyrics:'' },
-  { id:'song_8', title:'Pra Sempre', artist:'Ministério Avivah', cat:'adoracao', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=ishM2o8LW94', lyrics:'' },
-  { id:'song_9', title:'Aclame ao Senhor', artist:'Diante do Trono', cat:'adoracao', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=U4l40DvaeGw', lyrics:'' },
-  { id:'song_10', title:'O Rei está voltando', artist:'Vários', cat:'hinario', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=ngJBfCg5vvo', lyrics:'' },
-  { id:'song_11', title:'Em fervente oração', artist:'Vários', cat:'hinario', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=NDA420Kih1w', lyrics:'' },
-  { id:'song_12', title:'A mensagem da Cruz', artist:'Vários', cat:'hinario', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=IsnyGI5c9Hw', lyrics:'' },
-  { id:'song_13', title:'A Face Adorada', artist:'Vários', cat:'hinario', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=cngrsSMq8EY', lyrics:'' },
-  { id:'song_14', title:'Porque Ele vive', artist:'Vários', cat:'hinario', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=3o1suXgQYfE', lyrics:'' },
-  { id:'song_15', title:'Vencendo Vem Jesus', artist:'Vários', cat:'hinario', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=VA4r8ehaCcA', lyrics:'' },
-  { id:'song_16', title:'Campeões da Luz', artist:'Vários', cat:'hinario', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=0O_x8LgKV8I', lyrics:'' },
-  { id:'song_17', title:'Jesus o Bom Amigo', artist:'Vários', cat:'hinario', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=ddB3VVgPCow&list=RDddB3VVgPCow&start_radio=1', lyrics:'' },
-  { id:'song_18', title:'Solta o cabo da nau', artist:'Vários', cat:'hinario', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=IYvAiV_p8Rw', lyrics:'' },
-  { id:'song_19', title:'Celebre ao Rei', artist:'Unção de Deus', cat:'jubilo', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=QWDEb2OXcXw', lyrics:'' },
-  { id:'song_20', title:'Celebrai com júbilo ao Senhor', artist:'Vários', cat:'jubilo', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=ZoAtsqdQG4I', lyrics:'' },
-  { id:'song_21', title:'A tua glória', artist:'Fernanda Brum', cat:'jubilo', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=gqM9y5qcNaE', lyrics:'' },
-  { id:'song_22', title:'Mil Graus', artist:'Renascer Praise', cat:'jubilo', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=b_qi6nUKchw', lyrics:'' },
-  { id:'song_23', title:'Videira', artist:'Claudio Claro', cat:'jubilo', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=dSZcCgbfZuc', lyrics:'' },
-  { id:'song_24', title:'Celebrarei', artist:'Frutos do Espirito II', cat:'jubilo', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=Yn3OGQ84LF0', lyrics:'' },
-  { id:'song_25', title:'Autoridade de Poder', artist:'Marcos Góes', cat:'jubilo', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=9Fjy078dHz0', lyrics:'' },
-  { id:'song_26', title:'Tempo de Festa', artist:'Adhemar de Campos', cat:'oferta', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=8HTPhvxTMFA', lyrics:'' },
-  { id:'song_27', title:'Sete vezes mais', artist:'Trazendo a Arca', cat:'oferta', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=62h-SLHILOU', lyrics:'' },
-  { id:'song_28', title:'Tua Fidelidade', artist:'Luzia Barbosa', cat:'oferta', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'', lyrics:'' },
-  { id:'song_29', title:'Toda sorte de Bençãos', artist:'Davi Sacer', cat:'oferta', key:'C', bpm:80, time_signature:'4/4', tags:[], ytUrl:'https://www.youtube.com/watch?v=zCcnYP3o1rg', lyrics:'' },
-];
 
 
-const COLLECTIONS = [
-  { id: 'domingo', label: 'Especial de Domingo', emoji: '🔥', color: '#EF4444', songs: ['song_1', 'song_19', 'song_2'] },
-  { id: 'jovens', label: 'Culto de Jovens', emoji: '🎸', color: '#8B5CF6', songs: ['song_22', 'song_6', 'song_8'] },
-  { id: 'ceia', label: 'Santa Ceia', emoji: '🍷', color: '#E11D48', songs: ['song_12', 'song_14', 'song_28'] },
-  { id: 'oracao', label: 'Círculo de Oração', emoji: '🙏', color: '#10B981', songs: ['song_11', 'song_15', 'song_18'] }
-];
-
-const MOCK_EVENTS = [
-  { id:'cccc0001', date:'2026-05-23', type:'consagracao', label:'Consagração', time:'08:00', theme:'Busca Matinal', songs:['song_19','song_1'], members:[M[0].id,M[1].id,M[2].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
-  { id:'cccc0002', date:'2026-05-23', type:'ensaio', label:'Ensaio Geral', time:'15:00', theme:null, songs:['song_19','song_10','song_1','song_26'], members:[M[0].id,M[1].id,M[6].id,M[8].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
-  { id:'cccc0003', date:'2026-05-24', type:'ebd', label:'EBD', time:'09:00', theme:'Escola Bíblica Dominical', songs:['song_20','song_11'], members:[M[0].id,M[2].id,M[4].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
-  { id:'cccc0004', date:'2026-05-24', type:'culto', label:'Culto Dominical', time:'18:00', theme:'Adoração Noturna', songs:['song_20','song_12','song_2','song_27'], members:[M[0].id,M[2].id,M[3].id,M[7].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:'song_3' },
-  { id:'cccc0005', date:'2026-05-28', type:'culto', label:'Culto de Quinta', time:'19:30', theme:'Ensinamento da Palavra', songs:['song_21','song_13','song_4','song_28'], members:[M[0].id,M[5].id,M[6].id,M[9].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
-  { id:'cccc0006', date:'2026-05-30', type:'consagracao', label:'Consagração', time:'08:00', theme:'Busca Matinal', songs:['song_23','song_5'], members:[M[0].id,M[1].id,M[8].id], confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
-  { id:'cccc0007', date:'2026-05-30', type:'ensaio', label:'Ensaio', time:'15:00', theme:null, songs:['song_22','song_14','song_15','song_29'], members:M.map(m=>m.id), confirmations:{}, singerBySong:{}, sequenceBySong:{}, requested_songs:[], santa_ceia_song:null },
-];
 
 /* ─── HELPERS ───────────────────────────────────────────────── */
 function tNote(n,st){if(!n)return '';let i=SH.indexOf(n);if(i===-1)i=FL.indexOf(n);if(i===-1)return n;return(n.includes('b')&&n!=='B')?FL[((i+st)%12+12)%12]:SH[((i+st)%12+12)%12];}
@@ -4357,17 +4310,23 @@ export default function LouveSync() {
   useEffect(()=>{
     async function loadMembers(){
       try{
-        const data=await fetchMembers();
-        if(data&&data.length>0){
-          setAllMembers(data);
-        }else{
-          // Fallback: localStorage → hardcoded
-          const lsM=localStorage.getItem('ls_members');
-          setAllMembers(lsM?JSON.parse(lsM):M);
+        // Supabase é sempre a fonte primária enquanto houver internet
+        const data = await fetchMembers();
+        if (data !== null) {
+          // Resposta válida do Supabase (pode ser array vazio)
+          const members = data && data.length > 0 ? data : M;
+          setAllMembers(members);
+          // Atualiza cache offline
+          localStorage.setItem('ls_members', JSON.stringify(members));
+        } else {
+          // Supabase retornou null = problema de config, usa cache
+          const lsM = localStorage.getItem('ls_members');
+          setAllMembers(lsM ? JSON.parse(lsM) : M);
         }
-      }catch{
-        const lsM=localStorage.getItem('ls_members');
-        setAllMembers(lsM?JSON.parse(lsM):M);
+      } catch {
+        // Falha de rede = offline, usa cache local
+        const lsM = localStorage.getItem('ls_members');
+        setAllMembers(lsM ? JSON.parse(lsM) : M);
       }
       setAuthLoading(false);
     }
@@ -4379,13 +4338,12 @@ export default function LouveSync() {
         const FOUR_HOURS = 4 * 60 * 60 * 1000;
         const expired = lastAct && (Date.now() - lastAct) > FOUR_HOURS;
         if (expired) {
-          // Sessão expirada — limpa tudo e mostra a tela de login normalmente
           localStorage.removeItem('ls_profile');
           localStorage.removeItem('ls_last_activity');
         } else {
           const p = JSON.parse(stored);
           setProfile(p);
-          setAuthLoading(false); // acesso imediato sem bloquear
+          setAuthLoading(false);
         }
       } catch {
         localStorage.removeItem('ls_profile');
@@ -4393,13 +4351,6 @@ export default function LouveSync() {
     }
     loadMembers();
   },[]);
-
-  // Persist members locally (assim como songs e events)
-  useEffect(()=>{
-    if(allMembers.length>0){
-      localStorage.setItem('ls_members',JSON.stringify(allMembers));
-    }
-  },[allMembers]);
 
   
 
@@ -4426,52 +4377,65 @@ export default function LouveSync() {
   /* ── Load app data ── */
   useEffect(()=>{
     if(!profile)return;
+
     async function loadData(){
       setDataLoading(true);
       try{
-        const [rawSongs,rawEvents]=await Promise.all([fetchSongs(),fetchEvents()]);
-        if(rawSongs&&rawSongs.length>0) {
-            setSongs(rawSongs);
-        } else {
-            const lsS = localStorage.getItem('ls_songs');
-            setSongs(lsS ? JSON.parse(lsS) : MOCK_SONGS);
+        // Supabase é SEMPRE a fonte primária. Qualquer retorno válido (incluindo
+        // array vazio) sobrepõe o cache local. localStorage só é lido se a
+        // requisição lançar erro (sem rede).
+        const [rawSongs, rawEvents, rawMembers] = await Promise.all([
+          fetchSongs(),
+          fetchEvents(),
+          fetchMembers(),
+        ]);
+
+        // Songs
+        if (rawSongs !== null) {
+          setSongs(rawSongs || []);
+          localStorage.setItem('ls_songs', JSON.stringify(rawSongs || []));
         }
-        
-        if(rawEvents&&rawEvents.length>0) {
-            setEvents(rawEvents.map(normalizeEvent));
-        } else {
-            const lsE = localStorage.getItem('ls_events');
-            setEvents(lsE ? JSON.parse(lsE).map(patchEvent) : MOCK_EVENTS);
+
+        // Events
+        if (rawEvents !== null) {
+          const normalized = (rawEvents || []).map(normalizeEvent);
+          setEvents(normalized);
+          localStorage.setItem('ls_events', JSON.stringify(normalized));
         }
-      }catch{
+
+        // Members (atualiza em tempo real junto com os dados)
+        if (rawMembers !== null && rawMembers.length > 0) {
+          setAllMembers(rawMembers);
+          localStorage.setItem('ls_members', JSON.stringify(rawMembers));
+        }
+
+      } catch {
+        // Falha de rede (offline): usa cache local como fallback
         const lsS = localStorage.getItem('ls_songs');
-        setSongs(lsS ? JSON.parse(lsS) : MOCK_SONGS);
+        if (lsS) setSongs(JSON.parse(lsS));
         const lsE = localStorage.getItem('ls_events');
-        setEvents(lsE ? JSON.parse(lsE).map(patchEvent) : MOCK_EVENTS);
+        if (lsE) setEvents(JSON.parse(lsE).map(patchEvent));
+        // members já foram carregados pelo loadMembers inicial
       }
       setDataLoading(false);
     }
+
     loadData();
 
-    // ── Supabase Realtime ──
-    if(!supabase) return;
-    const channel = supabase.channel('louvesync_realtime', { config: { broadcast: { self: true } } })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, payload => {
-         loadData();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_songs' }, payload => {
-         loadData();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_members' }, payload => {
-         loadData();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, payload => {
-         loadData();
-      })
+    // ── Supabase Realtime — atualiza TODOS os usuários em tempo real ──
+    if (!supabase) return;
+    const channel = supabase.channel('louvesync_realtime_v2', {
+      config: { broadcast: { self: true } }
+    })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => { loadData(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_songs' }, () => { loadData(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_members' }, () => { loadData(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, () => { loadData(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, () => { loadData(); })
       .on('broadcast', { event: 'stage_chat' }, payload => {
-         const { sender, message } = payload.payload;
-         setStageToast({ sender, message });
-         setTimeout(() => setStageToast(null), 3500);
+        const { sender, message } = payload.payload;
+        setStageToast({ sender, message });
+        setTimeout(() => setStageToast(null), 3500);
       })
       .subscribe();
 
@@ -4481,20 +4445,7 @@ export default function LouveSync() {
       realtimeChannelRef.current = null;
       supabase.removeChannel(channel);
     };
-  },[profile]);
-  
-  // Persist data locally automatically
-  useEffect(()=>{
-    if(songs.length > 0 && !dataLoading){
-      localStorage.setItem('ls_songs', JSON.stringify(songs));
-    }
-  }, [songs, dataLoading]);
-  
-  useEffect(()=>{
-    if(events.length > 0 && !dataLoading){
-      localStorage.setItem('ls_events', JSON.stringify(events));
-    }
-  }, [events, dataLoading]);
+  }, [profile]);
 
   /* ── Metronome ── */
   useEffect(()=>{
