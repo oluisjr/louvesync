@@ -7,10 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cleanup:duplicates": "node scripts/cleanup_duplicate_songs.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
+    "pdf-parse": "^1.1.1",
+    "dotenv": "^16.1.4",
     "axios": "^1.16.1",
     "cheerio": "^1.2.0",
     "react": "^19.2.6",

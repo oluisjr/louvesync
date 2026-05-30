@@ -77,13 +77,28 @@ export async function fetchEvents() {
 
 export async function upsertSong(song) {
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('songs')
-    .upsert(song)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  // Try upsert; if the DB schema doesn't contain `created_at` (some setups), retry without it.
+  try {
+    const { data, error } = await supabase.from('songs').upsert(song).select().single();
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    // Detect PostgREST schema errors referencing created_at and retry without that field
+    try {
+      const msg = err?.message || '';
+      if (msg.includes("created_at") || msg.includes("Could not find the 'created_at'")) {
+        const { created_at, ...sanitized } = song || {};
+        const { data: d2, error: e2 } = await supabase.from('songs').upsert(sanitized).select().single();
+        if (e2) throw e2;
+        return d2;
+      }
+    } catch (err2) {
+      console.error('[supabase] upsertSong retry failed:', err2);
+      throw err2;
+    }
+    console.error('[supabase] upsertSong failed:', err);
+    throw err;
+  }
 }
 
 export async function deleteSong(id) {

@@ -1969,7 +1969,7 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
 });
 
 /* ─── CIFRA ─────────────────────────────────────────────────── */
-const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatIdx,stageMode,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,onSaveVocalKey,profile,members})=>{
+const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatIdx,stageMode,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,onSaveVocalKey,profile,members,fontFam})=>{
   const iframeRef = useRef(null);
   const [seqStr, setSeqStr] = useState(event?.sequenceBySong?.[song?.id] || '');
 
@@ -2658,7 +2658,8 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
 
   function save(){
     if(!form.title||!form.lyrics)return;
-    onSave({id:'local_'+Date.now(),title:form.title,artist:form.artist||'Ministério',cat:form.cat,key:form.key,bpm:parseInt(form.bpm)||80,time_signature:form.timeSignature,lyrics:form.lyrics,tags:form.tags.split(',').map(t=>t.trim()).filter(Boolean),media_url:form.media_url});
+    const songId = form.id || 'local_'+Date.now();
+    onSave({id:songId,title:form.title,artist:form.artist||'Ministério',cat:form.cat,key:form.key,bpm:parseInt(form.bpm)||80,time_signature:form.timeSignature,lyrics:form.lyrics,tags:form.tags.split(',').map(t=>t.trim()).filter(Boolean),media_url:form.media_url});
   }
 
   const busy=selLoading||genLoad;
@@ -2696,15 +2697,21 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
             <div>
               <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Compasso</div>
               <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{TIME_SIGS.map(ts=><button key={ts} onClick={()=>setForm(f=>({...f,timeSignature:ts}))} style={{padding:'5px 8px',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:800,fontFamily:"'JetBrains Mono',monospace",background:form.timeSignature===ts?'#10B981':'rgba(16,185,129,.08)',color:form.timeSignature===ts?'#fff':'#059669',transition:'all .15s'}}>{ts}</button>)}</div>
-              <div style={{marginTop:8}}>
-                <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,marginBottom:4}}>BPM</div>
-                <div className="gIn" style={{display:'flex',alignItems:'center'}}>
-                  <input className="fi" type="number" value={form.bpm} onChange={e=>setForm(f=>({...f,bpm:e.target.value}))} style={{color:tc,flex:1}} placeholder="80"/>
-                  <button onClick={tapTempo} title="Tap Tempo" style={{flexShrink:0,margin:'4px',padding:'6px 10px',borderRadius:'var(--r-sm)',border:'none',cursor:'pointer',background:'rgba(245,158,11,.14)',color:'#D97706',fontSize:'var(--fs-xs)',fontWeight:800,display:'flex',alignItems:'center',gap:4}}><IcoTap s={12}/>TAP</button>
-                </div>
-                <div style={{fontSize:8,color:t2,marginTop:3,textAlign:'right'}}>Toque o ritmo para calcular</div>
+            </div>
+            <div>
+              <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Tom Original</div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:6}}>
+                {KEYS.map(k=><button key={k} onClick={()=>setForm(f=>({...f,key:k}))} style={{padding:'8px 6px',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace",background:form.key===k?'#7B3FF2':'rgba(79,70,229,.08)',color:form.key===k?'#fff':'#4F46E5',transition:'all .15s'}}>{k}</button>)}
               </div>
             </div>
+          </div>
+          <div style={{marginTop:8}}>
+            <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,marginBottom:4}}>BPM</div>
+            <div className="gIn" style={{display:'flex',alignItems:'center'}}>
+              <input className="fi" type="number" value={form.bpm} onChange={e=>setForm(f=>({...f,bpm:e.target.value}))} style={{color:tc,flex:1}} placeholder="80"/>
+              <button onClick={tapTempo} title="Tap Tempo" style={{flexShrink:0,margin:'4px',padding:'6px 10px',borderRadius:'var(--r-sm)',border:'none',cursor:'pointer',background:'rgba(245,158,11,.14)',color:'#D97706',fontSize:'var(--fs-xs)',fontWeight:800,display:'flex',alignItems:'center',gap:4}}><IcoTap s={12}/>TAP</button>
+            </div>
+            <div style={{fontSize:8,color:t2,marginTop:3,textAlign:'right'}}>Toque o ritmo para calcular</div>
           </div>
           <div className="gIn"><input className="fi" value={form.tags} onChange={e=>setForm(f=>({...f,tags:e.target.value}))} placeholder="Tags (separadas por vírgula)" style={{color:tc}}/></div>
           <div className="gIn"><input className="fi" value={form.sequence} onChange={e=>setForm(f=>({...f,sequence:e.target.value}))} placeholder="Seq. Musical (ex: Intro, Verso, Coro...)" style={{color:tc}}/></div>
@@ -4094,6 +4101,13 @@ export default function LouveSync() {
   const [events,setEvents]=useState([]);
   const [dataLoading,setDataLoading]=useState(true);
 
+  // Persist songs locally so added songs survive reload when Supabase is unavailable
+  useEffect(()=>{
+    try{
+      localStorage.setItem('ls_songs', JSON.stringify(songs || []));
+    }catch(e){/* ignore */}
+  },[songs]);
+
   // ── UI
   const [dark,setDark]=useState(false);
   const [tab,setTab]=useState('home');
@@ -4259,9 +4273,11 @@ export default function LouveSync() {
     }).catch(()=>{});
   },[]);
 
-  // ── Landscape lock
-  const [landscape,setLandscape]=useState(()=>window.matchMedia('(max-height:500px) and (orientation:landscape)').matches);
+  // ── Landscape lock (only enforce on touch devices)
+  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0);
+  const [landscape,setLandscape]=useState(()=>isTouchDevice && window.matchMedia('(max-height:500px) and (orientation:landscape)').matches);
   useEffect(()=>{
+    if (!isTouchDevice) return; // don't install listeners on non-touch (desktop) environments
     const mq=window.matchMedia('(max-height:500px) and (orientation:landscape)');
     const h=e=>setLandscape(e.matches); mq.addEventListener('change',h);
     return()=>mq.removeEventListener('change',h);
@@ -4517,6 +4533,12 @@ export default function LouveSync() {
   function selectSong(s,ev=null,activeKey=null){
     if(!s) return alert('Ops! Esta música ainda não foi adicionada no Repertório.');
     console.log('🎵 selectSong called with:', {title: s.title, artist: s.artist, id: s.id});
+    // Close any overlays that might block the cifra view (fixes white/blank screen)
+    if (stageMode) setStageMode(false);
+    if (addOpen) setAddOpen(false);
+    if (createEvOpen) setCreateEvOpen(false);
+    if (evSheet) setEvSheet(null);
+    if (notifsOpen) setNotifsOpen(false);
     vib();setSelSong(s);setSelEvent(ev);
     
     // Transposição automática baseada no tom ativo da escala
@@ -4852,7 +4874,7 @@ if (!isOnline) {
           {dataLoading&&!inCifra?<Skeleton dark={dark} count={6}/>:<>
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={()=>setCreateEvOpen(true)}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
-            {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} profile={profile} members={allMembers}/></ErrorBoundary>}
+            {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
 
             {tab==='mural'&&!inCifra&&<Mural profile={profile} dark={dark} members={allMembers}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
