@@ -3,14 +3,22 @@ import { Component } from 'react'
 import './index.css'
 import App from './App.jsx'
 
-// Remove old PWA
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function(registrations) {
-    for(let registration of registrations) {
-      registration.unregister();
+async function clearAllBrowserCache() {
+  try {
+    if ('caches' in window) {
+      const names = await caches.keys();
+      await Promise.all(names.map(name => caches.delete(name)));
     }
-  });
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(registration => registration.unregister()));
+    }
+  } catch (error) {
+    console.error('Failed to clear browser cache or service workers:', error);
+  }
 }
+
+clearAllBrowserCache();
 
 class RootErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }

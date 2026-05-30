@@ -4247,26 +4247,30 @@ export default function LouveSync() {
   // ── PWA Version Check (anti-cache stale)
   const [versionToast, setVersionToast] = useState(false);
   useEffect(()=>{
+    const clearCacheAndReload = async (version) => {
+      try {
+        if ('caches' in window) {
+          const names = await caches.keys();
+          await Promise.all(names.map(name => caches.delete(name)));
+        }
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map(registration => registration.unregister()));
+        }
+      } catch (error) {
+        console.error('Failed to clear browser cache or service workers:', error);
+      }
+
+      localStorage.setItem('ls_app_version', version);
+      const url = new URL(window.location.href);
+      url.searchParams.set('_cache_bust', Date.now().toString());
+      window.location.replace(url.toString());
+    };
+
     fetch('/api/version').then(r=>r.json()).then(({version})=>{
       const stored = localStorage.getItem('ls_app_version');
       if (stored && stored !== version) {
-        // Nova versão detectada! Limpa caches do navegador para deletar arquivos velhos
-        if ('caches' in window) {
-          caches.keys().then(names => {
-            for (let name of names) caches.delete(name);
-          });
-        }
-        // Desregistra Service Workers legados que possam reter cache estático
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(registrations => {
-            for (let r of registrations) r.unregister();
-          });
-        }
-        // Salva a versão atualizada e força um reload total ignorando o cache
-        localStorage.setItem('ls_app_version', version);
-        setTimeout(() => {
-          window.location.reload(true);
-        }, 100);
+        clearCacheAndReload(version);
         return;
       }
       localStorage.setItem('ls_app_version', version);
