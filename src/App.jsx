@@ -236,6 +236,34 @@ function patchEvent(ev){
     sequenceBySong: ev.sequenceBySong || {},
   };
 }
+function getSetlistCategoryOrder(cat){
+  const order = ['corinho','jubilo','hinario','adoracao','oferta','ceia'];
+  const idx = order.indexOf(String(cat || '').toLowerCase());
+  return idx === -1 ? 99 : idx;
+}
+function sortSongsByCategoryAndTitle(a,b){
+  const oa = getSetlistCategoryOrder(a?.cat);
+  const ob = getSetlistCategoryOrder(b?.cat);
+  if (oa !== ob) return oa - ob;
+  return String(a?.title || '').localeCompare(String(b?.title || ''), 'pt-BR', { sensitivity: 'base' });
+}
+function sortSongIdsByCategoryAndTitle(songIds, songs){
+  return songIds
+    .map(id => songs.find(s => s.id === id))
+    .filter(Boolean)
+    .sort(sortSongsByCategoryAndTitle)
+    .map(s => s.id);
+}
+function sortEventItemsByCategoryAndTitle(items, songs){
+  const songItems = items.filter(it => it.type === 'song');
+  const noteItems = items.filter(it => it.type !== 'song');
+  songItems.sort((a,b)=>{
+    const sa = songs.find(s => s.id === a.song_id) || {};
+    const sb = songs.find(s => s.id === b.song_id) || {};
+    return sortSongsByCategoryAndTitle(sa, sb);
+  });
+  return [...songItems, ...noteItems];
+}
 function vib(){if(navigator.vibrate)navigator.vibrate(10);}
 
 function useDraggableScroll(ref) {
@@ -1845,7 +1873,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
       let badgeLabel = t === 'culto' ? 'CULTO' : t === 'ensaio' ? 'ENSAIO' : t === 'ebd' ? 'EBD' : 'CONSAGRAÇÃO';
       if (isNext) badgeLabel = 'PRÓXIMO ' + badgeLabel;
 
-      const nS = evt.songs?.map(id=>songs.find(s=>s.id===id)).filter(Boolean)||[];
+      const nS = (evt.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean).sort(sortSongsByCategoryAndTitle)||[];
       const nM = evt.members?.map(id=>members.find(m=>m.id===id)).filter(Boolean)||[];
       const showSetlist = t !== 'ebd' && t !== 'consagracao' && nS.length > 0;
 
@@ -2327,7 +2355,7 @@ const Escala = memo(({profile,dark,events,songs,members,onConfirm,onEvSheet,spaw
     {showHistory&&<div className="aUp">
       {pastEvents.length===0&&<EmptyState icon={<IcoCal s={32}/>} title="Nenhum evento anterior encontrado"/>}
       {pastEvents.map((ev,ei)=>{
-        const evS=(ev.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean);
+        const evS=(ev.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean).sort(sortSongsByCategoryAndTitle);
         const evM=(ev.members||[]).map(id=>members.find(m=>m.id===id)).filter(Boolean);
         const myConf=(ev.confirmations||{})[profile?.id];
         return <div key={ev.id} className={`${gc} aUp`} style={{...CS,animationDelay:`${ei*.04}s`,opacity:.85,borderLeft:`3px solid ${ev.type==='culto'?'#4F46E5':'#10B981'}`}} onClick={()=>onEvSheet(ev)}>
@@ -2914,14 +2942,28 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
        }
        
        const evId = editEvent ? editEvent.id : 'local_ev_'+Date.now()+'_'+i;
-       const newEv = {id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:editEvent?editEvent.confirmations:{},singerBySong:sbsToUse,sequenceBySong:editEvent?editEvent.sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong};
+       const itemsToUse = songsToUse.map((songId, idx) => ({
+         id: `song_${songId}_${idx}`,
+         type: 'song',
+         song_id: songId,
+         singer_id: sbsToUse[songId] || null,
+         text: ''
+       }));
+       const newEv = {id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:editEvent?editEvent.confirmations:{},singerBySong:sbsToUse,sequenceBySong:editEvent?editEvent.sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong,items:itemsToUse};
        evs.push(newEv);
        
        // Criar ensaio de sábado automaticamente se for domingo (apenas na criação)
        if (!editEvent && form.type === 'culto' && d.getDay() === 0) {
            const dSat = new Date(d);
            dSat.setDate(dSat.getDate() - 1);
-           evs.push({id:'local_ev_'+Date.now()+'_sat_'+i,date:dSat.toISOString().slice(0,10),time:'15:00',type:'ensaio',label:'Ensaio (Sáb)',theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:{},singerBySong:{},sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong});
+           const satItems = songsToUse.map((songId, idx) => ({
+             id: `song_${songId}_sat_${i}_${idx}`,
+             type: 'song',
+             song_id: songId,
+             singer_id: null,
+             text: ''
+           }));
+           evs.push({id:'local_ev_'+Date.now()+'_sat_'+i,date:dSat.toISOString().slice(0,10),time:'15:00',type:'ensaio',label:'Ensaio (Sáb)',theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:{},singerBySong:{},sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong,items:satItems});
        }
     }
     onSave(evs);
@@ -3035,8 +3077,17 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
   const [expandSong, setExpandSong] = useState(null);
   if(!ev)return null;
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
-  const evItems=(ev.items?.length > 0 ? ev.items : (ev.songs||[]).map(id=>({id:'old_'+id, type:'song', song_id:id}))).map(it=>it.type==='song'?{...it,song:songs.find(s=>s.id===it.song_id)}:it).filter(it=>it.type==='note'||it.song);
-  const evS=(ev.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean);
+  const noteItems = (ev.items||[]).filter(it=>it.type !== 'song');
+  const songItems = (ev.songs||[]).map((songId, idx) => ({
+    id: `song_${songId}_${idx}`,
+    type: 'song',
+    song_id: songId,
+    singer_id: ev.singerBySong?.[songId] || null,
+    sequence: ev.sequenceBySong?.[songId] || null
+  }));
+  const sortedSongItems = sortEventItemsByCategoryAndTitle(songItems, songs);
+  const evItems = [...sortedSongItems, ...noteItems].map(it=>it.type==='song'?{...it,song:songs.find(s=>s.id===it.song_id)}:it).filter(it=>it.type==='note' || it.type==='text' || it.song);
+  const evS=(ev.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean).sort(sortSongsByCategoryAndTitle);
   const evM=(ev.members||[]).map(id=>members.find(m=>m.id===id)).filter(Boolean);
   const myConf=(ev.confirmations||{})[profile?.id];
   const isMyEvent=(ev.members||[]).includes(profile?.id);
@@ -3074,7 +3125,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
         {ev.type !== 'ebd' && ev.type !== 'consagracao' && <>
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Setlist</div>
           {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map((it,i)=>{
-            if(it.type==='note') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:'#D97706', borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
+            if(it.type==='note' || it.type==='text') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:'#D97706', borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
             const s = it.song;
             const activeKey = ev.keyBySong?.[s.id] || (ev.singerBySong?.[s.id] && s.vocal_keys?.[ev.singerBySong[s.id]] ? s.vocal_keys[ev.singerBySong[s.id]] : s.key);
             return <div key={it.id} style={{display:'flex',flexDirection:'column',gap:5,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
@@ -4679,10 +4730,30 @@ export default function LouveSync() {
   async function handleSaveEvent(evs){
     const toAdd = Array.isArray(evs) ? evs : [evs];
     
-    // Auto-generate setlist
+    // Ensure event songs and item rows stay in sync before saving
     for (const ev of toAdd) {
-      if (ev.type === 'culto' && (!ev.items || ev.items.length === 0)) {
-         ev.items = generateSetlist(ev.date, events, songs, allMembers);
+      if (!ev.items || ev.items.length === 0) {
+        if (Array.isArray(ev.songs) && ev.songs.length > 0) {
+          ev.items = ev.songs.map((songId, idx) => ({
+            id: `song_${songId}_${idx}`,
+            type: 'song',
+            song_id: songId,
+            singer_id: ev.singerBySong?.[songId] || null,
+            text: ''
+          }));
+        } else if (ev.type === 'culto') {
+          ev.items = generateSetlist(ev.date, events, songs, allMembers);
+          ev.songs = ev.items.filter(it => it.type === 'song').map(it => it.song_id);
+        } else {
+          ev.items = ev.items || [];
+          ev.songs = ev.songs || [];
+        }
+      } else {
+        ev.songs = ev.items.filter(it => it.type === 'song').map(it => it.song_id);
+      }
+      if (ev.items?.length > 0) {
+        ev.items = sortEventItemsByCategoryAndTitle(ev.items, songs);
+        ev.songs = ev.items.filter(it => it.type === 'song').map(it => it.song_id);
       }
     }
 

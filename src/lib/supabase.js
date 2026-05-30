@@ -136,9 +136,17 @@ export async function setPresence(eventId, memberId, confirmed) {
 
 export async function upsertEvent(event) {
   if (!supabase) return null;
+  // Basic validation / sanitization to avoid incomplete event records
+  if (!event || typeof event !== 'object') throw new Error('Invalid event payload');
+  if (!event.date) throw new Error('Event must have a `date` (YYYY-MM-DD)');
+  // Ensure arrays are well-formed or removed to avoid PostgREST partial failures
+  const sanitized = { ...event };
+  if (sanitized.event_songs && !Array.isArray(sanitized.event_songs)) delete sanitized.event_songs;
+  if (sanitized.event_members && !Array.isArray(sanitized.event_members)) delete sanitized.event_members;
+
   const { data, error } = await supabase
     .from('events')
-    .upsert(event)
+    .upsert(sanitized)
     .select()
     .single();
   if (error) throw error;

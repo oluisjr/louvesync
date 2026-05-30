@@ -95,7 +95,7 @@ export function generateSetlist(dateStr, allEvents, allSongs, allMembers) {
     if (cat === 'oferta') {
       setlist.push({
         id: Math.random().toString(36).substring(2, 9),
-        type: 'text',
+        type: 'note',
         song_id: null,
         singer_id: null,
         text: 'Pedidos de Oração / Avisos'
