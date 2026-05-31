@@ -3888,27 +3888,12 @@ if (!navigator.onLine) {
 
   const sendStageAlert = (msgText) => {
     vib();
-    if (!supabase) return;
-    const activeChannel = realtimeChannelRef.current || supabase.channel('louvesync_realtime');
-    if (activeChannel) {
-      if (!realtimeChannelRef.current) {
-        activeChannel.subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            activeChannel.send({
-              type: 'broadcast',
-              event: 'stage_chat',
-              payload: { sender: profile?.name || 'Membro', message: msgText }
-            });
-          }
-        });
-      } else {
-        activeChannel.send({
-          type: 'broadcast',
-          event: 'stage_chat',
-          payload: { sender: profile?.name || 'Membro', message: msgText }
-        });
-      }
-    }
+    if (!supabase || !realtimeChannelRef.current) return;
+    realtimeChannelRef.current.send({
+      type: 'broadcast',
+      event: 'stage_chat',
+      payload: { sender: profile?.name || 'Membro', message: msgText }
+    });
   };
 
   const handleDeleteTake = async (id) => {
@@ -4577,8 +4562,13 @@ export default function LouveSync() {
     realtimeChannelRef.current = channel;
 
     return () => {
+      try {
+        channel.unsubscribe();
+        supabase.removeChannel(channel);
+      } catch (err) {
+        console.warn('Error cleaning up realtime channel:', err);
+      }
       realtimeChannelRef.current = null;
-      supabase.removeChannel(channel);
     };
   }, [profile]);
 
