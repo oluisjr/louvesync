@@ -3903,7 +3903,8 @@ if (!navigator.onLine) {
       return next;
     });
     if (supabase) {
-      await supabase.from('rehearsal_takes').delete().eq('id', id).catch(console.error);
+      const { error } = await supabase.from('rehearsal_takes').delete().eq('id', id);
+      if (error) console.error(error);
     }
   };
 
@@ -4706,7 +4707,7 @@ export default function LouveSync() {
         const upds = { vocal_keys: updatedVKeys };
         if (newBpm) upds.bpm = newBpm;
         if (newTs) upds.time_signature = newTs;
-        supabase.from('songs').update(upds).eq('id',songId).catch(console.error);
+        supabase.from('songs').update(upds).eq('id',songId).then(({error})=>{if(error)console.error(error)});
         return sList.map(s=>s.id===songId?{...s,vocal_keys:updatedVKeys, ...upds}:s);
       });
     } else {
@@ -4719,7 +4720,7 @@ export default function LouveSync() {
         if(newBpm) upds.bpm = newBpm;
         if(newTs) upds.time_signature = newTs;
         setSongs(sList=>sList.map(s=>s.id===songId?{...s,...upds}:s));
-        supabase.from('songs').update(upds).eq('id',songId).catch(console.error);
+        supabase.from('songs').update(upds).eq('id',songId).then(({error})=>{if(error)console.error(error)});
       }
     }
   }, [evSheet]);
@@ -4879,7 +4880,7 @@ if (!isOnline) {
         supabase.from('songs')
           .update({ vocal_keys: updatedVKeys })
           .eq('id', songId)
-          .catch(console.error);
+          .then(({error})=>{if(error)console.error(error)});
       }
       return sList.map(s => s.id === songId
         ? {...s, vocal_keys: updatedVKeys}
