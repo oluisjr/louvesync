@@ -2875,6 +2875,8 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
 
         {/* ── STEP 3: Revisar/editar cifra ── */}
         {step===3&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <div className="gIn"><input className="fi" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Título da música *" style={{color:tc,fontSize:'var(--fs-xl)',fontWeight:900}}/></div>
+          <div className="gIn" style={{marginTop:-4}}><input className="fi" value={form.artist} onChange={e=>setForm(f=>({...f,artist:e.target.value}))} placeholder="Artista / Ministério" style={{color:tc,fontSize:'var(--fs-base)'}}/></div>
           <div style={{fontSize:'var(--fs-sm)',color:t2,fontWeight:700}}>Use [G], [Em], [C7] para acordes</div>
           <div className="gIn" style={{borderRadius:'var(--r-lg)'}}>
             <textarea className="fi" value={form.lyrics} onChange={e=>setForm(f=>({...f,lyrics:e.target.value}))} placeholder={'Verso:\n[G]Letra com [D]acordes\n\nCoro:\n[C]Continue a[G]qui...'} style={{color:tc,minHeight:200,fontFamily:"'JetBrains Mono',monospace",fontSize:'var(--fs-sm)',lineHeight:1.8}}/>
@@ -3210,14 +3212,13 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
                 <select id={`adj-key-${s.id}`} className="fi" style={{padding:'4px 8px'}} defaultValue={activeKey}>
                   {KEYS.map(k=><option key={k} value={k}>{k}</option>)}
                 </select>
-                {ev.singerBySong?.[s.id] && <label style={{fontSize:'var(--fs-xs)',color:t2,display:'flex',alignItems:'center',gap:6}}><input type="checkbox" id={`adj-off-${s.id}`} defaultChecked/>Atualizar tom oficial deste vocal para esta música</label>}
                 <div style={{display:'flex',gap:10}}>
                   <div style={{flex:1}}><div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700}}>BPM</div><input type="number" id={`adj-bpm-${s.id}`} className="fi" style={{padding:'4px 8px'}} defaultValue={s.bpm||''} placeholder="Ex: 120"/></div>
                   <div style={{flex:1}}><div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700}}>Compasso</div><select id={`adj-ts-${s.id}`} className="fi" style={{padding:'4px 8px'}} defaultValue={s.time_signature||'4/4'}>{TIME_SIGS.map(ts=><option key={ts} value={ts}>{ts}</option>)}</select></div>
                 </div>
                 <button onClick={()=>{
                   const nk = document.getElementById(`adj-key-${s.id}`).value;
-                  const updOff = document.getElementById(`adj-off-${s.id}`)?.checked;
+                  const updOff = !!ev.singerBySong?.[s.id];
                   const nbpm = document.getElementById(`adj-bpm-${s.id}`).value;
                   const nts = document.getElementById(`adj-ts-${s.id}`).value;
                   onUpdateSongOptions(s.id, nk, updOff, nbpm, nts, ev.singerBySong?.[s.id], ev.id);
@@ -4710,6 +4711,10 @@ export default function LouveSync() {
         supabase.from('songs').update(upds).eq('id',songId).then(({error})=>{if(error)console.error(error)});
         return sList.map(s=>s.id===songId?{...s,vocal_keys:updatedVKeys, ...upds}:s);
       });
+      if(eventId && newKey) {
+        setEvents(evs=>evs.map(e=>e.id===eventId?{...e,keyBySong:{...(e.keyBySong||{}),[songId]:newKey}}:e));
+        if(evSheet && evSheet.id === eventId) setEvSheet(e=>({...e,keyBySong:{...(e.keyBySong||{}),[songId]:newKey}}));
+      }
     } else {
       if(eventId && newKey) {
         setEvents(evs=>evs.map(e=>e.id===eventId?{...e,keyBySong:{...(e.keyBySong||{}),[songId]:newKey}}:e));
