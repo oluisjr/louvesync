@@ -99,6 +99,7 @@ html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
 .tog::after{content:'';position:absolute;top:4px;left:4px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform .32s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 5px rgba(0,0,0,.18);}
 .tog.on::after{transform:translateX(24px);}
 input, textarea, select, button { touch-action: manipulation; }
+select { -webkit-appearance: none; appearance: none; }
 @keyframes shareBtn{0%{transform:scale(1)}50%{transform:scale(.9)}100%{transform:scale(1)}}
 @keyframes rotatePhone{0%,100%{transform:rotate(0deg) scale(1)}45%,55%{transform:rotate(-90deg) scale(.85)}}
 .rotate-msg{position:fixed;inset:0;z-index:9999;background:#0A0414;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#E2E8F0;}
@@ -2004,6 +2005,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
   const [editBpm, setEditBpm] = useState(parseInt(song?.bpm) || 80);
   const [editLyrics, setEditLyrics] = useState(String(song?.lyrics || ''));
   const [isDirty, setIsDirty] = useState(false);
+  const [isEditingLyrics, setIsEditingLyrics] = useState(false);
 
   useEffect(() => {
     setEditKey(String(song?.key || ''));
@@ -2113,24 +2115,36 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     <div className={`${gc} aUp`} style={CS}>
       <Bdg cat={song.cat}/>
       <div className="font-serif" style={{fontSize:26,fontWeight:900,color:tc,marginTop:8,letterSpacing:'-.02em',lineHeight:1.15}}>{sTitle}</div>
-      <div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:3,marginBottom:14}}>{sArtist}</div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-        <div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-md)',padding:13,border:'1px solid rgba(79,70,229,.14)',textAlign:'center'}}>
-          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:4}}>Tom Atual</div>
-          <select value={editKey} onChange={e=>{setEditKey(e.target.value); markDirty();}} style={{width:'100%',padding:'11px 12px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.25)',fontSize:'var(--fs-sm)',fontWeight:700,color:tc,background:dark?'#0f172a':'#fff',appearance:'none'}}>
-            {KEYS.map(k=> <option key={k} value={k}>{k}</option>)}
-          </select>
-          {tr!==0&&<div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:8}}>{curKey} ({tr>0?'+':''}{tr} st)</div>}
-        </div>
-        <div style={{background:'rgba(245,158,11,.07)',borderRadius:'var(--r-md)',padding:13,border:'1px solid rgba(245,158,11,.14)'}}>
-          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:4}}>BPM · {sTimeSignature}</div>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-            <input type="number" min="20" max="300" value={editBpm} onChange={e=>{setEditBpm(parseInt(e.target.value) || 0); markDirty();}} style={{width:'100%',padding:'10px 12px',borderRadius:'var(--r-md)',border:'1px solid rgba(245,158,11,.25)',fontSize:'28px',fontWeight:900,color:'#F59E0B',fontFamily:"'JetBrains Mono',monospace",textAlign:'center',background:dark?'#111827':'#fff'}}/>
+      <div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:3,marginBottom:16}}>{sArtist}</div>
+      
+      {/* iOS-style Key & BPM pickers */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+        {/* Tom */}
+        <div style={{position:'relative'}}>
+          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:8}}>Tom</div>
+          <div style={{position:'relative',background:dark?'rgba(168,85,247,.06)':'rgba(79,70,229,.08)',border:`1.5px solid ${dark?'rgba(168,85,247,.12)':'rgba(79,70,229,.18)'}`,borderRadius:'var(--r-lg)',padding:'0 12px',height:44,display:'flex',alignItems:'center',cursor:'pointer',transition:'all .2s'}}>
+            <select value={editKey} onChange={e=>{setEditKey(e.target.value); markDirty();}} style={{width:'100%',height:'100%',padding:0,border:'none',background:'transparent',color:tc,fontSize:16,fontWeight:700,appearance:'none',cursor:'pointer',font:'inherit'}}>
+              {KEYS.map(k=> <option key={k} value={k}>{k}</option>)}
+            </select>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={t2} style={{position:'absolute',right:10,pointerEvents:'none'}}>
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
           </div>
-          <div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:8,fontWeight:700}}>Use o campo acima para corrigir o BPM</div>
+          {tr!==0&&<div style={{fontSize:'var(--fs-xs)',color:'#A855F7',marginTop:6,fontWeight:700}}>{curKey} ({tr>0?'+':''}{tr} semitom)</div>}
+        </div>
+        
+        {/* BPM */}
+        <div style={{position:'relative'}}>
+          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:8}}>BPM</div>
+          <div style={{display:'flex',alignItems:'center',gap:8,background:dark?'rgba(245,158,11,.04)':'rgba(245,158,11,.08)',border:`1.5px solid ${dark?'rgba(245,158,11,.1)':'rgba(245,158,11,.16)'}`,borderRadius:'var(--r-lg)',padding:'0 10px',height:44}}>
+            <button onClick={()=>{setEditBpm(Math.max(20,editBpm-1)); markDirty();}} style={{width:36,height:36,border:'none',background:'rgba(0,0,0,.08)',borderRadius:'var(--r-md)',color:tc,cursor:'pointer',fontSize:18,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>−</button>
+            <input type="number" min="20" max="300" value={editBpm} onChange={e=>{setEditBpm(Math.max(20,Math.min(300,parseInt(e.target.value)||80))); markDirty();}} style={{flex:1,border:'none',background:'transparent',color:'#F59E0B',fontSize:18,fontWeight:900,textAlign:'center',font:"'JetBrains Mono',monospace"}}/>
+            <button onClick={()=>{setEditBpm(Math.min(300,editBpm+1)); markDirty();}} style={{width:36,height:36,border:'none',background:'rgba(0,0,0,.08)',borderRadius:'var(--r-md)',color:tc,cursor:'pointer',fontSize:18,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>+</button>
+          </div>
         </div>
       </div>
-      {isDirty && <div style={{display:'flex',justifyContent:'flex-end',marginTop:12}}><button onClick={handleSaveMetadata} className="bp" style={{padding:'8px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>Salvar alterações</button></div>}
+      
+      {isDirty && <div style={{display:'flex',gap:8,marginTop:12}}><button onClick={handleSaveMetadata} className="bp" style={{flex:1,padding:'10px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>✓ Salvar</button><button onClick={()=>{setEditKey(String(song?.key||'')); setEditBpm(parseInt(song?.bpm)||80); setIsDirty(false);}} style={{flex:1,padding:'10px 14px',borderRadius:'var(--r-md)',border:`1.5px solid ${dark?'rgba(168,85,247,.2)':'rgba(79,70,229,.25)'}`,background:'transparent',color:tc,fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer'}}>✕ Cancelar</button></div>}
     </div>
 
     {/* Media Player */}
@@ -2164,12 +2178,23 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
 
     {/* Lyrics */}
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.14s'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase'}}>Letra</div>
-        <span style={{fontSize:'var(--fs-xs)',color:'#4F46E5',fontWeight:700}}>{editLyrics.length} caracteres</span>
+        <button onClick={()=>{setIsEditingLyrics(!isEditingLyrics); if(!isEditingLyrics) markDirty();}} style={{fontSize:'var(--fs-xs)',fontWeight:800,padding:'6px 12px',borderRadius:'var(--r-md)',border:`1.5px solid ${isEditingLyrics?'#A855F7':'rgba(79,70,229,.25)'}`,background:isEditingLyrics?'rgba(168,85,247,.15)':'rgba(79,70,229,.08)',color:isEditingLyrics?'#A855F7':'#4F46E5',cursor:'pointer',transition:'all .2s'}}>{isEditingLyrics?'Fechar Edição':'✎ Editar'}</button>
       </div>
-      <textarea value={editLyrics} onChange={e=>{setEditLyrics(e.target.value); markDirty();}} rows={12} style={{width:'100%',minHeight:260,padding:14,borderRadius:'var(--r-xl)',border:'1px solid rgba(79,70,229,.14)',background:dark?'#0f172a':'#fff',color:tc,fontSize:'var(--fs-sm)',fontFamily:'inherit',lineHeight:1.55,resize:'vertical'}} placeholder="Cole a letra aqui..." />
-      {isDirty && <div style={{display:'flex',justifyContent:'flex-end',marginTop:12}}><button onClick={handleSaveMetadata} className="bp" style={{padding:'8px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>Salvar letra</button></div>}
+      {isEditingLyrics?(
+        <>
+          <textarea value={editLyrics} onChange={e=>{setEditLyrics(e.target.value); markDirty();}} rows={14} style={{width:'100%',minHeight:300,padding:14,borderRadius:'var(--r-lg)',border:`1.5px solid rgba(168,85,247,.2)`,background:dark?'#0f172a':'#fff',color:tc,fontSize:'var(--fs-sm)',fontFamily:'inherit',lineHeight:1.6,resize:'vertical',transition:'border .2s'}} placeholder="Cole a letra aqui..." />
+          <div style={{display:'flex',gap:8,marginTop:12}}>
+            <button onClick={handleSaveMetadata} className="bp" style={{flex:1,padding:'10px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>✓ Salvar Letra</button>
+            <button onClick={()=>{setEditLyrics(String(song?.lyrics||'')); setIsDirty(false); setIsEditingLyrics(false);}} style={{flex:1,padding:'10px 14px',borderRadius:'var(--r-md)',border:`1.5px solid ${dark?'rgba(168,85,247,.2)':'rgba(79,70,229,.25)'}`,background:'transparent',color:tc,fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer'}}>Descartar</button>
+          </div>
+        </>
+      ):(
+        <div style={{background:dark?'rgba(255,255,255,.02)':'rgba(79,70,229,.04)',borderRadius:'var(--r-lg)',padding:14,minHeight:140,lineHeight:1.6,fontSize:'var(--fs-sm)',color:tc,whiteSpace:'pre-wrap',wordBreak:'break-word',maxHeight:240,overflowY:'auto'}}>{
+          editLyrics || <span style={{color:t2}}>Nenhuma letra salva ainda…</span>
+        }</div>
+      )}
     </div>
 
     {/* AI button */}
