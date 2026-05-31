@@ -11,7 +11,7 @@ const NETWORK_FIRST_PATHS = [
 const ASSETS_TO_PRECACHE = [
   '/',
   '/index.html',
-  '/manifest.json',
+  '/manifest.webmanifest',
   '/logo_solo.png'
 ];
 
