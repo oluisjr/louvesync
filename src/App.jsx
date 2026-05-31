@@ -463,11 +463,23 @@ const LyricView = memo(({text,dark,fs=17,fontFam})=>{
 });
 
 /* ─── BIBLIA ────────────────────────────────────────────────── */
+const BIBLE_PLANS = [
+  { id: 'fe', title: 'Aumentando a Fé', icon: '⛰️', verses: [{b:'hebrews',c:11,v:'1'}, {b:'romans',c:10,v:'17'}, {b:'mark',c:9,v:'23'}] },
+  { id: 'perdao', title: 'Perdão e Graça', icon: '🤍', verses: [{b:'1 john',c:1,v:'9'}, {b:'matthew',c:6,v:'14'}, {b:'colossians',c:3,v:'13'}] },
+  { id: 'paz', title: 'Paz Constante', icon: '🕊️', verses: [{b:'john',c:14,v:'27'}, {b:'philippians',c:4,v:'7'}, {b:'romans',c:5,v:'1'}] },
+  { id: 'ansiedade', title: 'Vencendo a Ansiedade', icon: '🍃', verses: [{b:'1 peter',c:5,v:'7'}, {b:'matthew',c:6,v:'34'}, {b:'psalms',c:94,v:'19'}] },
+  { id: 'forca', title: 'Força e Coragem', icon: '🛡️', verses: [{b:'isaiah',c:41,v:'10'}, {b:'philippians',c:4,v:'13'}, {b:'psalms',c:46,v:'1'}] }
+];
+
 const Biblia = memo(({dark})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
 
   const [books] = useState(BIBLE_BOOKS);
+  const [readPlans, setReadPlans] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ls_bible_plans')) || {}; }
+    catch { return {}; }
+  });
   const [selBook, setSelBook] = useState('');
   const [selChapter, setSelChapter] = useState(null);
   const [verses, setVerses] = useState([]);
@@ -521,6 +533,49 @@ const Biblia = memo(({dark})=>{
         </div>
       </>}
     </div>
+
+    {!selBook && (
+      <div className="aUp" style={{marginTop: 24}}>
+         <div style={{fontSize:'var(--fs-sm)',fontWeight:900,color:tc,marginBottom:12,display:'flex',alignItems:'center',gap:8}}>
+            <IcoSpark s={16} /> Planos de Leitura e Promessas
+         </div>
+         <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            {BIBLE_PLANS.map(plan => {
+               const progress = readPlans[plan.id] || [];
+               const completed = progress.length === plan.verses.length;
+               return <div key={plan.id} className={gc} style={{borderRadius:'var(--r-lg)',padding:16, border: completed ? '1px solid rgba(16,185,129,.3)' : '1px solid transparent'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+                     <div style={{fontSize:24}}>{plan.icon}</div>
+                     <div style={{flex:1}}>
+                        <div style={{fontSize:'var(--fs-base)',fontWeight:800,color:tc}}>{plan.title}</div>
+                        <div style={{fontSize:'var(--fs-xs)',color:t2}}>{progress.length}/{plan.verses.length} lidos</div>
+                     </div>
+                     {completed && <div style={{color:'#10B981',fontWeight:800,fontSize:'var(--fs-xs)',background:'rgba(16,185,129,.1)',padding:'4px 8px',borderRadius:100}}>Concluído</div>}
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                     {plan.verses.map((v, i) => {
+                        const isRead = progress.includes(i);
+                        const bookName = books.find(b=>b.a===v.b)?.n || v.b;
+                        return <div key={i} onClick={()=>{
+                           handleSelectBook(v.b);
+                           handleSelectChapter(v.c);
+                           if (!isRead) {
+                              const next = {...readPlans, [plan.id]: [...progress, i]};
+                              setReadPlans(next);
+                              localStorage.setItem('ls_bible_plans', JSON.stringify(next));
+                           }
+                        }} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:dark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)',borderRadius:'var(--r-md)',cursor:'pointer',opacity:isRead?.5:1}}>
+                           <div style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${isRead?'#10B981':t2}`,background:isRead?'#10B981':'transparent',display:'flex',alignItems:'center',justifyContent:'center'}}>{isRead&&<span style={{color:'#fff',fontSize:10}}>✓</span>}</div>
+                           <div style={{flex:1,fontSize:'var(--fs-sm)',fontWeight:600,color:tc}}>{bookName} {v.c}:{v.v}</div>
+                           <IcoChevR s={14} color={t2}/>
+                        </div>
+                     })}
+                  </div>
+               </div>
+            })}
+         </div>
+      </div>
+    )}
 
     {loading && <div style={{textAlign:'center',padding:30}}><Loader/></div>}
     {error && <div style={{textAlign:'center',color:'#EF4444',fontWeight:700,fontSize:'var(--fs-sm)'}}>{error}</div>}
@@ -702,10 +757,12 @@ const Afinador = memo(({dark})=>{
 
   async function start(){
     try{
-      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-      streamRef.current = stream;
       const ctx = new (window.AudioContext||window.webkitAudioContext)();
       audioCtxRef.current = ctx;
+      if (ctx.state === 'suspended') await ctx.resume();
+
+      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      streamRef.current = stream;
       const src = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 4096;
@@ -4546,30 +4603,35 @@ export default function LouveSync() {
 
     // ── Supabase Realtime — atualiza TODOS os usuários em tempo real ──
     if (!supabase) return;
-    const channel = supabase.channel(`louvesync_realtime_v2_${Math.random().toString(36).substring(7)}`, {
-      config: { broadcast: { self: true } }
-    })
+
+    const bName = 'louvesync_broadcast';
+    const existing = supabase.getChannels().find(c => c.topic === `realtime:${bName}`);
+    if (existing) supabase.removeChannel(existing);
+
+    const bChannel = supabase.channel(bName, { config: { broadcast: { self: true } } })
+      .on('broadcast', { event: 'stage_chat' }, payload => {
+        const { sender, message } = payload.payload;
+        setStageToast({ sender, message });
+        setTimeout(() => setStageToast(null), 3500);
+      }).subscribe();
+    
+    realtimeChannelRef.current = bChannel;
+
+    const pgChannel = supabase.channel(`louvesync_pg_${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => { loadData(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'event_songs' }, () => { loadData(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'event_members' }, () => { loadData(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, () => { loadData(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, () => { loadData(); })
-      .on('broadcast', { event: 'stage_chat' }, payload => {
-        const { sender, message } = payload.payload;
-        setStageToast({ sender, message });
-        setTimeout(() => setStageToast(null), 3500);
-      })
       .subscribe();
-
-    realtimeChannelRef.current = channel;
 
     return () => {
       try {
-        channel.unsubscribe();
-        supabase.removeChannel(channel);
-      } catch (err) {
-        console.warn('Error cleaning up realtime channel:', err);
-      }
+        bChannel.unsubscribe();
+        pgChannel.unsubscribe();
+        supabase.removeChannel(bChannel);
+        supabase.removeChannel(pgChannel);
+      } catch (err) {}
       realtimeChannelRef.current = null;
     };
   }, [profile]);
