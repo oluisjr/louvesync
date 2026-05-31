@@ -1109,7 +1109,7 @@ const PatrimonioScreen = memo(({members, profile, dark}) => {
     loadEquipment();
 
     if (!supabase) return;
-    const channel = supabase.channel('equipment_realtime')
+    const channel = supabase.channel(`equipment_realtime_${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, () => {
          loadEquipment();
       })
@@ -3326,7 +3326,7 @@ const Mural = memo(({profile, dark, members}) => {
   useEffect(() => {
     if (!supabase) return;
 
-    const channel = supabase.channel('mural_realtime_changes')
+    const channel = supabase.channel(`mural_realtime_changes_${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
         supabase.from('announcements').select('*').order('created_at', { ascending: false })
           .then(({ data }) => { if (data) setPosts(data); });
@@ -3685,7 +3685,7 @@ const Ensaio = memo(({dark, events, songs, members, profile}) => {
   useEffect(() => {
     if (!supabase || !nextSundayEvent?.id) return;
 
-    const channel = supabase.channel('rehearsal_realtime_changes')
+    const channel = supabase.channel(`rehearsal_realtime_changes_${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rehearsal_sessions', filter: `event_id=eq.${nextSundayEvent.id}` }, payload => {
         const data = payload.new;
         if (data) {
@@ -4544,7 +4544,7 @@ export default function LouveSync() {
 
     // ── Supabase Realtime — atualiza TODOS os usuários em tempo real ──
     if (!supabase) return;
-    const channel = supabase.channel('louvesync_realtime_v2', {
+    const channel = supabase.channel(`louvesync_realtime_v2_${Math.random().toString(36).substring(7)}`, {
       config: { broadcast: { self: true } }
     })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => { loadData(); })
