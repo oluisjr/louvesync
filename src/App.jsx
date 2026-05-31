@@ -1997,9 +1997,34 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
 });
 
 /* ─── CIFRA ─────────────────────────────────────────────────── */
-const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatIdx,stageMode,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,onSaveVocalKey,profile,members,fontFam})=>{
+const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatIdx,stageMode,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,onSaveVocalKey,onSaveSong,profile,members,fontFam})=>{
   const iframeRef = useRef(null);
   const [seqStr, setSeqStr] = useState(event?.sequenceBySong?.[song?.id] || '');
+  const [editKey, setEditKey] = useState(String(song?.key || ''));
+  const [editBpm, setEditBpm] = useState(parseInt(song?.bpm) || 80);
+  const [editLyrics, setEditLyrics] = useState(String(song?.lyrics || ''));
+  const [isDirty, setIsDirty] = useState(false);
+
+  useEffect(() => {
+    setEditKey(String(song?.key || ''));
+    setEditBpm(parseInt(song?.bpm) || 80);
+    setEditLyrics(String(song?.lyrics || ''));
+    setIsDirty(false);
+  }, [song?.id, song?.key, song?.bpm, song?.lyrics]);
+
+  const handleSaveMetadata = () => {
+    if(!song) return;
+    const updated = {
+      ...song,
+      key: String(editKey || song.key || ''),
+      bpm: String(editBpm || 0),
+      lyrics: String(editLyrics || '')
+    };
+    onSaveSong && onSaveSong(updated);
+    setIsDirty(false);
+  };
+
+  const markDirty = () => setIsDirty(true);
 
   console.log('🎵 Cifra component rendering with song:', song?.title);
 
@@ -2092,16 +2117,20 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
         <div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-md)',padding:13,border:'1px solid rgba(79,70,229,.14)',textAlign:'center'}}>
           <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:4}}>Tom Atual</div>
-          <div style={{fontSize:30,fontWeight:900,color:'#4F46E5',fontFamily:"'JetBrains Mono',monospace",lineHeight:1}}>{curKey}</div>
-          {tr!==0&&<div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:3}}>{tr>0?'+':''}{tr} st</div>}
+          <select value={editKey} onChange={e=>{setEditKey(e.target.value); markDirty();}} style={{width:'100%',padding:'11px 12px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.25)',fontSize:'var(--fs-sm)',fontWeight:700,color:tc,background:dark?'#0f172a':'#fff',appearance:'none'}}>
+            {KEYS.map(k=> <option key={k} value={k}>{k}</option>)}
+          </select>
+          {tr!==0&&<div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:8}}>{curKey} ({tr>0?'+':''}{tr} st)</div>}
         </div>
-        <div onClick={()=>setMetro(m=>!m)} style={{background:metro?'rgba(16,185,129,.09)':'rgba(245,158,11,.07)',borderRadius:'var(--r-md)',padding:13,border:`1px solid ${metro?'rgba(16,185,129,.22)':'rgba(245,158,11,.14)'}`,textAlign:'center',cursor:'pointer',transition:'all .2s'}}>
+        <div style={{background:'rgba(245,158,11,.07)',borderRadius:'var(--r-md)',padding:13,border:'1px solid rgba(245,158,11,.14)'}}>
           <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:4}}>BPM · {sTimeSignature}</div>
-          <div style={{fontSize:30,fontWeight:900,color:metro?'#10B981':'#F59E0B',fontFamily:"'JetBrains Mono',monospace",lineHeight:1,transition:'color .15s'}}>{sBpm}</div>
-          <div style={{fontSize:'var(--fs-xs)',color:metro?'#059669':t2,marginTop:3,fontWeight:700}}>{metro?'● Tocando':'● Ativar'}</div>
-          <MetroDots beatIdx={beatIdx} timeSignature={sTimeSignature} active={metro} dark={dark}/>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+            <input type="number" min="20" max="300" value={editBpm} onChange={e=>{setEditBpm(parseInt(e.target.value) || 0); markDirty();}} style={{width:'100%',padding:'10px 12px',borderRadius:'var(--r-md)',border:'1px solid rgba(245,158,11,.25)',fontSize:'28px',fontWeight:900,color:'#F59E0B',fontFamily:"'JetBrains Mono',monospace",textAlign:'center',background:dark?'#111827':'#fff'}}/>
+          </div>
+          <div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:8,fontWeight:700}}>Use o campo acima para corrigir o BPM</div>
         </div>
       </div>
+      {isDirty && <div style={{display:'flex',justifyContent:'flex-end',marginTop:12}}><button onClick={handleSaveMetadata} className="bp" style={{padding:'8px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>Salvar alterações</button></div>}
     </div>
 
     {/* Media Player */}
@@ -2134,7 +2163,14 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,beatId
     </div>}
 
     {/* Lyrics */}
-    <div className={`${gc} aUp`} style={{...CS,animationDelay:'.14s'}}><LyricView text={sLyrics} dark={dark} fontFam={fontFam}/></div>
+    <div className={`${gc} aUp`} style={{...CS,animationDelay:'.14s'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase'}}>Letra</div>
+        <span style={{fontSize:'var(--fs-xs)',color:'#4F46E5',fontWeight:700}}>{editLyrics.length} caracteres</span>
+      </div>
+      <textarea value={editLyrics} onChange={e=>{setEditLyrics(e.target.value); markDirty();}} rows={12} style={{width:'100%',minHeight:260,padding:14,borderRadius:'var(--r-xl)',border:'1px solid rgba(79,70,229,.14)',background:dark?'#0f172a':'#fff',color:tc,fontSize:'var(--fs-sm)',fontFamily:'inherit',lineHeight:1.55,resize:'vertical'}} placeholder="Cole a letra aqui..." />
+      {isDirty && <div style={{display:'flex',justifyContent:'flex-end',marginTop:12}}><button onClick={handleSaveMetadata} className="bp" style={{padding:'8px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>Salvar letra</button></div>}
+    </div>
 
     {/* AI button */}
     <button className="bp aUp" style={{marginBottom:8,animationDelay:'.18s'}} onClick={()=>{onSendAI(`Analise "${sTitle}" (tom ${curKey}, ${CAT[song.cat]?.label || song.cat || 'Sem Categoria'}, ${sBpm}bpm, compasso ${sTimeSignature}) e sugira 3 músicas complementares para setlist com justificativa de fluxo.`);onNavTo('ia');}}>
@@ -4297,35 +4333,38 @@ export default function LouveSync() {
 
   // ── PWA Version Check (anti-cache stale)
   const [versionToast, setVersionToast] = useState(false);
+
+  const clearCacheAndReload = async (version) => {
+    try {
+      if ('caches' in window) {
+        const names = await caches.keys();
+        await Promise.all(names.map(name => caches.delete(name)));
+      }
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(registration => registration.unregister()));
+      }
+    } catch (error) {
+      console.error('Failed to clear browser cache or service workers:', error);
+    }
+
+    localStorage.setItem('ls_app_version', version);
+    const url = new URL(window.location.origin + window.location.pathname);
+    url.searchParams.set('_cache_bust', Date.now().toString());
+    window.location.replace(url.toString());
+  };
+
   useEffect(()=>{
-    const clearCacheAndReload = async (version) => {
-      try {
-        if ('caches' in window) {
-          const names = await caches.keys();
-          await Promise.all(names.map(name => caches.delete(name)));
+    fetch('/api/version', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
+      .then(r=>r.json())
+      .then(({version})=>{
+        const stored = localStorage.getItem('ls_app_version');
+        if (stored && stored !== version) {
+          clearCacheAndReload(version);
+          return;
         }
-        if ('serviceWorker' in navigator) {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(registrations.map(registration => registration.unregister()));
-        }
-      } catch (error) {
-        console.error('Failed to clear browser cache or service workers:', error);
-      }
-
-      localStorage.setItem('ls_app_version', version);
-      const url = new URL(window.location.href);
-      url.searchParams.set('_cache_bust', Date.now().toString());
-      window.location.replace(url.toString());
-    };
-
-    fetch('/api/version').then(r=>r.json()).then(({version})=>{
-      const stored = localStorage.getItem('ls_app_version');
-      if (stored && stored !== version) {
-        clearCacheAndReload(version);
-        return;
-      }
-      localStorage.setItem('ls_app_version', version);
-    }).catch(()=>{});
+        localStorage.setItem('ls_app_version', version);
+      }).catch(()=>{});
   },[]);
 
   // ── Landscape lock (only enforce on touch devices)
@@ -4565,9 +4604,11 @@ export default function LouveSync() {
           await caches.delete(key);
         }
       }
-      window.location.href = window.location.origin + '?u=' + Date.now();
+      const url = new URL(window.location.origin + window.location.pathname);
+      url.searchParams.set('u', Date.now().toString());
+      window.location.replace(url.toString());
     } catch (e) {
-      window.location.reload(true);
+      window.location.reload();
     }
   };
 
@@ -4651,11 +4692,10 @@ export default function LouveSync() {
         if (newBpm) upds.bpm = newBpm;
         if (newTs) upds.time_signature = newTs;
         supabase.from('songs').update(upds).eq('id',songId).catch(console.error);
-        return sList.map(s=>s.id===songId?{...s,vocal_keys:updatedVKeys}:s);
+        return sList.map(s=>s.id===songId?{...s,vocal_keys:updatedVKeys, ...upds}:s);
       });
     } else {
-      if(newKey && eventId) setSequenceForSong(eventId, songId, newKey).catch(console.error);
-      if(eventId) {
+      if(eventId && newKey) {
         setEvents(evs=>evs.map(e=>e.id===eventId?{...e,keyBySong:{...(e.keyBySong||{}),[songId]:newKey}}:e));
         if(evSheet && evSheet.id === eventId) setEvSheet(e=>({...e,keyBySong:{...(e.keyBySong||{}),[songId]:newKey}}));
       }
@@ -4949,7 +4989,7 @@ if (!isOnline) {
           {dataLoading&&!inCifra?<Skeleton dark={dark} count={6}/>:<>
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={()=>setCreateEvOpen(true)}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
-            {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
+            {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} onSaveSong={handleSaveSong} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
 
             {tab==='mural'&&!inCifra&&<Mural profile={profile} dark={dark} members={allMembers}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}

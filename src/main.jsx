@@ -18,7 +18,14 @@ async function clearAllBrowserCache() {
   }
 }
 
-clearAllBrowserCache();
+(async () => {
+  await clearAllBrowserCache();
+  createRoot(document.getElementById('root')).render(
+    <RootErrorBoundary>
+      <App />
+    </RootErrorBoundary>
+  );
+})();
 
 class RootErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -51,4 +58,21 @@ createRoot(document.getElementById('root')).render(
   <RootErrorBoundary>
     <App />
   </RootErrorBoundary>
-)
+);
+
+// Register Service Worker (network-first strategy when online)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then(reg => {
+        console.log('✓ Service Worker registered (network-first strategy)');
+        // Check for updates every minute when online
+        setInterval(() => {
+          if (navigator.onLine) {
+            reg.update().catch(console.error);
+          }
+        }, 60000);
+      })
+      .catch(err => console.log('SW registration failed:', err));
+  });
+}
