@@ -1,153 +1,44 @@
-# 🔐 Guia de Variáveis de Ambiente (.env)
+# Environment configuration
 
-> ⚠️ **IMPORTANTE**: O arquivo `.env` contém informações sensíveis e **NUNCA deve ser commitado** para o GitHub. Está protegido pelo `.gitignore`.
+This guide covers variables consumed by the current LouveSync codebase. The SaaS plan describes future work and does not make billing, OAuth, or analytics services prerequisites for running the current application.
 
-## 📋 Categorias de Variáveis
+## Browser configuration
 
-### 1. **Supabase** (Frontend + Backend)
-```env
-VITE_SUPABASE_URL=https://...
-VITE_SUPABASE_ANON_KEY=eyJhbGc...
-```
-- ✅ Seguro expor `ANON_KEY` (é pública mesmo)
-- ⚠️ `SERVICE_ROLE_KEY` é **backend-only**, nunca no frontend
+| Variable | Used by | Purpose |
+| --- | --- | --- |
+| `VITE_SUPABASE_URL` | `src/lib/supabase.js` and selected server handlers | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | `src/lib/supabase.js` and selected server handlers | Public Supabase anon key |
 
-### 2. **Stripe** (💰 Monetização - CONFIDENCIAL)
-```env
-VITE_STRIPE_PUBLIC_KEY=pk_live_...
-STRIPE_SECRET_KEY=sk_live_...          # Backend only!
-STRIPE_WEBHOOK_SECRET=whsec_...        # Backend only!
+Copy `.env.example` to `.env.local` and fill in the two public values.
 
-# IDs dos Planos de Preço
-STRIPE_PRICE_ID_PRO_MONTHLY=price_...
-STRIPE_PRICE_ID_PRO_YEARLY=price_...
-```
+The public key does not grant administrative permissions. Database policies and the application's authorization design determine what a client can access. Required tables and policies must already exist; this repository does not include a complete reproducible database setup.
 
-**Por que guardar isso aqui?**
-- Identifica quantos e quais planos você tem
-- Evita hardcodar em código (se trocarem, atualiza só aqui)
-- Facilita A/B testing de preços
+## Optional server configuration
 
-### 3. **Estratégia de Preços** (🔐 Confidencial)
-```env
-PRO_PRICE_USD=199
-PRO_PRICE_BRL=1099
-MONTHLY_REVENUE_TARGET=20000
-TARGET_CUSTOMER_COUNT=100
-```
-**Nunca publique isto - é sua estratégia de negócio!**
+| Variable | Used by | Purpose |
+| --- | --- | --- |
+| `SCRAPERAPI_KEY` | `api/cifra.js`, `api/proxy.js`, and Vite local middleware | Optional external scraping provider |
+| `INTERNAL_API_TOKEN` | `api/delete-event.js` | Authorization token for the internal deletion endpoint |
+| `SUPABASE_SERVICE_ROLE_KEY` | `api/delete-event.js` | Privileged database access for internal operations |
+| `SUPABASE_SERVICE_KEY` | `api/setlist.js` and `api/delete-event.js` | Existing privileged-key configuration name |
+| `SUPABASE_URL` | `api/delete-event.js` | Alternative project URL for that handler |
 
-### 4. **Email Service** (Comunicação)
-```env
-RESEND_API_KEY=re_...  # ou SENDGRID_API_KEY
-```
-Para enviar:
-- Boas-vindas aos novos clientes
-- Confirmação de pagamento
-- Lembretes de renovação
-- Alertas de cancelamento
+The deletion handler accepts either service-key name. The setlist handler currently reads only `SUPABASE_SERVICE_KEY` before falling back to the public anon key. Check the relevant handler rather than assuming both names work everywhere.
 
-### 5. **Monitoring & Analytics** (Backend Only)
-```env
-SENTRY_DSN=https://...           # Error tracking
-POSTHOG_API_KEY=phc_...          # Product analytics
-```
-Nunca exponha em frontend!
+Privileged keys can bypass database row-level policies. Use a dedicated development project for internal operations and keep these values exclusively on the server. No real credentials are included in `.env.example`.
 
-### 6. **OAuth** (Google Sign-in)
-```env
-VITE_GOOGLE_CLIENT_ID=...
-VITE_GOOGLE_CLIENT_SECRET=...    # Backend only!
-```
+## Platform-provided values
 
-### 7. **Admin/Internal** (🔓 ULTRA SENSÍVEL)
-```env
-ADMIN_MASTER_KEY=sk_admin_...
-INTERNAL_API_TOKEN=token_internal_...
-INTERNAL_ADMIN_EMAIL=admin@louvesync.internal
-```
+`api/version.js` reads `VERCEL_DEPLOYMENT_ID` and `VERCEL_GIT_COMMIT_SHA`. Vercel supplies these values when available; they are not required browser configuration.
 
-**Só para:**
-- Scripts internos (cleanup, migrations)
-- Admin dashboard
-- Operações críticas
+## Local and deployed environments
 
-**Nunca exponha para frontend ou terceiros!**
+- Local development: use an untracked `.env.local` file.
+- Vercel: configure the applicable variables in the project's environment settings and redeploy when changing browser build variables.
+- Vite development middleware supports chord and proxy routes. Other `api/` handlers require a serverless-compatible runtime.
 
-### 8. **Business Logic** (Regras de Negócio)
-```env
-FREEMIUM_SONG_LIMIT=50
-FREEMIUM_SETLIST_LIMIT=10
-PRO_FEATURES=pdf_export,collaboration,analytics,api_access,priority_support
-```
+## Public values and secrets
 
----
+Vite exposes **every** `VITE_` value to browser code. A prefix does not make a value safe to expose. Never give OAuth client secrets, privileged database keys, or internal tokens that prefix.
 
-## 🚀 Como Usar
-
-### **Em Desenvolvimento (Local)**
-1. Arquivo `.env` contém valores reais
-2. Só você acessa (não compartilhe)
-3. Nunca commit para Git
-
-### **Em Produção (Vercel)**
-1. Adicione secrets em: Vercel Dashboard → Settings → Environment Variables
-2. Use `VITE_*` prefix para frontend, sem prefix para backend
-3. Vercel injeta automaticamente na build
-
-### **Em Staging/Testing**
-1. Use arquivo `.env.staging` separado
-2. Use valores de teste (ex: `pk_test_...` do Stripe)
-3. Mantenha também em `.gitignore`
-
----
-
-## 🔒 Segurança: Frontend vs Backend
-
-### ✅ SEGURO expor no Frontend:
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_STRIPE_PUBLIC_KEY`
-- `VITE_GOOGLE_CLIENT_ID`
-- `VITE_APP_ENV`, `VITE_API_BASE_URL`
-
-### ⛔ NUNCA exponha no Frontend:
-- `STRIPE_SECRET_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `ADMIN_MASTER_KEY`
-- `INTERNAL_API_TOKEN`
-- Qualquer chave com `SECRET` no nome
-
-**Regra de Ouro:** Se começa com `VITE_`, é seguro no frontend. Caso contrário, é backend-only.
-
----
-
-## 📝 Checklist: Antes de Fazer Deploy
-
-- [ ] `.env` está em `.gitignore`
-- [ ] Rodar `git status` e confirmar que `.env` não aparece
-- [ ] Todas as `VITE_*` variáveis têm valores válidos
-- [ ] `STRIPE_SECRET_KEY` e `ADMIN_MASTER_KEY` são super secretos
-- [ ] Vercel tem todas as variáveis de produção
-- [ ] Testar build local: `npm run build`
-- [ ] Confirmar que não há valores hardcoded no código (usar `process.env` ou `import.meta.env`)
-
----
-
-## 🚨 Se Vazar uma Chave
-
-**Ação imediata:**
-
-1. **Stripe**: Dashboard → Settings → API Keys → Regenerar `STRIPE_SECRET_KEY` + `WEBHOOK_SECRET`
-2. **Supabase**: Project Settings → API Keys → Regenerar `SERVICE_ROLE_KEY`
-3. **GitHub**: Varrer histórico com `git-secrets` ou `truffleHog`
-4. **Vercel**: Atualizar Environment Variables
-
----
-
-## 📚 Referências
-
-- [Vercel Environment Variables](https://vercel.com/docs/environment-variables)
-- [Stripe API Keys](https://dashboard.stripe.com/apikeys)
-- [Supabase Service Role](https://supabase.com/docs/guides/api/api-keys)
-- [12 Factor App - Config](https://12factor.net/config)
-
+Keep environment files containing real values out of version control. The checked-in example contains placeholders only.
