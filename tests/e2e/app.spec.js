@@ -284,10 +284,10 @@ test('event Excel download and WhatsApp copy use categories, assigned vocalists 
     for(const value of ['Categoria','Adoração:','Santa Ceia:','Júbilo:','Teste adoracao','Membro Teste','Admin Teste','Vocalista não definido','Eb'])expect(worksheet).toContain(value);
     expect(worksheet).not.toContain('Fixture');
     await panel.getByRole('button',{name:'Copiar setlist para WhatsApp',exact:true}).click();
-    await expect.poll(()=>page.evaluate(()=>navigator.clipboard.readText())).toContain('*Adoração:* Teste adoracao — Membro Teste · Tom: Eb');
+    await expect.poll(()=>page.evaluate(()=>navigator.clipboard.readText())).toContain('*Adoração:* Teste adoracao (Membro Teste) — Eb');
     const text=await page.evaluate(()=>navigator.clipboard.readText());
-    expect(text).toContain('*Santa Ceia:* Teste ceia — Admin Teste · Tom: C');
-    expect(text).toContain('*Júbilo:* Teste jubilo — Vocalista não definido · Tom: C');
+    expect(text).toContain('*Santa Ceia:* Teste ceia (Admin Teste) — C');
+    expect(text).toContain('*Júbilo:* Teste jubilo (Vocalista não definido) — C');
     expect(text).not.toContain('Fixture');expect(text).not.toMatch(/^\d+\./m);
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
@@ -333,6 +333,50 @@ test('older Android shells explain how to get Excel support instead of silently 
     await panel.getByRole('button',{name:'📥 Exportar para Excel',exact:true}).click();
     await expect(panel.getByRole('alert')).toContainText('Atualize o aplicativo Android para salvar planilhas Excel.');
     await expect(panel.getByRole('button',{name:'📥 Exportar para Excel',exact:true})).toBeEnabled();
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('WhatsApp copy works without Clipboard API and confirms the new format was copied',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.events[0].event_songs[0].singer_member_id=member.id;
+  try {
+    const page=await app.open();
+    await page.context().grantPermissions(['clipboard-read','clipboard-write']);
+    await page.evaluate(()=>{
+      window.__readClipboard=navigator.clipboard.readText.bind(navigator.clipboard);
+      Object.defineProperty(navigator,'clipboard',{configurable:true,value:undefined});
+    });
+    await page.getByRole('button',{name:'Escala',exact:true}).click();
+    await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    const panel=page.locator('.gL2');
+    await panel.getByRole('button',{name:'Copiar setlist para WhatsApp',exact:true}).click();
+    await expect(panel.getByRole('status')).toContainText('Setlist copiado com as categorias e os vocais do evento.');
+    await expect.poll(()=>page.evaluate(()=>window.__readClipboard())).toContain('*Adoração:* Teste adoracao (Membro Teste) — C');
+    await expect(panel.getByRole('textbox',{name:'Setlist para WhatsApp'})).toHaveCount(0);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('denied WhatsApp copy offers the complete new text for manual copying',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.events[0].event_songs[0].singer_member_id=member.id;
+  try {
+    const page=await app.open();
+    await page.evaluate(()=>{
+      Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.reject(new DOMException('Denied','NotAllowedError'))}});
+      document.execCommand=()=>false;
+    });
+    await page.getByRole('button',{name:'Escala',exact:true}).click();
+    await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    const panel=page.locator('.gL2');
+    await panel.getByRole('button',{name:'Copiar setlist para WhatsApp',exact:true}).click();
+    const manual=panel.getByRole('textbox',{name:'Setlist para WhatsApp',exact:true});
+    await expect(manual).toHaveAttribute('readonly','');
+    await expect(manual).toHaveValue(/\*Adoração:\* Teste adoracao \(Membro Teste\) — C/);
+    await expect(manual).not.toHaveValue(/Fixture|^\d+\./m);
+    await expect(panel.getByRole('status')).toContainText('Selecione e copie o texto abaixo.');
+    await expect(panel).toHaveAttribute('data-update-blocking','true');
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });

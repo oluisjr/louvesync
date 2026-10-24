@@ -31,9 +31,10 @@ function eventDate(value) {
 
 export function setlistWhatsAppText(event, songs, members) {
   const rows = setlistExportRows(event, songs, members);
-  const heading = `🎵 *${event.label}* — ${eventDate(event.date)} · ${(event.time || '').slice(0, 5)}`;
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(event.date || '') ? new Date(`${event.date}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }) : event.date || '';
+  const heading = `🎵 *${event.label}* — ${date} · ${(event.time || '').slice(0, 5)}`;
   const theme = event.theme ? `\n📖 ${event.theme}` : '';
-  const list = rows.map(row => `*${row.category}:* ${row.title} — ${row.vocalist} · Tom: ${row.key}`).join('\n');
+  const list = rows.map(row => `*${row.category}:* ${row.title} (${row.vocalist}) — ${row.key}`).join('\n');
   return `${heading}${theme}\n\n*Setlist:*\n${list}\n\n_Via LouveSync · IMWAL_`;
 }
 

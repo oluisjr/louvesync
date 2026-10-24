@@ -30,11 +30,33 @@ test('exports preserve the event sequence and use assigned vocalists and event k
 
 test('WhatsApp uses category prefixes and ministry vocalists instead of numbering and recording artists', () => {
   const text = setlistWhatsAppText(event, songs, members);
-  assert.ok(text.includes('*Ofertas:* Minha Oferta — Vocalista não definido · Tom: C'));
-  assert.ok(text.includes('*Júbilo:* Grande é o Senhor — Ana Martins · Tom: Bb'));
-  assert.ok(text.includes('25/10/2026 · 18:00'));
+  assert.ok(text.includes('*Ofertas:* Minha Oferta (Vocalista não definido) — C'));
+  assert.ok(text.includes('*Júbilo:* Grande é o Senhor (Ana Martins) — Bb'));
+  assert.ok(text.includes('dom., 25 de out. · 18:00'));
   assert.ok(text.indexOf('*Ofertas:*') < text.indexOf('*Júbilo:*'));
   assert.doesNotMatch(text, /Artista da gravação|Outro artista|Terceiro artista|^\d+\./m);
+});
+
+test('Sunday WhatsApp regression matches category/title/vocalist/key for the reported setlist', () => {
+  const reported = [
+    ['Celebrarei', 'jubilo', 'Frutos do Espirito II Frutos do Espirito II', 'ana'],
+    ['A Face Adorada', 'hinario', 'Desconhecido', 'lucas'],
+    ['Deus que sara', 'adoracao', 'Ministério', 'ana'],
+    ['Eu me rendo', 'adoracao', 'Renascer praise', 'lucas'],
+    ['Sete vezes mais', 'oferta', 'Trazendo a Arca Trazendo a Arca', 'ana'],
+  ];
+  const catalog = reported.map(([title, cat, artist], index) => ({ id: String(index), title, cat, artist, key: 'C' }));
+  const ministry = [{ id: 'ana', name: 'Ana Martins' }, { id: 'lucas', name: 'Lucas Oliveira' }];
+  const sunday = { label: 'Culto de Domingo', date: '2026-10-25', time: '18:00', songs: catalog.map(song => song.id), singerBySong: Object.fromEntries(reported.map((row, index) => [String(index), row[3]])) };
+  assert.equal(setlistWhatsAppText(sunday, catalog, ministry), [
+    '🎵 *Culto de Domingo* — dom., 25 de out. · 18:00', '', '*Setlist:*',
+    '*Júbilo:* Celebrarei (Ana Martins) — C',
+    '*Hinário:* A Face Adorada (Lucas Oliveira) — C',
+    '*Adoração:* Deus que sara (Ana Martins) — C',
+    '*Adoração:* Eu me rendo (Lucas Oliveira) — C',
+    '*Ofertas:* Sete vezes mais (Ana Martins) — C',
+    '', '_Via LouveSync · IMWAL_',
+  ].join('\n'));
 });
 
 test('Excel is an OOXML ZIP with text cells, accented categories and no formulas', () => {
