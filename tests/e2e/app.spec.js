@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
+import { strFromU8, unzipSync } from 'fflate';
+import { encodeSequence } from '../../src/lib/domain.js';
 const names = [...fs.readFileSync('src/lib/supabase.js','utf8').matchAll(/export async function (\w+)/g)].map(match => match[1]);
 const admin = { id: 'user-admin', name: 'Admin Teste', instrument: 'Vocal', role: 'Vocal', avatar: 'AT', color: '#7B3FF2', status: 'ativo', is_admin: true };
 const member = { ...admin, id: 'user-member', name: 'Membro Teste', is_admin: false };
@@ -15,9 +17,19 @@ async function fixture(browser) {
     export const supabase={channel(name){const c={topic:name,state:'joined',handlers:[],on(type,filter,fn){this.handlers.push({type,filter,fn});return this;},subscribe(fn){queueMicrotask(()=>fn?.('SUBSCRIBED'));return this;},unsubscribe(){},send(message){return window.__testBroadcast(name,message).then(()=> 'ok');}};channels.push(c);return c;},removeChannel(c){const i=channels.indexOf(c);if(i>=0)channels.splice(i,1);},from(table){const query={table,op:'select',filters:{}};return {select(){return this;},eq(k,v){query.filters[k]=v;return this;},order(){return this;},single(){return this;},maybeSingle(){return this;},upsert(data){query.op='upsert';query.data=data;return this;},insert(data){query.op='insert';query.data=data;return this;},delete(){query.op='delete';return this;},update(data){query.op='update';query.data=data;return this;},then(resolve,reject){return window.__testDb('query',[query]).then(resolve,reject);}};}};
     ${names.map(name=>`export async function ${name}(...args){return window.__testDb('${name}',args);}`).join('\n')}
   `;
-  async function open(profile = admin, time = '2026-10-24T12:00:00-03:00') {
+  async function open(profile = admin, time = '2026-10-24T12:00:00-03:00', options = {}) {
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block' }); contexts.push(context);
     await context.addInitScript(profile => { localStorage.setItem('ls_profile', JSON.stringify(profile)); localStorage.removeItem('ls_last_activity'); }, profile);
+    if(options.nativeExcel)await context.addInitScript(mode=>{
+      window.CapacitorCustomPlatform={name:'android'};
+      window.Capacitor={
+        PluginHeaders:mode==='legacy'?[]:[{name:'LouveFiles',methods:[{name:'saveExcel',rtype:'promise'}]}],
+        nativePromise:(plugin,method,options)=>new Promise((resolve,reject)=>{
+          window.__excelRequest={plugin,method,options};
+          window.__finishExcel=(error,cancelled)=>error?reject(new Error(error)):resolve({cancelled});
+        }),
+      };
+    },options.nativeExcel);
     await context.exposeBinding('__testDb', async (_source, action, args) => {
       if (action === 'fetchSongs') return structuredClone(state.songs);
       if (action === 'fetchEvents') return structuredClone(state.events);
@@ -247,6 +259,80 @@ test('event editor contains keyboard focus and closes cleanly with Escape',async
     await expect(dialog).toHaveCount(0);
     await expect(open).toBeFocused();
     expect(await page.locator('#root').evaluate(root=>root.inert)).toBe(false);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('event Excel download and WhatsApp copy use categories, assigned vocalists and event keys',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.events[0].event_songs[0].singer_member_id=member.id;
+  app.state.events[0].event_songs[0].sequence=encodeSequence('Intro','Eb');
+  app.state.events[0].event_songs[1].singer_member_id=admin.id;
+  try {
+    const page=await app.open();
+    await page.context().grantPermissions(['clipboard-read','clipboard-write']);
+    await page.getByRole('button',{name:'Escala',exact:true}).click();
+    await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    const panel=page.locator('.gL2');
+    const downloading=page.waitForEvent('download');
+    await panel.getByRole('button',{name:'📥 Exportar para Excel',exact:true}).click();
+    const download=await downloading;
+    expect(download.suggestedFilename()).toBe('setlist_2026-10-25.xlsx');
+    await download.saveAs(test.info().outputPath('setlist.xlsx'));
+    const parts=unzipSync(fs.readFileSync(test.info().outputPath('setlist.xlsx')));
+    const worksheet=strFromU8(parts['xl/worksheets/sheet1.xml']);
+    for(const value of ['Categoria','Adoração:','Santa Ceia:','Júbilo:','Teste adoracao','Membro Teste','Admin Teste','Vocalista não definido','Eb'])expect(worksheet).toContain(value);
+    expect(worksheet).not.toContain('Fixture');
+    await panel.getByRole('button',{name:'Copiar setlist para WhatsApp',exact:true}).click();
+    await expect.poll(()=>page.evaluate(()=>navigator.clipboard.readText())).toContain('*Adoração:* Teste adoracao — Membro Teste · Tom: Eb');
+    const text=await page.evaluate(()=>navigator.clipboard.readText());
+    expect(text).toContain('*Santa Ceia:* Teste ceia — Admin Teste · Tom: C');
+    expect(text).toContain('*Júbilo:* Teste jubilo — Vocalista não definido · Tom: C');
+    expect(text).not.toContain('Fixture');expect(text).not.toMatch(/^\d+\./m);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('native Excel handoff keeps updates blocked until cancel or failure and preserves workbook bytes',async({browser})=>{
+  const app=await fixture(browser);
+  try {
+    const page=await app.open(admin,'2026-10-24T12:00:00-03:00',{nativeExcel:'current'});
+    await page.getByRole('button',{name:'Escala',exact:true}).click();
+    await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    const panel=page.locator('.gL2');
+    await panel.getByRole('button',{name:'📥 Exportar para Excel',exact:true}).click();
+    await expect(panel.getByRole('button',{name:'Preparando planilha…',exact:true})).toBeDisabled();
+    await expect(panel).toHaveAttribute('data-update-blocking','true');
+    await expect.poll(()=>page.evaluate(()=>!!window.__excelRequest)).toBe(true);
+    const request=await page.evaluate(()=>window.__excelRequest);
+    expect(request.plugin).toBe('LouveFiles');expect(request.method).toBe('saveExcel');
+    expect(request.options.filename).toBe('setlist_2026-10-25.xlsx');
+    const worksheet=strFromU8(unzipSync(Buffer.from(request.options.data,'base64'))['xl/worksheets/sheet1.xml']);
+    expect(worksheet).toContain('Adoração:');expect(worksheet).toContain('Teste adoracao');
+    await page.evaluate(()=>window.__finishExcel(null,true));
+    await expect(panel.getByRole('button',{name:'📥 Exportar para Excel',exact:true})).toBeEnabled();
+    await expect(panel.getByRole('alert')).toHaveCount(0);
+    await expect(panel).toHaveAttribute('data-update-blocking','false');
+    await panel.getByRole('button',{name:'📥 Exportar para Excel',exact:true}).click();
+    await expect(panel.getByRole('button',{name:'Preparando planilha…',exact:true})).toBeDisabled();
+    await page.evaluate(()=>window.__finishExcel('Armazenamento indisponível',false));
+    await expect(panel.getByRole('alert')).toHaveText('Armazenamento indisponível');
+    await expect(panel.getByRole('button',{name:'📥 Exportar para Excel',exact:true})).toBeEnabled();
+    await expect(panel).toHaveAttribute('data-update-blocking','false');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('older Android shells explain how to get Excel support instead of silently failing',async({browser})=>{
+  const app=await fixture(browser);
+  try {
+    const page=await app.open(admin,'2026-10-24T12:00:00-03:00',{nativeExcel:'legacy'});
+    await page.getByRole('button',{name:'Escala',exact:true}).click();
+    await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    const panel=page.locator('.gL2');
+    await panel.getByRole('button',{name:'📥 Exportar para Excel',exact:true}).click();
+    await expect(panel.getByRole('alert')).toContainText('Atualize o aplicativo Android para salvar planilhas Excel.');
+    await expect(panel.getByRole('button',{name:'📥 Exportar para Excel',exact:true})).toBeEnabled();
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });

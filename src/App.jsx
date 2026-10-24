@@ -7,6 +7,7 @@ import { checkForAppUpdate } from './lib/app-updates.js';
 import Bible from './components/Bible.jsx';
 import Rehearsal from './components/Rehearsal.jsx';
 import { Dialog, Icon, Section, SearchField } from './components/Interface.jsx';
+import { downloadSetlistExcel, setlistWhatsAppText } from './lib/setlist-export.js';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
 import { onRealtime, onRealtimeStatus, broadcastUpdate, disconnectRealtime } from './lib/realtime.js';
@@ -2982,6 +2983,8 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
 /* ─── EVENT SHEET ───────────────────────────────────────────── */
 const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,onReqDelEv,onSetSinger,onUpdateSongOptions,spawnConfetti})=>{
   const [expandSong, setExpandSong] = useState(null);
+  const [exporting,setExporting]=useState(false);
+  const [exportError,setExportError]=useState('');
   if(!ev)return null;
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const noteItems = (ev.items||[]).filter(it=>it.type !== 'song');
@@ -3001,7 +3004,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
 
   return <>
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:99,backdropFilter:'blur(7px)',WebkitBackdropFilter:'blur(7px)',animation:'fadeIn .2s'}} onClick={onClose}/>
-    <div data-update-blocking={expandSong!==null} className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'90dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .4s cubic-bezier(.22,1,.36,1)'}}>
+    <div data-update-blocking={expandSong!==null||exporting} className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'90dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .4s cubic-bezier(.22,1,.36,1)'}}>
       <div style={{display:'flex',justifyContent:'center',padding:'14px 0 0'}}><div style={{width:44,height:4,borderRadius:100,background:'rgba(127,127,127,.22)'}}/></div>
       <div style={{padding:'16px 20px 52px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
@@ -3011,9 +3014,11 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
         {ev.theme&&<div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-sm)',padding:'9px 14px',marginBottom:14,fontSize:'var(--fs-sm)',color:'#4F46E5',fontWeight:700,border:'1px solid rgba(79,70,229,.15)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
         {/* Share setlist */}
         {ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0&&<button onClick={()=>{
-          const txt=`🎵 *${ev.label}* — ${fDate(ev.date)} · ${ev.time}\n${ev.theme?`📖 ${ev.theme}\n`:''}\n*Setlist:*\n${evS.map((s,i)=>`${i+1}. ${s.title} (${s.artist}) — ${s.key}`).join('\n')}\n\n_Via LouveSync · IMWAL_`;
+          const txt=setlistWhatsAppText(ev,songs,members);
           navigator.clipboard.writeText(txt).then(()=>{const btn=document.getElementById('shareBtn');if(btn){btn.style.animation='shareBtn .3s ease';setTimeout(()=>btn.style.animation='',400);}}).catch(()=>alert(txt));
         }} id="shareBtn" style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.06)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoShare s={14}/>Copiar setlist para WhatsApp</button>}
+        {ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0&&<button disabled={exporting} onClick={async()=>{setExporting(true);setExportError('');try{await downloadSetlistExcel(ev,songs,members);}catch(error){setExportError(error.message||'Não foi possível salvar a planilha. Tente novamente.');}finally{setExporting(false);}}} style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(16,185,129,.2)',background:'rgba(16,185,129,.06)',color:dark?'#65D5B6':'#059669',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>{exporting?'Preparando planilha…':'📥 Exportar para Excel'}</button>}
+        {exportError&&<p role="alert" style={{fontSize:12,color:dark?'#FCA5A5':'#B91C1C',marginBottom:12}}>{exportError}</p>}
         {/* Link público do setlist (operador de datashow) */}
         {(profile?.is_admin || profile?.role === 'Operador de Datashow' || profile?.instrument === 'Operador de Datashow') && ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0 && <button
           onClick={()=>{
