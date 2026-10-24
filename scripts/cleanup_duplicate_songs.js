@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 
@@ -35,7 +33,7 @@ function normalizeText(value) {
     });
 
     const toDelete = [];
-    for (const [groupKey, items] of Object.entries(groups)) {
+    for (const [, items] of Object.entries(groups)) {
       if (items.length < 2) continue;
       const withKey = items.filter(s => s.key && String(s.key).trim() !== '');
       const withoutKey = items.filter(s => !s.key || String(s.key).trim() === '');

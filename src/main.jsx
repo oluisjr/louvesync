@@ -3,30 +3,6 @@ import { Component } from 'react'
 import './index.css'
 import App from './App.jsx'
 
-async function clearAllBrowserCache() {
-  try {
-    if ('caches' in window) {
-      const names = await caches.keys();
-      await Promise.all(names.map(name => caches.delete(name)));
-    }
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map(registration => registration.unregister()));
-    }
-  } catch (error) {
-    console.error('Failed to clear browser cache or service workers:', error);
-  }
-}
-
-(async () => {
-  await clearAllBrowserCache();
-  createRoot(document.getElementById('root')).render(
-    <RootErrorBoundary>
-      <App />
-    </RootErrorBoundary>
-  );
-})();
-
 class RootErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(error) { return { error }; }
@@ -61,7 +37,7 @@ createRoot(document.getElementById('root')).render(
 );
 
 // Register Service Worker (network-first strategy when online)
-if ('serviceWorker' in navigator) {
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' })
       .then(reg => {

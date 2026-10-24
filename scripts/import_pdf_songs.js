@@ -18,7 +18,6 @@ const supabase = createClient(SUPA_URL, SUPA_KEY);
 const catMap = {
   'adoração': 'adoracao',
   'adoraçao': 'adoracao',
-  'adoração': 'adoracao',
   'hinário': 'hinario',
   'hinario': 'hinario',
   'júbilo': 'jubilo',
@@ -30,13 +29,7 @@ const catMap = {
   'corinho': 'corinho',
 };
 
-function extractCategory(str) {
-  const normalized = str.toLowerCase().trim();
-  for (const [key, val] of Object.entries(catMap)) {
-    if (normalized.includes(key)) return val;
-  }
-  return 'adoracao'; // default
-}
+
 
 function parseLine(line) {
   if (!line.trim() || line.includes('LOUVOR') || line.includes('STATUS') || line.includes('LINK')) {
@@ -150,7 +143,7 @@ async function fetchLyricsFromLRCLib(title, artist) {
           media_url: s.mediaUrl || null,
         };
         
-        const { data: inserted, error: insertErr } = await supabase
+        const {  error: insertErr } = await supabase
           .from('songs')
           .insert(payload)
           .select()
@@ -158,7 +151,7 @@ async function fetchLyricsFromLRCLib(title, artist) {
         
         if (insertErr) {
           // Try upsert
-          const { data: upserted, error: upErr } = await supabase
+          const {  error: upErr } = await supabase
             .from('songs')
             .upsert(payload)
             .select()

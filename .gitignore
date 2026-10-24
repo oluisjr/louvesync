@@ -30,3 +30,9 @@ dist-ssr
 
 # Database setup scripts
 public/supabase_setup.sql
+
+# Browser test output and Android signing material
+test-results/
+playwright-report/
+*.jks
+*.keystore

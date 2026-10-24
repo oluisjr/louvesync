@@ -1,4 +1,6 @@
+import { updateEventItems } from './event-storage.js';
 import { createClient } from '@supabase/supabase-js';
+import { decodeSequence, encodeSequence } from './domain.js';
 
 const url  = import.meta.env.VITE_SUPABASE_URL;
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -51,28 +53,19 @@ export async function deleteMember(id) {
   if (error) throw error;
 }
 
-export async function fetchSongs() {
+async function fetchAll(table, selection, order) {
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('songs')
-    .select('*')
-    .order('title');
-  if (error) throw error;
-  return data;
+  const rows = [];
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await supabase.from(table).select(selection).order(order).order('id').range(offset, offset + 499);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < 500) return rows;
+  }
 }
-
+export async function fetchSongs() { return fetchAll('songs', '*', 'title'); }
 export async function fetchEvents() {
-  if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('events')
-    .select(`
-      *,
-      event_songs ( id, song_id, item_type, note_text, order_index, singer_member_id, sequence ),
-      event_members ( member_id, confirmed )
-    `)
-    .order('date');
-  if (error) throw error;
-  return data;
+  return fetchAll('events', '*, event_songs (id, song_id, item_type, note_text, order_index, singer_member_id, sequence), event_members (member_id, confirmed)', 'date');
 }
 
 export async function upsertSong(song) {
@@ -126,11 +119,12 @@ export async function rejectDeleteSong(songId) {
 }
 export async function setPresence(eventId, memberId, confirmed) {
   if (!supabase) return null;
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('event_members')
     .update({ confirmed })
     .eq('event_id', eventId)
-    .eq('member_id', memberId);
+    .eq('member_id', memberId).select('member_id');
+  if (!error && !data?.length) throw new Error('Você não está escalado neste evento.');
   if (error) throw error;
 }
 
@@ -155,8 +149,10 @@ export async function upsertEvent(event) {
 
 export async function deleteEvent(id) {
   if (!supabase) return null;
-  await supabase.from('event_songs').delete().eq('event_id', id);
-  await supabase.from('event_members').delete().eq('event_id', id);
+  const { error: songsError } = await supabase.from('event_songs').delete().eq('event_id', id);
+  if (songsError) throw songsError;
+  const { error: membersError } = await supabase.from('event_members').delete().eq('event_id', id);
+  if (membersError) throw membersError;
   const { error } = await supabase.from('events').delete().eq('id', id);
   if (error) throw error;
 }
@@ -180,41 +176,7 @@ export async function rejectDeleteEvent(eventId) {
 }
 
 export async function setEventItems(eventId, items, memberIds) {
-  if (!supabase) return null;
-  // Fetch existing to preserve sequence and singer
-  const { data: existing } = await supabase.from('event_songs').select('*').eq('event_id', eventId);
-  const existingMap = {};
-  if (existing) {
-    existing.forEach(e => { if(e.song_id) existingMap[e.song_id] = e; });
-  }
-
-  // Remove existing
-  await supabase.from('event_songs').delete().eq('event_id', eventId);
-  await supabase.from('event_members').delete().eq('event_id', eventId);
-  
-  if (items && items.length > 0) {
-    const rows = items.map((it, i) => ({
-      event_id: eventId,
-      song_id: it.type === 'song' ? it.song_id : null,
-      item_type: it.type || 'song',
-      note_text: it.text || null,
-      order_index: i + 1,
-      singer_member_id: it.singer_id || ((it.type === 'song' && existingMap[it.song_id]) ? existingMap[it.song_id].singer_member_id : null),
-      sequence: (it.type === 'song' && existingMap[it.song_id]) ? existingMap[it.song_id].sequence : null
-    }));
-    const { error } = await supabase.from('event_songs').insert(rows);
-    if (error) throw error;
-  }
-
-  if (memberIds && memberIds.length > 0) {
-    const mrows = memberIds.map(mId => ({
-      event_id: eventId,
-      member_id: mId,
-      confirmed: null
-    }));
-    const { error: errM } = await supabase.from('event_members').insert(mrows);
-    if (errM) throw errM;
-  }
+  return updateEventItems(supabase,eventId,items,memberIds);
 }
 
 export async function setSingerForSong(eventId, songId, singerMemberId) {
@@ -227,12 +189,21 @@ export async function setSingerForSong(eventId, songId, singerMemberId) {
   if (error) throw error;
 }
 
-export async function setSequenceForSong(eventId, songId, sequence) {
+export async function setSequenceForSong(eventId, songId, text, key) {
   if (!supabase) return null;
-  const { error } = await supabase
-    .from('event_songs')
-    .update({ sequence })
-    .eq('event_id', eventId)
-    .eq('song_id', songId);
+  const { data, error: readError } = await supabase.from('event_songs').select('sequence').eq('event_id', eventId).eq('song_id', songId).maybeSingle();
+  if (readError) throw readError;
+  const previous = decodeSequence(data?.sequence);
+  const { error } = await supabase.from('event_songs').update({ sequence: encodeSequence(text ?? previous.text, key === undefined ? previous.key : key) }).eq('event_id', eventId).eq('song_id', songId);
   if (error) throw error;
+}
+
+export async function saveVocalKey(songId, singerId, key) {
+  if (!supabase) return null;
+  const { data, error: readError } = await supabase.from('songs').select('vocal_keys').eq('id', songId).single();
+  if (readError) throw readError;
+  const vocal_keys = { ...(data?.vocal_keys || {}), [singerId]: key };
+  const { error } = await supabase.from('songs').update({ vocal_keys }).eq('id', songId);
+  if (error) throw error;
+  return vocal_keys;
 }

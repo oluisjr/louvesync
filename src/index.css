@@ -1,52 +1,29 @@
-/* Limpo de lixo boilerplate. */
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  overscroll-behavior: none;
-}
-
-#root {
-  width: 100%;
-  height: 100%;
-}
-
-.font-serif {
-  font-family: 'Playfair Display', serif;
-}
-
-/* ── @media print: exibe só a cifra, esconde tudo mais ─────────── */
+html, body, #root { margin: 0; padding: 0; width: 100%; height: 100%; overscroll-behavior: none; }
+html, body { overflow: hidden; }
+body { position: fixed; inset: 0; }
+#root { isolation: isolate; }
+.app-header { touch-action: none; user-select: none; }
+[data-main-scroll], .gL2 { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+button, a, select { touch-action: manipulation; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.reading-controls, .bible-reading { padding: 18px; border-radius: 20px; margin: 16px 0; }
+.reading-controls label { display: block; margin-bottom: 12px; }
+.reading-actions { display: flex; gap: 8px; align-items: center; margin: 10px 0; }
+.reading-actions > button { flex: 1; }
+.bible-reading { scroll-margin-top: 12px; }
+.rehearsal-songs { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+[aria-pressed="true"] { outline: 2px solid #9B6BF8; background: rgba(123,63,242,.16) !important; }
+#print-cifra { display: none; }
 @media print {
-  body * { visibility: hidden; }
-  #print-cifra, #print-cifra *, #print-dashboard, #print-dashboard * { visibility: visible; }
-  #print-dashboard {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    padding: 10px;
-    background: #fff !important;
-    color: #000 !important;
-  }
-  #print-dashboard .no-print, #print-dashboard button {
-    display: none !important;
-    visibility: hidden !important;
-  }
-  #print-cifra {
-    position: fixed; inset: 0;
-    padding: 24px 32px;
-    background: #fff;
-    color: #000;
-    font-family: 'Inter', sans-serif;
-    line-height: 1.7;
-  }
-  #print-cifra .print-title {
-    font-size: 22px; font-weight: 900; margin-bottom: 2px;
-  }
-  #print-cifra .print-sub {
-    font-size: 13px; color: #555; margin-bottom: 16px;
-  }
-  #print-cifra .chord { color: #4F46E5; font-weight: 800; }
+  html, body { position: static; height: auto !important; overflow: visible !important; background: white !important; color: black !important; }
+  body:has(#print-cifra) #root { display: none !important; }
+  #print-cifra { display: block !important; position: static; width: auto; padding: 12px; color: #000; background: #fff; font-family: sans-serif; }
+  #print-cifra .print-title { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
+  #print-cifra .print-sub { font-size: 13px; margin-bottom: 18px; }
+  #print-cifra pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: monospace; }
+  body:not(:has(#print-cifra)) * { visibility: hidden; }
+  #print-dashboard, #print-dashboard * { visibility: visible !important; }
+  #print-dashboard { position: absolute; inset: 0 auto auto 0; width: 100%; padding: 10px; background: #fff !important; color: #000 !important; }
+  #print-dashboard button, #print-dashboard .no-print { display: none !important; }
   @page { margin: 1cm; }
 }

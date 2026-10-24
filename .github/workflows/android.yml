@@ -1,0 +1,41 @@
+name: Android APK
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: Endereço HTTPS do LouveSync
+        required: true
+        default: https://louvesync.vercel.app
+  push:
+    branches: [main, fix/louvesync-app-stability]
+    paths:
+      - android/**
+      - capacitor.config.json
+      - scripts/configure_android.js
+      - .github/workflows/android.yml
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - run: npm run android:sync
+        env:
+          LOUVESYNC_APP_URL: ${{ inputs.app_url || 'https://louvesync.vercel.app' }}
+      - run: ./gradlew assembleDebug --no-daemon
+        working-directory: android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: louvesync-android-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

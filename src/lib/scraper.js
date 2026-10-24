@@ -32,22 +32,9 @@ function slugify(s = '') {
     .replace(/\s+/g, '-').replace(/-{2,}/g, '-').slice(0, 65);
 }
 
-function htmlToChordText(html = '') {
-  return html
-    .replace(/<span[^>]*data-chord=[^>]*>([^<]+)<\/span>/gi, (_, c) => `[${c.trim()}]`)
-    .replace(/<b>([A-G][^<\s]{0,10})<\/b>/gi, (_, c) => `[${c.trim()}]`)
-    .replace(/<strong>([A-G][^<\s]{0,10})<\/strong>/gi, (_, c) => `[${c.trim()}]`)
-    .replace(/<a[^>]*>([A-G][^<]{0,8})<\/a>/gi, (_, c) => /^[A-G]/.test(c.trim()) ? `[${c.trim()}]` : c)
-    .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<\/div>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
-    .replace(/&#\d+;/g, ' ').replace(/&nbsp;/g, ' ')
-    .replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n{4,}/g, '\n\n\n').trim();
-}
 
-function titleCase(s = '') {
-  return s.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-}
+
+
 
 /* ─── Vagalume API candidates ──────────────────────────────── */
 async function searchVagalumeCandidates(title, artist) {
@@ -140,54 +127,7 @@ async function searchLRCLibCandidates(title, artist) {
 /* 🎸 CifraClub — Gera candidatos via slug direto (URL previsível)
    O CifraClub é uma SPA React: a página de busca não tem HTML server-side útil.
    A abordagem correta é construir a URL a partir dos slugs de artista/título. */
-async function searchCifraClub(title, artist) {
-  const cleanArtist = (artist || '').replace(/\(.*?\)/g, '').trim();
-  const results = [];
 
-  // Gera variantes de slug do artista (nome completo, 3 palavras, 2, 1)
-  const words = cleanArtist.split(/\s+/).filter(Boolean);
-  const artistVariants = [
-    cleanArtist,
-    words.slice(0, 3).join(' '),
-    words.slice(0, 2).join(' '),
-    words[0] || '',
-  ].filter((v, i, arr) => v && arr.indexOf(v) === i); // deduplica
-
-  const tSlug = slugify(title);
-  if (!tSlug) return [];
-
-  // Fallback: artista vazio → retorna link de busca do site
-  if (artistVariants.length === 0) {
-    return [{
-      id: 'cifraclub_search',
-      source: 'CifraClub',
-      title,
-      artist: '',
-      url: `https://www.cifraclub.com.br/busca/?q=${encodeURIComponent(title)}`,
-      hasCifra: true,
-      icon: '🎸',
-    }];
-  }
-
-  for (const artistV of artistVariants.slice(0, 3)) {
-    const aSlug = slugify(artistV);
-    if (!aSlug) continue;
-    // Evita duplicatas
-    const url = `https://www.cifraclub.com.br/${aSlug}/${tSlug}/`;
-    if (results.find(r => r.url === url)) continue;
-    results.push({
-      id: `cifraclub_${results.length}`,
-      source: 'CifraClub',
-      title,
-      artist: cleanArtist || artist,
-      url,
-      hasCifra: true,
-      icon: '🎸',
-    });
-  }
-
-  return results;
-}
 
 export async function searchSongCandidates(title, artist) {
   const [vag, let_, lrc] = await Promise.allSettled([
@@ -196,7 +136,9 @@ export async function searchSongCandidates(title, artist) {
     searchLRCLibCandidates(title, artist)
   ]);
 
+  const cifra = artist?.trim() ? [{id:'cifraclub',source:'CifraClub',title,artist,url:`https://www.cifraclub.com.br/${slugify(artist)}/${slugify(title)}/`,hasCifra:true,icon:'🎸'}] : [];
   return [
+    ...cifra,
     ...(lrc.status === 'fulfilled' ? lrc.value : []),
     ...(vag.status === 'fulfilled' ? vag.value : []),
     ...(let_.status === 'fulfilled' ? let_.value : []),

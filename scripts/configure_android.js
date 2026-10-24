@@ -1,0 +1,10 @@
+import { readFile, writeFile } from 'node:fs/promises';
+const address = process.env.LOUVESYNC_APP_URL;
+if (!address) throw new Error('Defina LOUVESYNC_APP_URL com o endereço HTTPS do app na Vercel.');
+const url = new URL(address);
+if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('Use somente a origem HTTPS do seu app, sem credenciais, caminho ou parâmetros.');
+const path = 'android/app/src/main/assets/capacitor.config.json';
+const config = JSON.parse(await readFile(path, 'utf8'));
+config.server = { url: url.origin, cleartext: false, androidScheme: 'https' };
+await writeFile(path, JSON.stringify(config, null, 2));
+console.log('Android configurado para acompanhar os deploys da aplicação.');

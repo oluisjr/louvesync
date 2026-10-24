@@ -1,11 +1,12 @@
+import { sourceUrl, validateRedirect } from '../server/source-url.js';
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
+const supabase = process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY ? createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.VITE_SUPABASE_ANON_KEY
-);
+) : null;
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
@@ -15,7 +16,7 @@ async function fetchHtml(url) {
   // Strategy 1: ScraperAPI render=false (fastest, works for CifraClub server-side HTML)
   if (scraperKey) {
     try {
-      const proxyUrl = `http://api.scraperapi.com/?api_key=${scraperKey}&url=${encodeURIComponent(url)}&render=false&country_code=br`;
+      const proxyUrl = `https://api.scraperapi.com/?api_key=${scraperKey}&url=${encodeURIComponent(url)}&render=false&country_code=br`;
       const r = await axios.get(proxyUrl, { headers: { 'User-Agent': UA, 'Accept-Language': 'pt-BR,pt;q=0.9' }, timeout: 20000 });
       const html = r.data;
       if (html && html.length > 1000 && !html.includes('cf-browser-verification') && !html.includes('Just a moment')) {
@@ -36,7 +37,7 @@ async function fetchHtml(url) {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Referer': 'https://www.google.com/',
       },
-      timeout: 15000
+      beforeRedirect: validateRedirect, maxContentLength: 5000000, timeout: 15000
     });
     const html = r.data;
     if (html && html.length > 1000 && !html.includes('cf-browser-verification') && !html.includes('Just a moment')) {
@@ -50,7 +51,7 @@ async function fetchHtml(url) {
   // Strategy 3: ScraperAPI render=true (slowest fallback, uses JS rendering)
   if (scraperKey) {
     try {
-      const proxyUrl = `http://api.scraperapi.com/?api_key=${scraperKey}&url=${encodeURIComponent(url)}&render=true&country_code=br`;
+      const proxyUrl = `https://api.scraperapi.com/?api_key=${scraperKey}&url=${encodeURIComponent(url)}&render=true&country_code=br`;
       const r = await axios.get(proxyUrl, { headers: { 'User-Agent': UA }, timeout: 45000 });
       console.log('[cifra] ScraperAPI render=true OK, length:', r.data?.length);
       return r.data;
@@ -68,16 +69,17 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    const { url } = req.query;
+    let { url } = req.query;
     if (!url) return res.status(400).json({ error: "Missing URL parameter" });
 
+    try {url=sourceUrl(url);} catch(error){return res.status(400).json({error:error.message});}
     // Cache primeiro
     try {
-      const { data: cached } = await supabase
+      const { data: cached } = supabase ? await supabase
         .from('songs_cache')
         .select('content')
         .eq('source_url', url)
-        .single();
+        .single() : {data:null};
       if (cached?.content) {
         console.log('[cifra] Cache hit for', url);
         return res.status(200).json(cached.content);
@@ -139,8 +141,9 @@ export default async function handler(req, res) {
     const result = { text: rawText, key, hasCifra: /\[[A-G]/.test(rawText) };
 
     // Salvar no cache
-    supabase.from('songs_cache').insert({ source_url: url, content: result })
-      .catch(err => console.error("Cache insert error:", err));
+    if(supabase){
+      try {const {error}=await supabase.from('songs_cache').insert({source_url:url,content:result});if(error)console.warn('Cifra cache unavailable');}catch{console.warn('Cifra cache unavailable');}
+    }
 
     return res.status(200).json(result);
 

@@ -1,16 +1,18 @@
+import { escapeHtml, decodeSequence } from '../src/lib/domain.js';
 // api/setlist.js — endpoint público para exibir setlist sem login (telão, operador de datashow)
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
+const supabase = process.env.VITE_SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY) ? createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY
-);
+) : null;
 
 export default async function handler(req, res) {
   const { id } = req.query;
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
 
+  if(!supabase)return res.status(503).json({error:'Setlist indisponível.'});
   if (!id) return res.status(400).json({ error: 'Event ID required' });
 
   try {
@@ -25,14 +27,14 @@ export default async function handler(req, res) {
     const songs = (ev.event_songs || [])
       .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
       .filter(es => es.item_type !== 'note' && es.songs)
-      .map(es => ({ title: es.songs.title, artist: es.songs.artist, key: es.songs.key, cat: es.songs.cat }));
+      .map(es => ({ title: es.songs.title, artist: es.songs.artist, key: decodeSequence(es.sequence).key || es.songs.vocal_keys?.[es.singer_member_id] || es.songs.key, cat: es.songs.cat }));
 
     const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>${ev.label} — LouveSync</title>
+<title>${escapeHtml(ev.label)} — LouveSync</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Inter',sans-serif; background:#05091A; color:#E2E8F0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:32px 16px; }
@@ -52,17 +54,17 @@ export default async function handler(req, res) {
 </head>
 <body>
 <div class="logo">🎵 LouveSync · IMWAL</div>
-<div class="ev-name">${ev.label}</div>
-<div class="ev-meta">${ev.date} · ${ev.time}</div>
-${ev.theme ? `<div class="ev-theme">📖 ${ev.theme}</div>` : ''}
+<div class="ev-name">${escapeHtml(ev.label)}</div>
+<div class="ev-meta">${escapeHtml(ev.date)} · ${escapeHtml(ev.time)}</div>
+${ev.theme ? `<div class="ev-theme">📖 ${escapeHtml(ev.theme)}</div>` : ''}
 <div class="list">
 ${songs.map((s, i) => `<div class="item">
   <div class="num">${i + 1}</div>
   <div class="song-info">
-    <div class="song-title">${s.title}</div>
-    <div class="song-artist">${s.artist}</div>
+    <div class="song-title">${escapeHtml(s.title)}</div>
+    <div class="song-artist">${escapeHtml(s.artist)}</div>
   </div>
-  <div class="key">${s.key}</div>
+  <div class="key">${escapeHtml(s.key)}</div>
 </div>`).join('')}
 </div>
 <div class="footer">Gerado por LouveSync — Apenas leitura</div>

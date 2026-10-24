@@ -1,13 +1,13 @@
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
 // Secure admin endpoint to delete events by date.
 // Protect with header 'x-internal-token' equal to process.env.INTERNAL_API_TOKEN
 // Deploy to Vercel (or any serverless) — ensure SUPABASE_SERVICE_ROLE_KEY and INTERNAL_API_TOKEN are set in env.
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const token = req.headers['x-internal-token'] || req.query.token;
+  const token = req.headers['x-internal-token'];
   if (!token || token !== process.env.INTERNAL_API_TOKEN) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -29,9 +29,7 @@ module.exports = async (req, res) => {
     if (!events || events.length === 0) return res.json({ deleted: 0, message: 'No events found' });
 
     for (const ev of events) {
-      await supabase.from('event_songs').delete().eq('event_id', ev.id);
-      await supabase.from('event_members').delete().eq('event_id', ev.id);
-      await supabase.from('events').delete().eq('id', ev.id);
+      for(const table of ['event_songs','event_members','events']){const {error}=await supabase.from(table).delete().eq(table==='events'?'id':'event_id',ev.id);if(error)throw error;}
     }
 
     return res.json({ deleted: events.length });

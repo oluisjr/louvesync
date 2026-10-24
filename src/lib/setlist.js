@@ -9,7 +9,7 @@ export function generateSetlist(dateStr, allEvents, allSongs, allMembers) {
   const isFirstSunday = isSunday && dateObj.getUTCDate() <= 7;
   const isSecondSunday = isSunday && dateObj.getUTCDate() >= 8 && dateObj.getUTCDate() <= 14;
 
-  let layout = [];
+  let layout;
   if (dayOfWeek === 4) { // Thursday
     layout = ['jubilo', 'hinario', 'adoracao', 'oferta'];
   } else { // Sunday
