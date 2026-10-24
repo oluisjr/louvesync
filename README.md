@@ -23,6 +23,7 @@ npm test
 npm run build
 npx playwright install chromium
 npm run test:e2e
+npm run test:updates
 ```
 
 Os testes de navegador simulam o banco e o transporte Realtime e exercitam duas sessões independentes, presença, navegação, calendário, cifras, impressão/PDF, Bíblia, permissões e ensaio. Não escrevem no Supabase real. Os testes unitários cobrem preservação de presenças, falhas de gravação, transposição, datas, metadados de evento e APIs. A configuração ESLint separa navegador, Node e service workers e aplica as regras de execução/dependências dos Hooks; React Compiler não é usado pelo projeto.
@@ -53,3 +54,16 @@ Saída: `android/app/build/outputs/apk/debug/app-debug.apk`. Este é um APK de t
 ## Limites desta entrega
 
 O login/PIN e a autenticação foram preservados por solicitação. As restrições de administrador no app não substituem autorização/RLS no banco. Nenhuma política, tabela ou publicação Realtime de produção foi alterada. Push remoto necessita de um serviço de inscrições/envio e permanece fora desta entrega sem mudanças no backend/banco. A gravação e a impressão nativas precisam de validação final em um Android físico; o comportamento de gesto/overscroll no iOS precisa de verificação em Safari/PWA.
+
+## Atualização automática na web, PWA e Android
+
+Cada build publica o mesmo identificador em `index.html`, `sw.js` e `version.json`. O identificador inclui o conteúdo dos scripts, estilos, worker e arquivos públicos. O app compara a versão realmente carregada (metadado do HTML) com a versão publicada; apenas observar uma versão nova não a marca como instalada.
+
+- HTML, versão, worker e manifestos usam `no-store` no navegador e no CDN da Vercel. Os arquivos JS/CSS com hash mantêm cache imutável. O rewrite da SPA não captura os arquivos de controle de atualização.
+- Ao abrir, voltar ao primeiro plano, recuperar a conexão ou retornar pelo histórico/BFCache, o app consulta a versão pela rede. Enquanto está visível, verifica também a cada 30 segundos. A checagem inicial ocorre antes de montar o React.
+- Um worker novo só assume depois de baixar um conjunto completo e consistente de HTML/assets. Ele ativa automaticamente, sem ficar preso em waiting, e a mudança de controle dispara a verificação da página. Instalações antigas sem esse protocolo recebem uma navegação de migração uma única vez; o endereço antigo sw-push.js também encaminha ao worker único.
+- Em clientes com o protocolo atual, uma edição não salva, gravação, anotação pendente ou modo palco adia a recarga. A atualização é aplicada automaticamente ao concluir/fechar essa atividade. Login, localStorage e fila offline não são limpos. O aviso de atualização não bloqueia os botões do formulário.
+- Sem conexão, permanece a última versão completa disponível. Quando a conexão volta, a atualização é tentada novamente. Manifesto inválido, propagação incompleta do deploy ou download com erro não substituem a cópia funcional. Tentativas repetidas da mesma recarga têm proteção contra loop.
+- No Android, o WebView evita seu cache HTTP e emite um evento ao retomar a atividade. O APK 1.0.1 inclui essa integração; atualize o APK uma vez para recebê-la. Os próximos deploys web continuam dispensando recompilar/reinstalar o APK. O iOS permanece PWA.
+
+`npm run test:updates` executa cenários com service workers reais, incluindo cache antigo, migração, várias janelas, reconexão, rollback, chunks ausentes e proteção contra loops. Um cenário usa dois builds Vite reais, altera uma mensagem no JavaScript do segundo, salva uma cifra durante a atualização e confirma a nova interface online e offline. Essa suíte pressupõe `npm run build` concluído e não modifica o banco nem chama APIs externas. Ela não substitui a validação final em Safari/PWA ou em Android físico. A versão só pode refletir um deploy que tenha sido publicado com sucesso no domínio de produção.

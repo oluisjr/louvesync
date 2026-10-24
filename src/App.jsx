@@ -3,6 +3,7 @@ import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelS
 import {  searchSongCandidates, fetchCifraClubContent } from './lib/scraper';
 import { createPortal } from 'react-dom';
 import { printCifra } from './lib/native.js';
+import { checkForAppUpdate } from './lib/app-updates.js';
 import Bible from './components/Bible.jsx';
 import Rehearsal from './components/Rehearsal.jsx';
 
@@ -1088,7 +1089,7 @@ const PatrimonioScreen = memo(({members, profile, dark}) => {
       </div>
     )}
 
-    {editItem && <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+    {editItem && <div data-update-blocking="true" style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
       <div className={gc} style={{width:'100%',maxWidth:360,borderRadius:'var(--r-xl)',padding:20}}>
         <div style={{fontSize:16,fontWeight:900,color:tc,marginBottom:14}}>{equipment.some(x=>x.id===editItem.id) ? 'Editar Equipamento' : 'Novo Equipamento'}</div>
         <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editItem.name} onChange={e=>setEditItem(x=>({...x,name:e.target.value}))} placeholder="Nome do Equipamento *" style={{color:tc, fontSize:'var(--fs-sm)'}}/></div>
@@ -1382,7 +1383,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     </div>
 
     {/* Member Edit Modal */}
-    {editMember && <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+    {editMember && <div data-update-blocking="true" style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
        <div className={gc} style={{width:'100%',maxWidth:420,borderRadius:'var(--r-xl)',padding:24,maxHeight:'85vh',overflowY:'auto'}}>
           <div style={{fontSize:18,fontWeight:900,color:tc,marginBottom:16}}>{(!editMember.name && !editMember.pin) ? 'Novo Membro' : 'Editar Membro'}</div>
           <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.name} onChange={e=>{
@@ -1982,7 +1983,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
   // Usa ytUrl como fallback quando media_url não está preenchida
   const embedUrl = getEmbedUrl(song.media_url || song.ytUrl);
 
-  return <div style={{padding:16}}>
+  return <div data-update-blocking={isDirty||isEditingLyrics||saving} style={{padding:16}}>
     {/* Key info card */}
     <div className={`${gc} aUp`} style={CS}>
       <Bdg cat={song.cat}/>
@@ -2049,7 +2050,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
         <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em'}}>Sequência p/ Evento</div>
         {profile?.is_admin && seqStr !== (event.sequenceBySong?.[song.id] || '') && <button onClick={()=>onSetSequence(event.id, song.id, seqStr)} style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#4F46E5',background:'rgba(79,70,229,.15)',padding:'5px 12px',borderRadius:100,border:'none',cursor:'pointer'}}>Salvar</button>}
       </div>
-      <div className="gIn"><input className="fi" readOnly={!profile?.is_admin} value={seqStr} onChange={e=>setSeqStr(e.target.value)} placeholder="Ex: Intro, V1, Coro (2x), Ponte..." style={{color:tc,fontSize:'var(--fs-sm)',fontWeight:600}}/></div>
+      <div className="gIn"><input className="fi" data-update-blocking={seqStr!==(event?.sequenceBySong?.[song.id]||'')} readOnly={!profile?.is_admin} value={seqStr} onChange={e=>setSeqStr(e.target.value)} placeholder="Ex: Intro, V1, Coro (2x), Ponte..." style={{color:tc,fontSize:'var(--fs-sm)',fontWeight:600}}/></div>
     </div>}
 
     {/* Lyrics */}
@@ -2110,7 +2111,7 @@ const Stage = memo(({song,tr,mode,stageFs,setStageFs,dark,onClose,chordColor,set
   if(!song)return null;
 
   const curK=getKey(song.key,tr);
-  return <div className="stage-wrap" style={{background:dark?'#05091A':'#0A0F1E',color:'#E2E8F0',display:'flex',flexDirection:'column'}}>
+  return <div data-update-blocking={true} className="stage-wrap" style={{background:dark?'#05091A':'#0A0F1E',color:'#E2E8F0',display:'flex',flexDirection:'column'}}>
     <div style={{background:dark?'rgba(5,9,26,.95)':'rgba(10,15,30,.95)',padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.07)'}}>
       <button onClick={onClose} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',borderRadius:'var(--r-sm)',border:'1px solid rgba(255,255,255,.14)',background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.7)',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer'}}><IcoChevL s={14}/>Sair</button>
       <div style={{textAlign:'center'}}><div className="font-serif" style={{fontSize:22,fontWeight:800,color:'#E2E8F0'}}>{String(song.title || 'Música Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:'rgba(255,255,255,.4)'}}>{String(song.artist || 'Ministério')}</div></div>
@@ -2492,7 +2493,7 @@ const Maestro = memo(({dark,aiMsgs,aiIn,setAiIn,aiLoad,aiCount,onSendAI})=>{
       <div ref={aiEnd}/>
     </div>
     <div className="gIn" style={{display:'flex',gap:8,alignItems:'flex-end',marginTop:8,flexShrink:0,marginBottom:8,padding:'10px 10px 10px 16px'}}>
-      <textarea value={aiIn} onChange={e=>setAiIn(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSendAI();}}} placeholder="Pergunte sobre setlists, adoração, ministério..." rows={1} disabled={aiCount>=MAX_MSGS} style={{flex:1,background:'transparent',border:'none',resize:'none',fontSize:'var(--fs-sm)',color:tc,lineHeight:1.6,maxHeight:100,padding:0}}/>
+      <textarea data-update-blocking={!!aiIn.trim()} value={aiIn} onChange={e=>setAiIn(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSendAI();}}} placeholder="Pergunte sobre setlists, adoração, ministério..." rows={1} disabled={aiCount>=MAX_MSGS} style={{flex:1,background:'transparent',border:'none',resize:'none',fontSize:'var(--fs-sm)',color:tc,lineHeight:1.6,maxHeight:100,padding:0}}/>
       <button onClick={()=>onSendAI()} disabled={aiLoad||!aiIn.trim()||aiCount>=MAX_MSGS} style={{width:38,height:38,borderRadius:'var(--r-sm)',border:'none',flexShrink:0,cursor:aiIn.trim()&&aiCount<MAX_MSGS?'pointer':'not-allowed',background:aiIn.trim()&&aiCount<MAX_MSGS?'linear-gradient(135deg,#4F46E5,#6D28D9)':'rgba(79,70,229,.1)',color:aiIn.trim()&&aiCount<MAX_MSGS?'#fff':'#4F46E5',fontSize:17,transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center'}}>
         {aiLoad?<Loader/>:<IcoArrowUp s={16}/>}
       </button>
@@ -2631,7 +2632,7 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
 
   return <>
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',zIndex:99,backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',animation:'fadeIn .2s'}} onClick={tryClose}/>
-    <div className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'93dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .42s cubic-bezier(.22,1,.36,1)'}}>
+    <div data-update-blocking={true} className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'93dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .42s cubic-bezier(.22,1,.36,1)'}}>
       <div style={{display:'flex',justifyContent:'center',padding:'14px 0 0'}}><div style={{width:44,height:4,borderRadius:100,background:'rgba(127,127,127,.22)'}}/></div>
       <div style={{padding:'16px 20px 52px'}}>
 
@@ -2918,7 +2919,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
 
   return <>
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:99,backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',animation:'fadeIn .2s'}} onClick={onClose}/>
-    <div className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'94dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .42s cubic-bezier(.22,1,.36,1)'}}>
+    <div data-update-blocking={true} className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'94dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .42s cubic-bezier(.22,1,.36,1)'}}>
       <div style={{display:'flex',justifyContent:'center',padding:'14px 0 0'}}><div style={{width:44,height:4,borderRadius:100,background:'rgba(127,127,127,.22)'}}/></div>
       <div style={{padding:'16px 20px 52px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
@@ -3041,7 +3042,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
 
   return <>
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:99,backdropFilter:'blur(7px)',WebkitBackdropFilter:'blur(7px)',animation:'fadeIn .2s'}} onClick={onClose}/>
-    <div className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'90dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .4s cubic-bezier(.22,1,.36,1)'}}>
+    <div data-update-blocking={expandSong!==null} className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'90dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .4s cubic-bezier(.22,1,.36,1)'}}>
       <div style={{display:'flex',justifyContent:'center',padding:'14px 0 0'}}><div style={{width:44,height:4,borderRadius:100,background:'rgba(127,127,127,.22)'}}/></div>
       <div style={{padding:'16px 20px 52px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
@@ -3430,7 +3431,7 @@ if (!navigator.onLine) {
 
                   <div style={{display:'flex', gap:6, marginTop:6}}>
                     <div className="gIn" style={{flex:1, padding:'0 10px', height:32, display:'flex', alignItems:'center'}}>
-                      <input className="fi" value={newCommentTexts[post.id] || ''} onChange={e => setNewCommentTexts(p => ({ ...p, [post.id]: e.target.value }))} onKeyDown={e => e.key === 'Enter' && handleAddComment(post.id)} placeholder="Escreva um comentário..." style={{fontSize:'var(--fs-xs)', padding:0}} />
+                      <input data-update-blocking={!!newCommentTexts[post.id]?.trim()} className="fi" value={newCommentTexts[post.id] || ''} onChange={e => setNewCommentTexts(p => ({ ...p, [post.id]: e.target.value }))} onKeyDown={e => e.key === 'Enter' && handleAddComment(post.id)} placeholder="Escreva um comentário..." style={{fontSize:'var(--fs-xs)', padding:0}} />
                     </div>
                     <button onClick={() => handleAddComment(post.id)} className="bp" style={{width:'auto', padding:'0 12px', height:32, borderRadius:'var(--r-md)', fontSize:'var(--fs-xs)'}}>
                       Enviar
@@ -3447,7 +3448,7 @@ if (!navigator.onLine) {
       )}
 
       {newPostOpen && (
-        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+        <div data-update-blocking="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
           <div className={gc} style={{width:'100%', maxWidth:400, borderRadius:'var(--r-xl)', padding:20}}>
             <div style={{fontSize:16, fontWeight:900, color:tc, marginBottom:14}}>Novo Comunicado</div>
             <div className="gIn" style={{marginBottom:10}}>
@@ -3617,31 +3618,6 @@ export default function LouveSync() {
     const on=()=>setIsOnline(true); const off=()=>setIsOnline(false);
     window.addEventListener('online',on); window.addEventListener('offline',off);
     return()=>{window.removeEventListener('online',on);window.removeEventListener('offline',off);};
-  },[]);
-
-  // ── PWA Version Check (anti-cache stale)
-  const [versionToast, setVersionToast] = useState(false);
-
-  const clearCacheAndReload = async version => {
-    localStorage.setItem('ls_app_version',version);
-    const registration=await navigator.serviceWorker?.getRegistration();
-    await registration?.update();
-    registration?.waiting?.postMessage({type:'SKIP_WAITING'});
-    setVersionToast(true);
-  };
-
-  useEffect(()=>{
-    fetch('/version.json', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
-      .then(r=>r.json())
-      .then(({version})=>{
-        if(!version)return;
-        const stored = localStorage.getItem('ls_app_version');
-        if (stored && stored !== version) {
-          clearCacheAndReload(version);
-          return;
-        }
-        localStorage.setItem('ls_app_version', version);
-      }).catch(()=>{});
   },[]);
 
   // ── Landscape lock (only enforce on touch devices)
@@ -3840,12 +3816,7 @@ export default function LouveSync() {
   },[metro,selSong]);
 
   /* ── Handlers ── */
-  const handleAppUpdate = async () => {
-    const registration=await navigator.serviceWorker?.getRegistration();
-    await registration?.update();
-    registration?.waiting?.postMessage({type:'SKIP_WAITING'});
-    window.location.reload();
-  };
+  const handleAppUpdate = () => checkForAppUpdate();
 
   function handleLogin(member, pin) {
     if (member.pin !== pin) return false;
@@ -4169,13 +4140,7 @@ export default function LouveSync() {
         </div>
       )}
 
-      {/* ── Version Update Toast (Anti-cache) ── */}
-      {versionToast && (
-        <div style={{position:'fixed', bottom: 85, left:'50%', transform:'translateX(-50%)', width:'calc(100% - 32px)', maxWidth:360, background:'rgba(79,70,229,.96)', color:'#fff', padding:'12px 16px', borderRadius:'var(--r-md)', display:'flex', justifyContent:'space-between', alignItems:'center', zIndex:9999, boxShadow:'0 8px 30px rgba(79,70,229,.35)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)'}} className="aUp">
-          <span style={{fontSize:'var(--fs-sm)', fontWeight:800}}>✨ Nova versão disponível!</span>
-          <button onClick={()=>{ vib(); window.location.reload(true); }} style={{padding:'6px 14px', borderRadius:100, border:'none', background:'#fff', color:'#4F46E5', fontWeight:800, fontSize:'var(--fs-xs)', cursor:'pointer', boxShadow:'0 2px 8px rgba(0,0,0,.15)'}}>Atualizar</button>
-        </div>
-      )}
+
     </div>
   </div>
   </ErrorBoundary>;

@@ -2,6 +2,8 @@ import { createRoot } from 'react-dom/client'
 import { Component } from 'react'
 import './index.css'
 import App from './App.jsx'
+import UpdateNotice from './components/UpdateNotice.jsx'
+import { startAppUpdates } from './lib/app-updates.js'
 
 class RootErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -30,25 +32,13 @@ class RootErrorBoundary extends Component {
   }
 }
 
-createRoot(document.getElementById('root')).render(
-  <RootErrorBoundary>
-    <App />
-  </RootErrorBoundary>
-);
-
-// Register Service Worker (network-first strategy when online)
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      .then(reg => {
-        console.log('✓ Service Worker registered (network-first strategy)');
-        // Check for updates every minute when online
-        setInterval(() => {
-          if (navigator.onLine) {
-            reg.update().catch(console.error);
-          }
-        }, 60000);
-      })
-      .catch(err => console.log('SW registration failed:', err));
-  });
+async function bootstrap() {
+  if (import.meta.env.PROD && !await startAppUpdates()) return;
+  createRoot(document.getElementById('root')).render(
+    <RootErrorBoundary>
+      <App />
+      <UpdateNotice />
+    </RootErrorBoundary>
+  );
 }
+void bootstrap();

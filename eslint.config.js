@@ -18,5 +18,5 @@ export default defineConfig([
     rules: { 'react-hooks/rules-of-hooks': 'error', 'react-hooks/exhaustive-deps': 'error' },
   },
   { files: ['api/**/*.js', 'server/**/*.js', 'scripts/**/*.js', 'tests/**/*.js', '*config.js'], languageOptions: { globals: globals.node } },
-  { files: ['public/sw*.js'], languageOptions: { globals: globals.serviceworker } },
+  { files: ['public/sw*.js'], languageOptions: { globals: { ...globals.serviceworker, __PRECACHE_MANIFEST__: 'readonly' } } },
 ]);

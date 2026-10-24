@@ -18,6 +18,7 @@ export default function Rehearsal({ dark, events, songs, profile, connectionStat
   const current = useRef(session);
   const [tick, setTick] = useState(Date.now());
   const [note, setNote] = useState('');
+  const [noteDirty,setNoteDirty]=useState(false);
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
   const [takes, setTakes] = useState([]);
@@ -92,6 +93,7 @@ export default function Rehearsal({ dark, events, songs, profile, connectionStat
     const id = session.activeSongId;
     let disposed = false;
     setNote(readCache(`ls_note_${id}`, ''));
+    setNoteDirty(false);
     if (id && supabase) Promise.resolve(supabase.from('rehearsal_notes').select('note_text').eq('song_id', id).maybeSingle()).then(({ data }) => { if (!disposed && data) setNote(data.note_text || ''); }).catch(() => {});
     return () => { disposed = true; };
   }, [session.activeSongId]);
@@ -104,6 +106,7 @@ export default function Rehearsal({ dark, events, songs, profile, connectionStat
         const { error } = await supabase.from('rehearsal_notes').upsert({ song_id: activeSong.id, note_text: note, updated_by: profile.id });
         if (error) throw error;
       } else if (supabase) window.dispatchOfflineTask?.('save_rehearsal_note', { song_id: activeSong.id, note_text: note, updated_by: profile.id });
+      setNoteDirty(false);
       const sent = await broadcastUpdate({ type: 'rehearsal_note', eventId: event.id, songId: activeSong.id, text: note });
       setNotice(sent ? 'Anotação salva e compartilhada.' : 'Anotação salva neste aparelho.');
     } catch (error) { setNotice(`Anotação local preservada. Não foi possível sincronizar: ${error.message}`); }
@@ -156,14 +159,14 @@ export default function Rehearsal({ dark, events, songs, profile, connectionStat
     } catch (error) { stream.current?.getTracks().forEach(track => track.stop()); setNotice(error.message); }
   }
   const seconds = timerSeconds(session, tick);
-  return <div style={{ padding: 16, paddingBottom: 100, color: dark ? '#E2E8F0' : '#0F172A' }}>
+  return <div data-update-blocking={recording||noteDirty||saving} style={{ padding: 16, paddingBottom: 100, color: dark ? '#E2E8F0' : '#0F172A' }}>
     <h2>Ensaio colaborativo</h2>
     <p role="status" style={{ margin: '8px 0 16px' }}>{connectionStatus === 'connected' ? '● Conectado em tempo real' : supabase ? 'Reconectando à equipe…' : 'Modo local neste aparelho'}</p>
     {notice && <p role="status" className="gL1" style={card}>{notice}</p>}
     <label>Evento do ensaio<select className="fi" value={event?.id || ''} disabled={recording} onChange={e => setEventId(e.target.value)}><option value="">Selecione um evento</option>{choices.map(item => <option key={item.id} value={item.id}>{item.date} — {item.label}</option>)}</select></label>
     {!event ? <p>Nenhum evento disponível para ensaiar.</p> : <>
       <section className="gL1" style={card}><h3>Selecione a Música no Ensaio</h3><div className="rehearsal-songs">{eventSongs.map(song => <button className="bSec" aria-pressed={song.id === session.activeSongId} key={song.id} onClick={() => change({ activeSongId: song.id })}>{song.title}</button>)}</div>{!eventSongs.length && <p>Este evento ainda não tem músicas.</p>}{activeSong && <><h3>Tocando agora: {activeSong.title}</h3><p>Tom: {selectedKey} · {activeSong.bpm} BPM</p><LyricView text={activeSong.lyrics || ''} st={keyDistance(activeSong.key, selectedKey)} mode="chords" dark={dark} /></>}</section>
-      <section className="gL1" style={card}><h3>Anotações do ensaio</h3><textarea className="fi" aria-label="Anotações do ensaio" value={note} disabled={!activeSong} onChange={e => setNote(e.target.value)} rows={4} /><button className="bp" disabled={!activeSong || saving} onClick={saveNote}>{saving ? 'Salvando…' : 'Salvar anotação'}</button></section>
+      <section className="gL1" style={card}><h3>Anotações do ensaio</h3><textarea className="fi" aria-label="Anotações do ensaio" value={note} disabled={!activeSong} onChange={e => {setNote(e.target.value);setNoteDirty(true);}} rows={4} /><button className="bp" disabled={!activeSong || saving} onClick={saveNote}>{saving ? 'Salvando…' : 'Salvar anotação'}</button></section>
       <section className="gL1" style={card}><h3>Modulador de estilo sugerido</h3><div className="reading-actions" style={{ flexWrap: 'wrap' }}>{Object.keys(styles).map(style => <button className="bSec" aria-pressed={session.styleMode === style} key={style} onClick={() => change({ styleMode: style })}>{style}</button>)}</div><p>{styles[session.styleMode]}</p></section>
       <section className="gL1" style={card}><h3>Alertas de palco</h3><div className="reading-actions" style={{ flexWrap: 'wrap' }}>{['🔊 Mais Volume!', '🎹 Mais Teclado!', '🎸 Mais Violão!', '🎙️ Mais Vocal!', '🎼 Qual o tom?', '⚠️ Errei a entrada!'].map(message => <button className="bSec" key={message} onClick={async () => { const sent = await broadcastUpdate({ type: 'stage_chat', sender: profile.name, message, eventId: event.id }); if (!sent) setNotice('Alerta não enviado: aguarde a conexão em tempo real.'); }}>{message}</button>)}</div></section>
       <section className="gL1" style={card}><h3>Tempo de ensaio</h3><output style={{ fontSize: 36, fontVariantNumeric: 'tabular-nums' }}>{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</output><div className="reading-actions"><button className="bp" onClick={() => change({ active: !session.active, seconds, startedAt: session.active ? null : Date.now() })}>{session.active ? 'Pausar' : 'Iniciar cronômetro'}</button><button className="bSec" onClick={() => change({ active: false, seconds: 0, startedAt: null })}>Zerar</button></div></section>

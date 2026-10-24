@@ -27,3 +27,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   #print-dashboard button, #print-dashboard .no-print { display: none !important; }
   @page { margin: 1cm; }
 }
+
+.update-notice { pointer-events:none; position:fixed; bottom:calc(88px + env(safe-area-inset-bottom,0px)); left:50%; transform:translateX(-50%); width:calc(100% - 32px); max-width:420px; padding:12px 16px; border-radius:14px; background:#5B21B6; color:white; box-shadow:0 8px 24px #0003; font:600 14px/1.5 sans-serif; z-index:100000; }
+.update-notice button { pointer-events:auto; margin-left:8px; padding:6px 10px; border:0; border-radius:8px; cursor:pointer; }
+@media print { .update-notice { display:none !important; } }
