@@ -28,6 +28,14 @@ npm run test:updates
 
 Os testes de navegador simulam o banco e o transporte Realtime e exercitam duas sessões independentes, presença, navegação, calendário, cifras, impressão/PDF, Bíblia, permissões e ensaio. Não escrevem no Supabase real. Os testes unitários cobrem preservação de presenças, falhas de gravação, transposição, datas, metadados de evento e APIs. A configuração ESLint separa navegador, Node e service workers e aplica as regras de execução/dependências dos Hooks; React Compiler não é usado pelo projeto.
 
+## Interface e edição de eventos
+
+O editor usa um painel com altura definida, fora dos contêineres da aplicação, e uma única área de rolagem. Cabeçalho, abas e ações ficam visíveis. As abas **Detalhes**, **Setlist** e **Equipe** preservam os dados enquanto o usuário navega; os pedidos e a Santa Ceia ficam próximos do setlist, antes do catálogo completo. O painel acompanha a altura disponível quando o teclado abre, contém o foco e bloqueia a interação com a tela ao fundo.
+
+Bíblia, Ensaio e controles de cifra compartilham cores, campos, botões, ícones e estados de seleção nos temas claro e escuro. Os testes do editor cobrem rolagem, filtragem, reordenação, salvamento e navegação por teclado, em celular e desktop, incluindo uma janela de altura reduzida. A abertura real do teclado e os gestos nativos ainda devem ser conferidos em um aparelho físico.
+
+[Capturas da interface com dados de demonstração](docs/interface.md).
+
 ## Android
 
 O aplicativo Android usa `https://louvesync.vercel.app` e acompanha os deploys web automaticamente. A impressão usa o diálogo nativo do Android, incluindo Salvar como PDF; a gravação solicita permissão do microfone. O iOS continua web/PWA: Safari → Compartilhar → Adicionar à Tela de Início.

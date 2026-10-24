@@ -3,6 +3,7 @@ import { requestMicrophone } from '../lib/native.js';
 import { supabase } from '../lib/supabase';
 import { localDate, readCache, writeCache, timerSeconds, keyDistance } from '../lib/domain.js';
 import { broadcastUpdate, onRealtime, onRealtimeStatus } from '../lib/realtime.js';
+import { Icon, PageHeading, Section } from './Interface.jsx';
 
 const styles = {
   'Padrão': 'Arranjo original da música.', Worship: 'Pads, delay e crescendo gradual de dinâmica.',
@@ -29,7 +30,6 @@ export default function Rehearsal({ dark, events, songs, profile, connectionStat
   const activeSong = songs.find(song => song.id === session.activeSongId);
   const eventSongs = (event?.songs || []).map(id => songs.find(song => song.id === id)).filter(Boolean);
   const selectedKey = event?.keyBySong?.[activeSong?.id] || activeSong?.vocal_keys?.[event?.singerBySong?.[activeSong?.id]] || activeSong?.key;
-  const card = { padding: 18, borderRadius: 20, marginBottom: 14 };
   const apply = value => { current.current = value; setSession(value); };
   async function persist(value, selectedEventId) {
     if (!supabase || !navigator.onLine) return;
@@ -48,7 +48,7 @@ export default function Rehearsal({ dark, events, songs, profile, connectionStat
     const shared = await broadcastUpdate({ type: 'rehearsal_patch', eventId: event.id, patch, updatedAt: value.updatedAt });
     try {
       await persist(value, event.id);
-      setNotice(!supabase ? 'Ensaio salvo neste aparelho. Configure o Supabase para compartilhar.' : !shared ? 'Estado salvo. Conexão ao vivo indisponível; aguardando reconexão.' : 'Ensaio atualizado para a equipe.');
+      setNotice(!supabase ? 'Ensaio salvo neste aparelho. A conexão com a equipe está indisponível.' : !shared ? 'Estado salvo. Conexão ao vivo indisponível; aguardando reconexão.' : 'Ensaio atualizado para a equipe.');
     } catch (error) { setNotice(shared ? `Atualizado ao vivo; histórico não salvo: ${error.message}` : `Salvo neste aparelho; sincronização indisponível: ${error.message}`); }
   }
   useEffect(() => {
@@ -159,18 +159,50 @@ export default function Rehearsal({ dark, events, songs, profile, connectionStat
     } catch (error) { stream.current?.getTracks().forEach(track => track.stop()); setNotice(error.message); }
   }
   const seconds = timerSeconds(session, tick);
-  return <div data-update-blocking={recording||noteDirty||saving} style={{ padding: 16, paddingBottom: 100, color: dark ? '#E2E8F0' : '#0F172A' }}>
-    <h2>Ensaio colaborativo</h2>
-    <p role="status" style={{ margin: '8px 0 16px' }}>{connectionStatus === 'connected' ? '● Conectado em tempo real' : supabase ? 'Reconectando à equipe…' : 'Modo local neste aparelho'}</p>
-    {notice && <p role="status" className="gL1" style={card}>{notice}</p>}
-    <label>Evento do ensaio<select className="fi" value={event?.id || ''} disabled={recording} onChange={e => setEventId(e.target.value)}><option value="">Selecione um evento</option>{choices.map(item => <option key={item.id} value={item.id}>{item.date} — {item.label}</option>)}</select></label>
-    {!event ? <p>Nenhum evento disponível para ensaiar.</p> : <>
-      <section className="gL1" style={card}><h3>Selecione a Música no Ensaio</h3><div className="rehearsal-songs">{eventSongs.map(song => <button className="bSec" aria-pressed={song.id === session.activeSongId} key={song.id} onClick={() => change({ activeSongId: song.id })}>{song.title}</button>)}</div>{!eventSongs.length && <p>Este evento ainda não tem músicas.</p>}{activeSong && <><h3>Tocando agora: {activeSong.title}</h3><p>Tom: {selectedKey} · {activeSong.bpm} BPM</p><LyricView text={activeSong.lyrics || ''} st={keyDistance(activeSong.key, selectedKey)} mode="chords" dark={dark} /></>}</section>
-      <section className="gL1" style={card}><h3>Anotações do ensaio</h3><textarea className="fi" aria-label="Anotações do ensaio" value={note} disabled={!activeSong} onChange={e => {setNote(e.target.value);setNoteDirty(true);}} rows={4} /><button className="bp" disabled={!activeSong || saving} onClick={saveNote}>{saving ? 'Salvando…' : 'Salvar anotação'}</button></section>
-      <section className="gL1" style={card}><h3>Modulador de estilo sugerido</h3><div className="reading-actions" style={{ flexWrap: 'wrap' }}>{Object.keys(styles).map(style => <button className="bSec" aria-pressed={session.styleMode === style} key={style} onClick={() => change({ styleMode: style })}>{style}</button>)}</div><p>{styles[session.styleMode]}</p></section>
-      <section className="gL1" style={card}><h3>Alertas de palco</h3><div className="reading-actions" style={{ flexWrap: 'wrap' }}>{['🔊 Mais Volume!', '🎹 Mais Teclado!', '🎸 Mais Violão!', '🎙️ Mais Vocal!', '🎼 Qual o tom?', '⚠️ Errei a entrada!'].map(message => <button className="bSec" key={message} onClick={async () => { const sent = await broadcastUpdate({ type: 'stage_chat', sender: profile.name, message, eventId: event.id }); if (!sent) setNotice('Alerta não enviado: aguarde a conexão em tempo real.'); }}>{message}</button>)}</div></section>
-      <section className="gL1" style={card}><h3>Tempo de ensaio</h3><output style={{ fontSize: 36, fontVariantNumeric: 'tabular-nums' }}>{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</output><div className="reading-actions"><button className="bp" onClick={() => change({ active: !session.active, seconds, startedAt: session.active ? null : Date.now() })}>{session.active ? 'Pausar' : 'Iniciar cronômetro'}</button><button className="bSec" onClick={() => change({ active: false, seconds: 0, startedAt: null })}>Zerar</button></div></section>
-      <section className="gL1" style={card}><h3>Gravações</h3><button className="bp" onClick={recording ? () => recorder.current.stop() : record}>{recording ? 'Parar gravação' : 'Gravar ensaio'}</button>{takes.map(take => <div key={take.id}><p>{take.name}</p><audio controls src={take.url} style={{ width: '100%' }} />{profile.is_admin && <button className="bSec" onClick={async () => { const { error } = await supabase.from('rehearsal_takes').delete().eq('id', take.id); if (error) { setNotice(error.message); return; } await loadTakes(event.id); broadcastUpdate({ type: 'rehearsal_takes', eventId: event.id }); }}>Excluir gravação</button>}</div>)}</section>
+
+  const eventDate=event?new Date(event.date+'T12:00:00'):null;
+  const alerts=[
+    {message:'🔊 Mais Volume!',label:'Mais volume',icon:'sound'},
+    {message:'🎹 Mais Teclado!',label:'Mais teclado',icon:'keyboard'},
+    {message:'🎸 Mais Violão!',label:'Mais violão',icon:'guitar'},
+    {message:'🎙️ Mais Vocal!',label:'Mais vocal',icon:'mic'},
+    {message:'🎼 Qual o tom?',label:'Qual o tom?',icon:'music'},
+    {message:'⚠️ Errei a entrada!',label:'Errei a entrada',icon:'info'},
+  ];
+  return <div className="ui-scope ui-page" data-theme={dark?'dark':'light'} data-update-blocking={recording||noteDirty||saving}>
+    <PageHeading icon="mic" eyebrow="Em sintonia com a equipe" title="Ensaio colaborativo" description="Prepare cada detalhe. Toque em unidade."/>
+    <Section icon="calendar" title="Encontro da equipe" action={<span className={'ui-status '+(connectionStatus==='connected'?'ui-status-online':'')} role="status"><span className="ui-status-dot"/>{connectionStatus==='connected'?'Ao vivo':supabase?'Reconectando':'Modo local'}</span>}>
+      <label className="ui-field">Evento do ensaio<select value={event?.id||''} disabled={recording} onChange={e=>setEventId(e.target.value)}><option value="">Selecione um evento</option>{choices.map(item=><option key={item.id} value={item.id}>{item.label} · {new Date(item.date+'T12:00:00').toLocaleDateString('pt-BR')}</option>)}</select></label>
+      {event&&<div className="ui-current-event"><span className="ui-date-tile"><strong>{eventDate.getDate()}</strong>{eventDate.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')}</span><div className="ui-row-copy"><strong>{event.label}</strong><small>{eventDate.toLocaleDateString('pt-BR',{weekday:'long'})} · {event.time?.slice(0,5)} · {eventSongs.length} músicas</small></div><Icon name="music" size={20}/></div>}
+      <p className="ui-helper">{connectionStatus==='connected'?'Músicas, estilo, alertas e tempo compartilhados com a equipe.':supabase?'Aguardando a conexão com a equipe.':'As alterações ficam salvas neste aparelho.'}</p>
+    </Section>
+    {notice&&<div className="ui-message" role="status"><Icon name="info" size={17}/><span>{notice}</span></div>}
+    {!event?<div className="ui-card ui-empty"><Icon name="calendar" size={28}/><strong>Nenhum evento para ensaiar</strong><p>Os próximos cultos e ensaios aparecerão aqui.</p></div>:<>
+      <Section icon="music" title="Músicas do ensaio" description="Selecione a música que a equipe vai tocar agora." action={<span className="ui-badge">{eventSongs.length}</span>}>
+        <div className="ui-list">{eventSongs.map((song,index)=><button className="ui-list-row ui-song-choice" aria-label={song.title} aria-pressed={song.id===session.activeSongId} key={song.id} onClick={()=>change({activeSongId:song.id})}><span className="ui-row-number">{song.id===session.activeSongId?<Icon name="sound" size={15}/>:String(index+1).padStart(2,'0')}</span><span className="ui-row-copy"><strong>{song.title}</strong><small>{song.artist}</small></span><span className="ui-badge">{event?.keyBySong?.[song.id]||song?.vocal_keys?.[event?.singerBySong?.[song.id]]||song.key}</span></button>)}</div>
+        {!eventSongs.length&&<div className="ui-empty"><Icon name="music"/><strong>O setlist ainda está vazio</strong><p>Adicione músicas na edição deste evento.</p></div>}
+        {activeSong&&<div className="ui-now-playing"><span className="ui-eyebrow">Tocando agora</span><h4 aria-label={'Tocando agora: '+activeSong.title}>{activeSong.title}</h4><p className="ui-helper">Tom {selectedKey} · {activeSong.bpm} BPM</p><div className="ui-rehearsal-lyrics"><LyricView text={activeSong.lyrics||''} st={keyDistance(activeSong.key,selectedKey)} mode="chords" dark={dark}/></div></div>}
+      </Section>
+      <Section icon="note" title="Anotações do ensaio" description="Combine entradas, repetições e detalhes do arranjo.">
+        <label className="ui-field"><span className="ui-sr-only">Anotações do ensaio</span><textarea aria-label="Anotações do ensaio" placeholder={activeSong?'O que a equipe precisa lembrar?':'Selecione uma música para anotar.'} value={note} disabled={!activeSong} onChange={e=>{setNote(e.target.value);setNoteDirty(true);}} rows={4}/></label>
+        <button className="ui-button ui-button-primary ui-button-wide" style={{marginTop:12}} disabled={!activeSong||saving} onClick={saveNote}><Icon name="check" size={16}/>{saving?'Salvando…':'Salvar anotação'}</button>
+      </Section>
+      <Section icon="sparkles" title="Modulador de estilo sugerido" description="Defina a direção musical para este ensaio.">
+        <div className="ui-chip-group">{Object.keys(styles).map(style=><button className="ui-chip" aria-pressed={session.styleMode===style} key={style} onClick={()=>change({styleMode:style})}>{style}</button>)}</div>
+        <p className="ui-helper" style={{marginTop:14}}>{styles[session.styleMode]}</p>
+      </Section>
+      <Section icon="sound" title="Alertas de palco" description="Um toque avisa quem está conectado ao ensaio.">
+        <div className="ui-rehearsal-grid">{alerts.map(alert=><button className="ui-button ui-alert-button" key={alert.message} aria-label={alert.message} onClick={async()=>{const sent=await broadcastUpdate({type:'stage_chat',sender:profile.name,message:alert.message,eventId:event.id});if(!sent)setNotice('Alerta não enviado: aguarde a conexão em tempo real.');}}><Icon name={alert.icon} size={19}/>{alert.label}</button>)}</div>
+      </Section>
+      <Section icon="timer" title="Tempo de ensaio" className="ui-timer" action={<span className="ui-badge">{session.active?'Em andamento':'Pausado'}</span>}>
+        <output style={{fontVariantNumeric:'tabular-nums'}}>{String(Math.floor(seconds/60)).padStart(2,'0')}:{String(seconds%60).padStart(2,'0')}</output><p>O mesmo tempo para toda a equipe.</p>
+        <div className="ui-timer-actions"><button className="ui-button ui-button-primary" onClick={()=>change({active:!session.active,seconds,startedAt:session.active?null:Date.now()})}><Icon name={session.active?'pause':'play'} size={16}/>{session.active?'Pausar':'Iniciar cronômetro'}</button><button className="ui-button" onClick={()=>change({active:false,seconds:0,startedAt:null})}><Icon name="reset" size={16}/>Zerar</button></div>
+      </Section>
+      <Section icon="mic" title="Gravações" description="Registre o ensaio para ouvir depois.">
+        <button className={'ui-button ui-button-wide '+(recording?'ui-recording-button':'ui-button-soft')} onClick={recording?()=>recorder.current.stop():record}><Icon name={recording?'pause':'mic'} size={17}/>{recording?'Parar gravação':'Gravar ensaio'}</button>
+        {!takes.length&&<p className="ui-helper" style={{marginTop:12}}>As gravações compartilhadas aparecem aqui.</p>}
+        {takes.map(take=><div className="ui-take" key={take.id}><p>{take.name}</p><audio controls src={take.url}/>{profile.is_admin&&<button className="ui-button ui-button-quiet ui-button-small" onClick={async()=>{const {error}=await supabase.from('rehearsal_takes').delete().eq('id',take.id);if(error){setNotice(error.message);return;}await loadTakes(event.id);broadcastUpdate({type:'rehearsal_takes',eventId:event.id});}}>Excluir gravação</button>}</div>)}
+      </Section>
     </>}
   </div>;
 }

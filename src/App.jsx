@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo, useCallback, Component } from 'react';
+import { useState, useEffect, useRef, useMemo, useId, memo, useCallback, Component } from 'react';
 import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, deleteEvent as dbDelEvent, rejectDeleteEvent, setEventItems, setSingerForSong, saveVocalKey } from './lib/supabase';
 import {  searchSongCandidates, fetchCifraClubContent } from './lib/scraper';
 import { createPortal } from 'react-dom';
@@ -6,6 +6,7 @@ import { printCifra } from './lib/native.js';
 import { checkForAppUpdate } from './lib/app-updates.js';
 import Bible from './components/Bible.jsx';
 import Rehearsal from './components/Rehearsal.jsx';
+import { Dialog, Icon, Section, SearchField } from './components/Interface.jsx';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
 import { onRealtime, onRealtimeStatus, broadcastUpdate, disconnectRealtime } from './lib/realtime.js';
@@ -1945,7 +1946,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
     }
   };
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
-  const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
+  const gc='ui-card', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
   const curKey=getKey(sKey,tr);
 
 
@@ -1983,43 +1984,24 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
   // Usa ytUrl como fallback quando media_url não está preenchida
   const embedUrl = getEmbedUrl(song.media_url || song.ytUrl);
 
-  return <div data-update-blocking={isDirty||isEditingLyrics||saving} style={{padding:16}}>
+  return <div className="ui-scope ui-page" data-theme={dark?'dark':'light'} data-update-blocking={isDirty||isEditingLyrics||saving}>
     {/* Key info card */}
     <div className={`${gc} aUp`} style={CS}>
       <Bdg cat={song.cat}/>
       <div className="font-serif" style={{fontSize:26,fontWeight:900,color:tc,marginTop:8,letterSpacing:'-.02em',lineHeight:1.15}}>{sTitle}</div>
       <div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:3,marginBottom:16}}>{sArtist}</div>
 
-      <div className="reading-actions" style={{marginBottom:12}}><button className="bSec" aria-label="Baixar um semitom" onClick={()=>setTr(n=>n-1)}>− Tom</button><button className="bSec" onClick={()=>setTr(0)}>Original: {sKey}</button><button className="bSec" aria-label="Subir um semitom" onClick={()=>setTr(n=>n+1)}>+ Tom</button></div>
-      <label>Tom por vocal<select className="fi" aria-label="Vocal para o tom" value={vocalId} onChange={e=>{setVocalId(e.target.value);const key=song.vocal_keys?.[e.target.value]||sKey;setTr(keyDistance(sKey,key));}}>{members.filter(m=>(m.instrument||'').match(/vocal|voz/i)).map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label>
-      {(profile?.is_admin||vocalId===profile?.id)&&<button className="bSec" onClick={()=>onSaveVocalKey(song.id,vocalId,curKey)}>Salvar tom deste vocal</button>}
-      {/* Key and tempo */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-        {/* Tom */}
-        <div style={{position:'relative'}}>
-          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:8}}>Tom</div>
-          <div style={{position:'relative',background:dark?'rgba(168,85,247,.06)':'rgba(79,70,229,.08)',border:`1.5px solid ${dark?'rgba(168,85,247,.12)':'rgba(79,70,229,.18)'}`,borderRadius:'var(--r-lg)',padding:'0 12px',height:44,display:'flex',alignItems:'center',cursor:'pointer',transition:'all .2s'}}>
-            <select aria-label="Tom da cifra" value={curKey} onChange={e=>setTr(keyDistance(sKey,e.target.value))} style={{width:'100%',height:'100%',padding:0,border:'none',background:'transparent',color:tc,fontSize:16,fontWeight:700,appearance:'none',cursor:'pointer',font:'inherit'}}>
-              {[...new Set([...KEYS,...KEYS.map(k=>k+'m'),'Db','Eb','Gb','Ab','Bb',curKey])].map(k=> <option key={k} value={k}>{k}</option>)}
-            </select>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={t2} style={{position:'absolute',right:10,pointerEvents:'none'}}>
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </div>
-          {tr!==0&&<div style={{fontSize:'var(--fs-xs)',color:'#A855F7',marginTop:6,fontWeight:700}}>{curKey} ({tr>0?'+':''}{tr} semitom)</div>}
-        </div>
 
-        {/* BPM */}
-        <div style={{position:'relative'}}>
-          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:8}}>BPM</div>
-          <div style={{display:'flex',alignItems:'center',gap:8,background:dark?'rgba(245,158,11,.04)':'rgba(245,158,11,.08)',border:`1.5px solid ${dark?'rgba(245,158,11,.1)':'rgba(245,158,11,.16)'}`,borderRadius:'var(--r-lg)',padding:'0 10px',height:44}}>
-            <button onClick={()=>{setEditBpm(Math.max(20,editBpm-1)); markDirty();}} style={{width:36,height:36,border:'none',background:'rgba(0,0,0,.08)',borderRadius:'var(--r-md)',color:tc,cursor:'pointer',fontSize:18,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>−</button>
-            <input type="number" min="20" max="300" value={editBpm} onChange={e=>{setEditBpm(Math.max(20,Math.min(300,parseInt(e.target.value)||80))); markDirty();}} style={{flex:1,border:'none',background:'transparent',color:'#F59E0B',fontSize:18,fontWeight:900,textAlign:'center',font:"'JetBrains Mono',monospace"}}/>
-            <button onClick={()=>{setEditBpm(Math.min(300,editBpm+1)); markDirty();}} style={{width:36,height:36,border:'none',background:'rgba(0,0,0,.08)',borderRadius:'var(--r-md)',color:tc,cursor:'pointer',fontSize:18,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>+</button>
-          </div>
-        </div>
+      <div className="ui-transpose" role="group" aria-label="Transpor a cifra"><button className="ui-button ui-button-soft" aria-label="Baixar um semitom" onClick={()=>setTr(n=>n-1)}>− Tom</button><button className="ui-button ui-button-quiet" onClick={()=>setTr(0)}>Original: {sKey}</button><button className="ui-button ui-button-soft" aria-label="Subir um semitom" onClick={()=>setTr(n=>n+1)}>+ Tom</button></div>
+      <div className="ui-fields">
+        <label className="ui-field">Tom<select aria-label="Tom da cifra" value={curKey} onChange={e=>setTr(keyDistance(sKey,e.target.value))}>{[...new Set([...KEYS,...KEYS.map(k=>k+'m'),'Db','Eb','Gb','Ab','Bb',curKey])].map(k=><option key={k} value={k}>{k}</option>)}</select></label>
+        <label className="ui-field">BPM<div className="ui-stepper"><button aria-label="Diminuir BPM" onClick={()=>{setEditBpm(Math.max(20,editBpm-1));markDirty();}}>−</button><input aria-label="BPM" type="number" min="20" max="300" value={editBpm} onChange={e=>{setEditBpm(Math.max(20,Math.min(300,parseInt(e.target.value)||80)));markDirty();}}/><button aria-label="Aumentar BPM" onClick={()=>{setEditBpm(Math.min(300,editBpm+1));markDirty();}}>+</button></div></label>
       </div>
-
+      {tr!==0&&<p className="ui-helper">Tom atual: {curKey} · {tr>0?'+':''}{tr} semitom</p>}
+      <div className="ui-vocal-key">
+        <label className="ui-field">Tom por vocal<select aria-label="Vocal para o tom" value={vocalId} onChange={e=>{setVocalId(e.target.value);const key=song.vocal_keys?.[e.target.value]||sKey;setTr(keyDistance(sKey,key));}}>{members.filter(m=>(m.instrument||'').match(/vocal|voz/i)).map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label>
+        {(profile?.is_admin||vocalId===profile?.id)&&<button className="ui-button ui-button-soft ui-button-wide" style={{marginTop:10}} onClick={()=>onSaveVocalKey(song.id,vocalId,curKey)}><Icon name="check" size={15}/>Salvar tom deste vocal</button>}
+      </div>
       {isDirty && <div style={{display:'flex',gap:8,marginTop:12}}><button disabled={saving} onClick={handleSaveMetadata} className="bp" style={{flex:1,padding:'10px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>✓ Salvar</button><button onClick={()=>{setEditKey(String(song?.key||'')); setEditBpm(parseInt(song?.bpm)||80); setIsDirty(false);}} style={{flex:1,padding:'10px 14px',borderRadius:'var(--r-md)',border:`1.5px solid ${dark?'rgba(168,85,247,.2)':'rgba(79,70,229,.25)'}`,background:'transparent',color:tc,fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer'}}>✕ Cancelar</button></div>}
     </div>
 
@@ -2035,7 +2017,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
       </div>
     )}
 
-    <div className="reading-actions"><button className="bSec" aria-pressed={mode==='chords'} onClick={()=>setMode('chords')}>Letra e acordes</button><button className="bSec" aria-pressed={mode==='lyrics'} onClick={()=>setMode('lyrics')}>Somente letra</button></div>
+    <div className="ui-mode-buttons"><button className="ui-chip" aria-pressed={mode==='chords'} onClick={()=>setMode('chords')}>Letra e acordes</button><button className="ui-chip" aria-pressed={mode==='lyrics'} onClick={()=>setMode('lyrics')}>Somente letra</button></div>
     {/* Mode controls */}
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.1s'}}>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
@@ -2061,7 +2043,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
       </div>
       {isEditingLyrics?(
         <>
-          <textarea value={editLyrics} onChange={e=>{setEditLyrics(e.target.value); markDirty();}} rows={14} style={{width:'100%',minHeight:300,padding:14,borderRadius:'var(--r-lg)',border:`1.5px solid rgba(168,85,247,.2)`,background:dark?'#0f172a':'#fff',color:tc,fontSize:'var(--fs-sm)',fontFamily:'inherit',lineHeight:1.6,resize:'vertical',transition:'border .2s'}} placeholder="Cole a letra aqui..." />
+          <textarea className="ui-manual-lyrics" aria-label="Editar cifra" value={editLyrics} onChange={e=>{setEditLyrics(e.target.value);markDirty();}} rows={14} placeholder="Cole ou digite a cifra aqui..." />
           <div style={{display:'flex',gap:8,marginTop:12}}>
             <button disabled={saving} onClick={handleSaveMetadata} className="bp" style={{flex:1,padding:'10px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>✓ Salvar Letra</button>
             <button onClick={()=>{setEditLyrics(String(song?.lyrics||'')); setIsDirty(false); setIsEditingLyrics(false);}} style={{flex:1,padding:'10px 14px',borderRadius:'var(--r-md)',border:`1.5px solid ${dark?'rgba(168,85,247,.2)':'rgba(79,70,229,.25)'}`,background:'transparent',color:tc,fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer'}}>Descartar</button>
@@ -2776,11 +2758,12 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
     </div>
   </>;
 });
-/* ─── CREATE EVENT OVERLAY (Qualquer Usuário) ─────────────────────────── */
+/* ─── EVENT EDITOR ──────────────────────────────────────────── */
 const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSave,onClose})=>{
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
 
   const [form,setForm]=useState({date:editEvent?.date||initialDate||'',time:editEvent?.time||'19:00',type:editEvent?.type||'culto',label:editEvent?.label||'',theme:editEvent?.theme||'',selMembers:editEvent?.members||[],selSongs:editEvent?.songs||[],requestedSongs:editEvent?.requested_songs||[],santaCeiaSong:editEvent?.santa_ceia_song||null,singerBySong:editEvent?.singerBySong||{}});
+  const [tab,setTab]=useState('details');
+  const tabId=useId();
   const [memberSearch,setMemberSearch]=useState('');
   const [songSearch,setSongSearch]=useState('');
   const [saving,setSaving]=useState(false);
@@ -2917,107 +2900,83 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
   const filtM=members.filter(m=>m.name.toLowerCase().includes(memberSearch.toLowerCase()));
   const filtS=songs.filter(s=>s.title.toLowerCase().includes(songSearch.toLowerCase()));
 
-  return <>
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:99,backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',animation:'fadeIn .2s'}} onClick={onClose}/>
-    <div data-update-blocking={true} className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'94dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .42s cubic-bezier(.22,1,.36,1)'}}>
-      <div style={{display:'flex',justifyContent:'center',padding:'14px 0 0'}}><div style={{width:44,height:4,borderRadius:100,background:'rgba(127,127,127,.22)'}}/></div>
-      <div style={{padding:'16px 20px 52px'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div style={{fontSize:18,fontWeight:900,color:tc,display:'flex',alignItems:'center',gap:8}}><IcoCalPlus s={18}/>Novo Compromisso</div>
-          <button onClick={onClose} style={{width:34,height:34,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.07)',color:t2,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={14}/></button>
+
+  const hasSetlist = form.type !== 'ebd' && form.type !== 'consagracao';
+  const activeTab = !hasSetlist && tab === 'setlist' ? 'details' : tab;
+  const tabs = [{id:'details',label:'Detalhes',icon:'calendar'},...(hasSetlist?[{id:'setlist',label:'Setlist',icon:'music',count:form.selSongs.length}]:[]),{id:'team',label:'Equipe',icon:'users',count:form.selMembers.length}];
+  const selectedCount = new Set([...form.selSongs,...form.requestedSongs,...(form.santaCeiaSong?[form.santaCeiaSong]:[])]).size;
+  const types = {culto:'Culto',ensaio:'Ensaio',ebd:'EBD',consagracao:'Consagração',outro:'Outro'};
+  function tabKeys(event) {
+    const direction = {ArrowRight:1,ArrowLeft:-1}[event.key];
+    if (!direction && !['Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (tabs.findIndex(item=>item.id===activeTab)+direction+tabs.length)%tabs.length;
+    setTab(tabs[index].id);
+    document.getElementById(tabId+'-'+tabs[index].id)?.focus();
+  }
+  return <Dialog dark={dark} title={editEvent?'Editar evento':'Novo evento'} description="Organize os detalhes, as músicas e a equipe." busy={saving} onClose={onClose} contentKey={activeTab}
+    tabs={<div className="ui-dialog-tabs" role="tablist" aria-label="Edição do evento" onKeyDown={tabKeys} style={{gridTemplateColumns:'repeat('+tabs.length+', minmax(0,1fr))'}}>
+      {tabs.map(item=><button key={item.id} className="ui-dialog-tab" role="tab" id={tabId+'-'+item.id} aria-controls={tabId+'-panel'} aria-label={item.label} aria-selected={activeTab===item.id} tabIndex={activeTab===item.id?0:-1} onClick={()=>setTab(item.id)}><Icon name={item.icon} size={16}/>{item.label}{item.count!==undefined&&<span>{item.count}</span>}</button>)}
+    </div>}
+    footer={<>
+      {saveError&&<div className="ui-message ui-error" role="alert">{saveError}</div>}
+      <div className="ui-dialog-summary">{hasSetlist&&<span><Icon name="music" size={14}/>{selectedCount} músicas</span>}<span><Icon name="users" size={14}/>{form.selMembers.length} pessoas na equipe</span></div>
+      <div className="ui-dialog-buttons"><button className="ui-button" onClick={onClose} disabled={saving}>Cancelar</button><button className="ui-button ui-button-primary" onClick={save} disabled={saving||!form.date||!form.label}><Icon name="check" size={17}/>{saving?'Salvando…':editEvent?'Salvar Alterações':'Criar Compromisso'}</button></div>
+    </>}>
+    <div role="tabpanel" id={tabId+'-panel'} aria-labelledby={tabId+'-'+activeTab}>
+    {activeTab==='details'&&<>
+      <details className="ui-card ui-presets">
+        <summary><Icon name="sparkles" size={18}/><span>Usar um modelo de evento</span><Icon name="down" size={16}/></summary>
+        <div className="ui-chip-group">{PRESETS.map(p=><button key={p.label} className="ui-chip" onClick={()=>setForm(f=>({...f,label:p.label,time:p.time,type:p.type,selMembers:p.members.length?p.members:f.selMembers}))}>{p.label}</button>)}</div>
+      </details>
+      <Section icon="calendar" title="Sobre o evento">
+        <span className="ui-field-label">Tipo de evento</span>
+        <div className="ui-chip-group" style={{marginBottom:18}}>{Object.entries(types).map(([id,label])=><button key={id} className="ui-chip" aria-pressed={form.type===id} onClick={()=>setForm(f=>({...f,type:id}))}>{label}</button>)}</div>
+        <label className="ui-field">Nome do evento <input value={form.label} onChange={e=>setForm(f=>({...f,label:e.target.value}))} placeholder="Nome do compromisso *" required/></label>
+        <div className="ui-fields" style={{marginTop:16}}>
+          <label className="ui-field">Data <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} required/></label>
+          <label className="ui-field">Horário <input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))}/></label>
         </div>
-        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <label className="ui-field">Tema <input value={form.theme} onChange={e=>setForm(f=>({...f,theme:e.target.value}))} placeholder="Tema ou título (opcional)"/></label>
+      </Section>
+      {!editEvent&&<Section icon="reset" title="Repetição">
+        <div className="ui-switch-row"><div><strong>Repetir semanalmente</strong><small>Cria os eventos nas próximas semanas.</small></div><button className="ui-switch" role="switch" aria-label="Repetir semanalmente" aria-checked={isRecurring} onClick={()=>setIsRecurring(p=>!p)}><span/></button></div>
+        {isRecurring&&<label className="ui-field" style={{marginTop:16}}>Número de ocorrências<input type="number" min="2" max="12" value={occurrences} onChange={e=>setOccurrences(Math.max(2,Math.min(12,Number(e.target.value)||2)))}/></label>}
+      </Section>}
+    </>}
+    {activeTab==='setlist'&&<>
+      <Section icon="music" title="Ordem das músicas" description="Use as setas para organizar a sequência." action={form.type==='culto'&&<button className="ui-button ui-button-soft ui-button-small" onClick={autoGenerate}><Icon name="sparkles" size={14}/>Auto-gerar</button>}>
+        {form.selSongs.length?<ol className="ui-list" aria-label="Músicas do setlist">{form.selSongs.map((id,index)=>{const song=songs.find(item=>item.id===id);return <li key={id} className="ui-list-row ui-ordered-song">
+          <span className="ui-row-number">{String(index+1).padStart(2,'0')}</span><div className="ui-row-copy"><strong>{song?.title||'Música indisponível'}</strong><small>{song?.artist}{song?.key?' · '+song.key:''}</small></div>
+          <div className="ui-row-actions"><button className="ui-icon-button" aria-label={'Subir '+song?.title} disabled={index===0} onClick={()=>moveSong(index,-1)}><Icon name="up" size={16}/></button><button className="ui-icon-button" aria-label={'Descer '+song?.title} disabled={index===form.selSongs.length-1} onClick={()=>moveSong(index,1)}><Icon name="down" size={16}/></button><button className="ui-icon-button" aria-label={'Remover '+song?.title} onClick={()=>toggleSong(id)}><Icon name="close" size={15}/></button></div>
+        </li>;})}</ol>:<div className="ui-empty"><Icon name="music" size={26}/><strong>O setlist começa aqui</strong><p>Selecione as músicas no repertório abaixo.</p></div>}
+      </Section>
+      {form.type==='culto'&&<details className="ui-card ui-presets"><summary><Icon name="note" size={18}/><span>Pedidos e Santa Ceia</span><Icon name="down" size={16}/></summary>
+        <p className="ui-helper" style={{marginBottom:16}}>Escolha entre todas as músicas do repertório.</p>
+        <label className="ui-field">Música da Santa Ceia<select value={form.santaCeiaSong||''} onChange={e=>setForm(f=>({...f,santaCeiaSong:e.target.value}))}><option value="">Nenhuma</option>{songs.map(song=><option key={song.id} value={song.id}>{song.title} ({song.artist})</option>)}</select></label>
+        <label className="ui-field">Músicas pedidas<select value="" onChange={e=>{if(e.target.value)toggleRequestedSong(e.target.value);}}><option value="">+ Adicionar música pedida...</option>{songs.filter(song=>!form.requestedSongs.includes(song.id)).map(song=><option key={song.id} value={song.id}>{song.title} ({song.artist})</option>)}</select></label>
+        {!!form.requestedSongs.length&&<div className="ui-chip-group" style={{marginTop:12}}>{form.requestedSongs.map(id=>{const song=songs.find(item=>item.id===id);return song?<button key={id} className="ui-chip" aria-label={'Remover pedido '+song.title} onClick={()=>toggleRequestedSong(id)}>{song.title}<Icon name="close" size={12}/></button>:null;})}</div>}
+        <p className="ui-helper">Os pedidos e a música da ceia também entram no setlist ao salvar.</p>
+      </details>}
+      <Section icon="plus" title="Adicionar do repertório" description="Toque nas músicas que farão parte deste evento.">
+        <SearchField label="Buscar música no repertório" value={songSearch} onChange={e=>setSongSearch(e.target.value)} placeholder="Buscar música..."/>
+        <div className="ui-list" style={{marginTop:12}}>{filtS.map(song=><button key={song.id} className="ui-list-row ui-song-choice" aria-label={'Selecionar '+song.title} aria-pressed={form.selSongs.includes(song.id)} onClick={()=>toggleSong(song.id)}>
+          <span className="ui-selection"><Icon name={form.selSongs.includes(song.id)?'check':'plus'} size={14}/></span><div className="ui-row-copy"><strong>{song.title}</strong><small>{song.artist} · {(CAT[song.cat]||{}).label||song.cat}</small></div><span className="ui-badge">{song.key}</span>
+        </button>)}</div>
+        {!filtS.length&&<div className="ui-empty"><Icon name="search"/><strong>Nenhuma música encontrada</strong><p>Tente buscar por outro nome.</p></div>}
+      </Section>
 
-          <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
-            {PRESETS.map(p=><button key={p.label} onClick={()=>setForm(f=>({...f,label:p.label,time:p.time,type:p.type,selMembers:p.members.length?p.members:f.selMembers}))} style={{flexShrink:0,padding:'7px 12px',borderRadius:100,border:'none',background:dark?'rgba(255,255,255,.05)':'rgba(79,70,229,.05)',color:tc,fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>{p.label}</button>)}
-          </div>
-
-          {/* Type */}
-          <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
-            {['culto','ensaio','ebd','consagracao','outro'].map(tp=><button key={tp} onClick={()=>setForm(f=>({...f,type:tp}))} style={{flexShrink:0,padding:'10px 14px',borderRadius:'var(--r-md)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:form.type===tp?'#4F46E5':'rgba(79,70,229,.07)',color:form.type===tp?'#fff':'#4F46E5',transition:'all .18s',textTransform:'capitalize'}}>{tp}</button>)}
-          </div>
-          {/* Label */}
-          <div className="gIn"><input className="fi" value={form.label} onChange={e=>setForm(f=>({...f,label:e.target.value}))} placeholder="Nome do compromisso *" style={{color:tc}}/></div>
-          {/* Date + Time */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-            <div>
-              <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,marginBottom:6,textTransform:'uppercase',letterSpacing:'.1em'}}>Data Inicial</div>
-              <div className="gIn"><input className="fi" type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{color:tc}}/></div>
-            </div>
-            <div>
-              <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,marginBottom:6,textTransform:'uppercase',letterSpacing:'.1em'}}>Horário</div>
-              <div className="gIn"><input className="fi" type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={{color:tc}}/></div>
-            </div>
-          </div>
-          {/* Recurrence */}
-          {!editEvent&&<>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)',padding:'12px',borderRadius:'var(--r-md)',border:isRecurring?'1px solid rgba(16,185,129,.3)':'1px solid transparent'}}>
-            <div style={{flex:1}}>
-              <div style={{fontSize:'var(--fs-sm)',fontWeight:900,color:isRecurring?'#10B981':tc}}>Repetir semanalmente</div>
-              <div style={{fontSize:'var(--fs-xs)',color:t2}}>Gera os eventos e escalas automaticamente</div>
-            </div>
-            <button className={`tog${isRecurring?' on':''}`} onClick={()=>setIsRecurring(p=>!p)} style={{background:isRecurring?'#10B981':'#CBD5E1',transform:'scale(1.1)'}}/>
-          </div>
-          {isRecurring&&<div className="gIn" style={{display:'flex',alignItems:'center',gap:10,padding:'0 14px'}}>
-             <span style={{fontSize:'var(--fs-sm)',color:t2,fontWeight:600}}>Ocorrências:</span>
-             <input type="number" min="2" max="12" value={occurrences} onChange={e=>setOccurrences(Number(e.target.value))} className="fi" style={{flex:1,color:tc,textAlign:'right'}}/>
-          </div>}
-          </>}
-
-          {/* Theme */}
-          <div className="gIn"><input className="fi" value={form.theme} onChange={e=>setForm(f=>({...f,theme:e.target.value}))} placeholder="Tema / título (opcional)" style={{color:tc}}/></div>
-          {/* Members */}
-          <div>
-            <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Escalar membros ({form.selMembers.length})</div>
-            <div className="gIn" style={{marginBottom:8}}><input className="fi" value={memberSearch} onChange={e=>setMemberSearch(e.target.value)} placeholder="Buscar membro..." style={{color:tc,padding:'8px 14px'}}/></div>
-            <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:160,overflowY:'auto'}}>
-              {filtM.map(m=><button key={m.id} onClick={()=>toggleMember(m.id)} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:'var(--r-md)',border:`1.5px solid ${form.selMembers.includes(m.id)?m.color:'transparent'}`,background:form.selMembers.includes(m.id)?`${m.color}14`:'rgba(0,0,0,.03)',cursor:'pointer',transition:'all .15s'}}>
-                <Ava m={m} size={28} ring/>
-                <span style={{flex:1,fontSize:'var(--fs-sm)',fontWeight:700,color:tc,textAlign:'left'}}>{m.name}</span>
-                <span style={{fontSize:'var(--fs-xs)',color:t2}}>{m.instrument}</span>
-                {form.selMembers.includes(m.id)&&<IcoCheck s={14}/>}
-              </button>)}
-            </div>
-          </div>
-
-          {/* Requested Songs & Santa Ceia */}
-          {form.type === 'culto' && <div style={{background:dark?'rgba(255,255,255,.03)':'rgba(0,0,0,.02)',padding:12,borderRadius:'var(--r-md)'}}>
-            <div style={{marginBottom:10}}>
-              <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,marginBottom:6,textTransform:'uppercase',letterSpacing:'.1em'}}>Música Santa Ceia (se houver)</div>
-              <div className="gIn"><select className="fi" value={form.santaCeiaSong||''} onChange={e=>setForm(f=>({...f,santaCeiaSong:e.target.value}))} style={{color:tc,padding:'8px 10px'}}><option value="">Nenhuma</option>{songs.map(s=><option key={s.id} value={s.id}>{s.title} ({s.artist})</option>)}</select></div>
-            </div>
-            <div>
-              <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Músicas Pedidas ({form.requestedSongs.length})</div>
-              <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                {form.requestedSongs.map(id=>{const s=songs.find(x=>x.id===id);return s?<span key={id} onClick={()=>toggleRequestedSong(id)} style={{padding:'4px 10px',borderRadius:100,background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}15`,color:(CAT[s.cat]||{color:'#94A3B8'}).color,fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>{s.title} ✕</span>:null;})}
-              </div>
-              <div className="gIn" style={{marginTop:8}}><select className="fi" value="" onChange={e=>toggleRequestedSong(e.target.value)} style={{color:tc,padding:'8px 10px'}}><option value="">+ Adicionar música pedida...</option>{songs.filter(s=>!form.requestedSongs.includes(s.id)).map(s=><option key={s.id} value={s.id}>{s.title} ({s.artist})</option>)}</select></div>
-            </div>
-          </div>}
-
-          {/* Songs */}
-          {form.type !== 'ebd' && form.type !== 'consagracao' && <div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-              <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em'}}>Setlist ({form.selSongs.length} músicas)</div>
-              {form.type === 'culto' && <button onClick={autoGenerate} style={{fontSize:'var(--fs-xs)',color:'#4F46E5',background:'rgba(79,70,229,.1)',padding:'4px 10px',borderRadius:100,border:'none',cursor:'pointer',fontWeight:700}}><IcoSpark s={12}/> Auto-gerar</button>}
-            </div>
-            <ol style={{listStyle:'none',padding:0,marginBottom:12}}>{form.selSongs.map((id,index)=>{const song=songs.find(item=>item.id===id);return <li key={id} className="reading-actions"><span style={{flex:1}}>{index+1}. {song?.title}</span><button aria-label={`Subir ${song?.title}`} disabled={index===0} onClick={()=>moveSong(index,-1)}>↑</button><button aria-label={`Descer ${song?.title}`} disabled={index===form.selSongs.length-1} onClick={()=>moveSong(index,1)}>↓</button><button aria-label={`Remover ${song?.title}`} onClick={()=>toggleSong(id)}>✕</button></li>;})}</ol>
-            <div className="gIn" style={{marginBottom:8}}><input className="fi" value={songSearch} onChange={e=>setSongSearch(e.target.value)} placeholder="Buscar música..." style={{color:tc,padding:'8px 14px'}}/></div>
-            <div style={{display:'flex',flexDirection:'column',gap:5,minHeight:260,maxHeight:'50dvh',overflowY:'auto',overscrollBehavior:'contain'}}>
-              {filtS.map(s=><button key={s.id} onClick={()=>toggleSong(s.id)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:'var(--r-sm)',border:`1.5px solid ${form.selSongs.includes(s.id)?(CAT[s.cat]||{color:'#94A3B8'}).color:'transparent'}`,background:form.selSongs.includes(s.id)?`${(CAT[s.cat]||{color:'#94A3B8'}).color}10`:'rgba(0,0,0,.03)',cursor:'pointer',transition:'all .15s'}}>
-                <div style={{width:8,height:8,borderRadius:'50%',background:(CAT[s.cat]||{color:'#94A3B8'}).color,flexShrink:0}}/>
-                <span style={{flex:1,fontSize:'var(--fs-sm)',fontWeight:700,color:tc,textAlign:'left'}}>{s.title}</span>
-                <KeyChip k={s.key} size={9}/>
-                {form.selSongs.includes(s.id)&&<IcoCheck s={12}/>}
-              </button>)}
-            </div>
-          </div>}
-          {saveError&&<p role="alert">{saveError}</p>}
-          <button className="bp" onClick={save} disabled={saving||!form.date||!form.label}>{editEvent?'Salvar Alterações':'Criar Compromisso'}</button>
-        </div>
-      </div>
+    </>}
+    {activeTab==='team'&&<Section icon="users" title="Equipe escalada" description="Selecione quem vai participar deste evento.">
+      <SearchField label="Buscar membro" value={memberSearch} onChange={e=>setMemberSearch(e.target.value)} placeholder="Buscar membro..."/>
+      <div className="ui-section-label"><span>{form.selMembers.length} pessoas selecionadas</span><span>{filtM.length} disponíveis</span></div>
+      <div className="ui-list">{filtM.map(member=><button key={member.id} className="ui-list-row ui-song-choice" aria-label={member.name} aria-pressed={form.selMembers.includes(member.id)} onClick={()=>toggleMember(member.id)}>
+        <span className="ui-avatar" style={{'--avatar-tint':member.color?member.color+'18':undefined,'--avatar-color':member.color}}>{member.avatar||member.name.split(' ').map(part=>part[0]).slice(0,2).join('')}</span><div className="ui-row-copy"><strong>{member.name}</strong><small>{member.instrument||member.role||'Membro'}</small></div><span className="ui-selection">{form.selMembers.includes(member.id)&&<Icon name="check" size={14}/>}</span>
+      </button>)}</div>
+      {!filtM.length&&<div className="ui-empty"><Icon name="users"/><strong>Nenhuma pessoa encontrada</strong><p>Tente buscar por outro nome.</p></div>}
+    </Section>}
     </div>
-  </>;
+  </Dialog>;
 });
 
 /* ─── EVENT SHEET ───────────────────────────────────────────── */
@@ -4052,7 +4011,7 @@ export default function LouveSync() {
             :<div style={{display:'flex',alignItems:'center',gap:10}}>
               <img src="/logo_solo.png" alt="Louve" style={{height:34, objectFit:'contain', filter: dark?'drop-shadow(0 2px 8px rgba(123,63,242,0.5))':'drop-shadow(0 2px 4px rgba(123,63,242,0.2))'}} />
               <div>
-                <div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:tc,letterSpacing:'-.03em',lineHeight:1,background:dark?'linear-gradient(135deg,#A855F7,#FF8C5A)':'linear-gradient(135deg,#7B3FF2,#FF6B35)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>Louve</div>
+                <div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:tc,letterSpacing:'-.03em',lineHeight:1,backgroundImage:dark?'linear-gradient(135deg,#A855F7,#FF8C5A)':'linear-gradient(135deg,#7B3FF2,#FF6B35)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>Louve</div>
                 <div style={{fontSize:8,color:dark?'#7B5FA8':'#8B6BB0',fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',WebkitTextFillColor:'initial'}}>seu ministério em harmonia</div>
               </div>
             </div>}

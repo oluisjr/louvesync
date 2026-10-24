@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { Component } from 'react'
 import './index.css'
+import './interface.css'
 import App from './App.jsx'
 import UpdateNotice from './components/UpdateNotice.jsx'
 import { startAppUpdates } from './lib/app-updates.js'
