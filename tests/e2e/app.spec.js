@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import { strFromU8, unzipSync } from 'fflate';
 import { encodeSequence } from '../../src/lib/domain.js';
+import { encodeEventPreferences } from '../../src/lib/event-preferences.js';
 const names = [...fs.readFileSync('src/lib/supabase.js','utf8').matchAll(/export async function (\w+)/g)].map(match => match[1]);
 const admin = { id: 'user-admin', name: 'Admin Teste', instrument: 'Vocal', role: 'Vocal', avatar: 'AT', color: '#7B3FF2', status: 'ativo', is_admin: true };
 const member = { ...admin, id: 'user-member', name: 'Membro Teste', is_admin: false };
@@ -37,10 +38,15 @@ async function fixture(browser) {
       if (action === 'setPresence') { state.events[0].event_members.find(row => row.member_id === args[1]).confirmed = args[2]; return; }
       if (action === 'upsertSong') { const index = state.songs.findIndex(song => song.id === args[0].id); if(index<0)state.songs.push(args[0]);else state.songs[index]=args[0];return args[0]; }
       if (action === 'saveVocalKey') { const song=state.songs.find(song=>song.id===args[0]);song.vocal_keys[args[1]]=args[2];return song.vocal_keys; }
-      if (action === 'upsertEvent') { const index=state.events.findIndex(event=>event.id===args[0].id);if(index<0)state.events.push(args[0]);else state.events[index]={...state.events[index],...args[0]};return args[0]; }
+      if (action === 'upsertEvent') {
+        const unknown=Object.keys(args[0]).find(key=>!['id','date','time','type','label','theme'].includes(key));
+        if(unknown)throw new Error("Could not find the '"+unknown+"' column of 'events' in the schema cache");
+        const index=state.events.findIndex(event=>event.id===args[0].id);if(index<0)state.events.push(args[0]);else state.events[index]={...state.events[index],...args[0]};return args[0];
+      }
       if (action === 'setEventItems') {
         const event=state.events.find(event=>event.id===args[0]);
         event.event_songs=args[1].map((item,index)=>({id:item.id,song_id:item.song_id,item_type:item.type,note_text:item.text,singer_member_id:item.singer_id,order_index:index+1}));
+        if(args[3]!==undefined)event.event_songs.push({id:'preferences-'+event.id,song_id:null,item_type:'note',note_text:encodeEventPreferences(args[3]),order_index:event.event_songs.length+1});
         event.event_members=args[2].map(member_id=>event.event_members?.find(row=>row.member_id===member_id)||{member_id,confirmed:null});
         return;
       }
@@ -232,7 +238,7 @@ for (const viewport of [{name:'mobile',width:360,height:740},{name:'desktop',wid
       await expect(dialog).toHaveCount(0);
       expect(await page.locator('#root').evaluate(root=>root.inert)).toBe(false);
       expect(app.state.events[0].label).toBe('Culto revisado'+(viewport.name==='mobile'?' no celular':''));
-      expect(app.state.events[0].event_songs.map(row=>row.song_id)).toEqual(['song-2','song-0','extra-0']);
+      expect(app.state.events[0].event_songs.filter(row=>row.song_id).map(row=>row.song_id)).toEqual(['song-2','song-0','extra-0']);
       expect(app.state.events[0].event_members.map(row=>row.member_id)).toEqual([admin.id]);
       expect(app.failures).toEqual([]);
     }finally{await app.close();}
@@ -377,6 +383,60 @@ test('denied WhatsApp copy offers the complete new text for manual copying',asyn
     await expect(manual).not.toHaveValue(/Fixture|^\d+\./m);
     await expect(panel.getByRole('status')).toContainText('Selecione e copie o texto abaixo.');
     await expect(panel).toHaveAttribute('data-update-blocking','true');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('event saves without optional events columns and another device can reopen and clear its music selections',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.events[0].event_members[0].confirmed=true;
+  app.state.events[0].event_songs.splice(1,0,{id:'ordinary-note',song_id:null,item_type:'note',note_text:'Oração inicial',order_index:1.5});
+  const edit=async page=>{
+    await page.getByRole('button',{name:'Escala',exact:true}).click();
+    await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    await page.getByRole('button',{name:'Editar',exact:true}).click();
+    return page.getByRole('dialog',{name:'Editar evento',exact:true});
+  };
+  try {
+    const first=await app.open();
+    const dialog=await edit(first);
+    await dialog.getByLabel('Nome do evento',{exact:true}).fill('Culto com pedidos');
+    await dialog.getByRole('tab',{name:'Setlist',exact:true}).click();
+    await dialog.getByRole('button',{name:'Subir Teste jubilo',exact:true}).click();
+    await dialog.getByRole('button',{name:'Subir Teste jubilo',exact:true}).click();
+    await dialog.getByText('Pedidos e Santa Ceia',{exact:true}).click();
+    await dialog.getByRole('combobox',{name:'Música da Santa Ceia',exact:true}).selectOption('song-1');
+    await dialog.getByRole('combobox',{name:'Músicas pedidas',exact:true}).selectOption('song-2');
+    await dialog.getByRole('button',{name:'Salvar Alterações',exact:true}).click();
+    await expect(dialog).toHaveCount(0);
+    expect(app.state.events[0].label).toBe('Culto com pedidos');
+    expect(Object.hasOwn(app.state.events[0],'requested_songs')).toBe(false);
+    expect(Object.hasOwn(app.state.events[0],'santa_ceia_song')).toBe(false);
+    expect(app.state.events[0].event_members[0].confirmed).toBe(true);
+    const second=await app.open();
+    const reopened=await edit(second);
+    await reopened.getByRole('tab',{name:'Setlist',exact:true}).click();
+    await expect(reopened.getByRole('list',{name:'Músicas do setlist'}).locator('li')).toHaveCount(3);
+    await expect(reopened.getByRole('list',{name:'Músicas do setlist'}).locator('li').first()).toContainText('Teste jubilo');
+    await reopened.getByText('Pedidos e Santa Ceia',{exact:true}).click();
+    await expect(reopened.getByRole('combobox',{name:'Música da Santa Ceia',exact:true})).toHaveValue('song-1');
+    await expect(reopened.getByRole('button',{name:'Remover pedido Teste jubilo',exact:true})).toBeVisible();
+    await expect(second.getByText(/louvesync:event-preferences:v1:/)).toHaveCount(0);
+    await reopened.getByRole('combobox',{name:'Música da Santa Ceia',exact:true}).selectOption('');
+    await reopened.getByRole('button',{name:'Remover pedido Teste jubilo',exact:true}).click();
+    await reopened.getByRole('button',{name:'Salvar Alterações',exact:true}).click();
+    await expect(reopened).toHaveCount(0);
+    await second.reload();
+    await second.getByRole('button',{name:'Escala',exact:true}).click();
+    await second.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    await expect(second.locator('.gL2').getByText(/Oração inicial/)).toBeVisible();
+    await second.getByRole('button',{name:'Editar',exact:true}).click();
+    const cleared=second.getByRole('dialog',{name:'Editar evento',exact:true});
+    await cleared.getByRole('tab',{name:'Setlist',exact:true}).click();
+    await cleared.getByText('Pedidos e Santa Ceia',{exact:true}).click();
+    await expect(cleared.getByRole('combobox',{name:'Música da Santa Ceia',exact:true})).toHaveValue('');
+    await expect(cleared.getByRole('button',{name:'Remover pedido Teste jubilo',exact:true})).toHaveCount(0);
+    expect(app.state.events[0].event_members[0].confirmed).toBe(true);
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });

@@ -1,4 +1,4 @@
-import { updateEventItems } from './event-storage.js';
+import { updateEventItems, upsertEventRecord } from './event-storage.js';
 import { createClient } from '@supabase/supabase-js';
 import { decodeSequence, encodeSequence } from './domain.js';
 
@@ -129,22 +129,7 @@ export async function setPresence(eventId, memberId, confirmed) {
 }
 
 export async function upsertEvent(event) {
-  if (!supabase) return null;
-  // Basic validation / sanitization to avoid incomplete event records
-  if (!event || typeof event !== 'object') throw new Error('Invalid event payload');
-  if (!event.date) throw new Error('Event must have a `date` (YYYY-MM-DD)');
-  // Ensure arrays are well-formed or removed to avoid PostgREST partial failures
-  const sanitized = { ...event };
-  if (sanitized.event_songs && !Array.isArray(sanitized.event_songs)) delete sanitized.event_songs;
-  if (sanitized.event_members && !Array.isArray(sanitized.event_members)) delete sanitized.event_members;
-
-  const { data, error } = await supabase
-    .from('events')
-    .upsert(sanitized)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return upsertEventRecord(supabase, event);
 }
 
 export async function deleteEvent(id) {
@@ -175,8 +160,8 @@ export async function rejectDeleteEvent(eventId) {
   if (error) throw error;
 }
 
-export async function setEventItems(eventId, items, memberIds) {
-  return updateEventItems(supabase,eventId,items,memberIds);
+export async function setEventItems(eventId, items, memberIds, preferences) {
+  return updateEventItems(supabase,eventId,items,memberIds,preferences);
 }
 
 export async function setSingerForSong(eventId, songId, singerMemberId) {

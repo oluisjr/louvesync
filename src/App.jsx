@@ -3557,7 +3557,7 @@ export default function LouveSync() {
             if(!profile.is_admin)throw new Error('Somente administradores podem salvar eventos.');
             for(const ev of Array.isArray(task.data)?task.data:[task.data]){
               await upsertEvent(eventPayload(ev));
-              await setEventItems(ev.id,ev.items||[],ev.members||[]);
+              await setEventItems(ev.id,ev.items||[],ev.members||[],ev);
             }
           }else if(task.type==='save_song'){
             const saved=await upsertSong({...task.data,created_by:task.actorId||profile.id});
@@ -3889,7 +3889,7 @@ export default function LouveSync() {
       for(const ev of toAdd){
         ev.items=ev.items?.length?ev.items:(ev.songs||[]).map(song_id=>({type:'song',song_id,singer_id:ev.singerBySong?.[song_id]||null,text:''}));
         ev.songs=ev.items.filter(item=>item.type==='song').map(item=>item.song_id);
-        if(isOnline&&supabase){await upsertEvent(eventPayload(ev));await setEventItems(ev.id,ev.items,ev.members||[]);}
+        if(isOnline&&supabase){await upsertEvent(eventPayload(ev));await setEventItems(ev.id,ev.items,ev.members||[],ev);}
       }
       setEvents(prev=>{const next=[...prev];for(const ev of toAdd){const index=next.findIndex(row=>row.id===ev.id);if(index<0)next.push(ev);else next[index]=ev;}return next;});
       if(!isOnline)setSyncQueue(prev=>[...prev,{type:'create_event',data:toAdd}]);

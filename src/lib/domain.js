@@ -1,3 +1,5 @@
+import { decodeEventPreferences, eventPreferences } from './event-preferences.js';
+
 export function localDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
@@ -42,23 +44,26 @@ export function encodeSequence(text, key) {
 }
 export function normalizeEvent(ev) {
   const sorted = [...(ev.event_songs || [])].filter(Boolean).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
-  const songRows = sorted.filter(row => row.song_id);
+  const internal = sorted.filter(row => decodeEventPreferences(row));
+  const preferences = internal.length ? decodeEventPreferences(internal.at(-1)) : eventPreferences(ev);
+  const visible = sorted.filter(row => !internal.includes(row));
+  const songRows = visible.filter(row => row.song_id);
   return {
     ...ev,
     songs: songRows.map(row => row.song_id),
-    items: sorted.map(row => ({ id: row.id, type: row.item_type || 'song', song_id: row.song_id, text: row.note_text, singer_id: row.singer_member_id })),
+    items: visible.map(row => ({ id: row.id, type: row.item_type || 'song', song_id: row.song_id, text: row.note_text, singer_id: row.singer_member_id })),
     members: (ev.event_members || []).filter(Boolean).map(row => row.member_id),
     confirmations: Object.fromEntries((ev.event_members || []).filter(Boolean).map(row => [row.member_id, row.confirmed])),
     singerBySong: Object.fromEntries(songRows.map(row => [row.song_id, row.singer_member_id])),
     sequenceBySong: Object.fromEntries(songRows.map(row => [row.song_id, decodeSequence(row.sequence).text])),
     keyBySong: Object.fromEntries(songRows.map(row => [row.song_id, decodeSequence(row.sequence).key]).filter(([, key]) => key)),
-    requested_songs: ev.requested_songs || [], santa_ceia_song: ev.santa_ceia_song || null,
+    ...preferences,
   };
 }
 export function eventPayload(event) {
-  const payload = { ...event };
-  for (const key of ['songs', 'items', 'members', 'confirmations', 'singerBySong', 'sequenceBySong', 'keyBySong', 'event_songs', 'event_members']) delete payload[key];
-  return payload;
+  // Only these fields belong to the base events contract. UI/relationship data
+  // and optional legacy fields must not reach PostgREST as table columns.
+  return Object.fromEntries(['id', 'date', 'time', 'type', 'label', 'theme'].filter(key => Object.hasOwn(event, key)).map(key => [key, event[key]]));
 }
 export function timerSeconds(session, now = Date.now()) {
   return Math.max(0, Math.floor((session.seconds || 0) + (session.active && session.startedAt ? (now - session.startedAt) / 1000 : 0)));

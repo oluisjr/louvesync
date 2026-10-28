@@ -1,4 +1,16 @@
-export async function updateEventItems(supabase, eventId, items, memberIds) {
+import { eventPayload } from './domain.js';
+import { decodeEventPreferences, encodeEventPreferences } from './event-preferences.js';
+
+export async function upsertEventRecord(supabase, event) {
+  if (!supabase) return null;
+  if (!event || typeof event !== 'object') throw new Error('Invalid event payload');
+  if (!event.date) throw new Error('Event must have a `date` (YYYY-MM-DD)');
+  const { data, error } = await supabase.from('events').upsert(eventPayload(event)).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateEventItems(supabase, eventId, items, memberIds, preferences) {
   if (!supabase) return null;
   const [{ data: existing, error: songError }, { data: existingMembers, error: memberError }] = await Promise.all([
     supabase.from('event_songs').select('*').eq('event_id', eventId),
@@ -7,8 +19,11 @@ export async function updateEventItems(supabase, eventId, items, memberIds) {
   if (songError || memberError) throw songError || memberError;
   // Write additions/updates before removing obsolete rows. Keep stable IDs and
   // never rewrite confirmations for members who remain in the event.
-  const available = [...(existing || [])];
-  const retained = new Set();
+  const internal = (existing || []).filter(row => decodeEventPreferences(row)).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+  const available = (existing || []).filter(row => !internal.includes(row));
+  // Old callers without preferences must preserve stored selections. Explicit
+  // empty selections are persisted too, so clearing them survives a refresh.
+  const retained = new Set(preferences === undefined ? internal.map(row => row.id) : []);
   const rows = (items || []).map((it, i) => {
     const index = available.findIndex(row => it.type === 'song' ? row.song_id === it.song_id : row.id === it.id);
     const old = index >= 0 ? available.splice(index, 1)[0] : null;
@@ -21,6 +36,15 @@ export async function updateEventItems(supabase, eventId, items, memberIds) {
       sequence: old?.sequence || null,
     };
   });
+  if (preferences !== undefined) {
+    const previous = internal.at(-1);
+    if (previous) retained.add(previous.id);
+    rows.push({
+      id: previous?.id || crypto.randomUUID(), event_id: eventId,
+      song_id: null, item_type: 'note', note_text: encodeEventPreferences(preferences),
+      order_index: rows.length + 1, singer_member_id: null, sequence: null,
+    });
+  }
   if (rows.length) {
     const { error } = await supabase.from('event_songs').upsert(rows);
     if (error) throw error;

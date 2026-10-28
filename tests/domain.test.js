@@ -19,7 +19,8 @@ test('event keys and sequence roundtrip using the existing text column', () => {
   assert.deepEqual(decodeSequence('Intro'), { text: 'Intro', key: null });
   const event = normalizeEvent({ id: 'event', requested_songs: ['song'], event_songs: [{ id: 'item', song_id: 'song', sequence: value, order_index: 1 }], event_members: [{ member_id: 'user', confirmed: true }] });
   assert.equal(event.keyBySong.song, 'Eb'); assert.equal(event.confirmations.user, true);
-  assert.deepEqual(eventPayload(event).requested_songs, ['song']); assert.equal(eventPayload(event).items, undefined);
+  assert.deepEqual(event.requested_songs, ['song']);
+  assert.equal(eventPayload(event).requested_songs, undefined); assert.equal(eventPayload(event).items, undefined);
 });
 test('shared timer accounts for joining late and tab suspension', () => {
   assert.equal(timerSeconds({ active: true, seconds: 15, startedAt: 1000 }, 61000), 75);
