@@ -2,21 +2,22 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import { strFromU8, unzipSync } from 'fflate';
 import { encodeSequence } from '../../src/lib/domain.js';
-import { encodeEventPreferences } from '../../src/lib/event-preferences.js';
 const names = [...fs.readFileSync('src/lib/supabase.js','utf8').matchAll(/export async function (\w+)/g)].map(match => match[1]);
 const admin = { id: 'user-admin', name: 'Admin Teste', instrument: 'Vocal', role: 'Vocal', avatar: 'AT', color: '#7B3FF2', status: 'ativo', is_admin: true };
 const member = { ...admin, id: 'user-member', name: 'Membro Teste', is_admin: false };
 const songs = ['adoracao', 'ceia', 'jubilo'].map((cat, index) => ({ id: `song-${index}`, title: `Teste ${cat}`, artist: 'Fixture', cat, key: 'C', lyrics: '[C]Letra para [G]teste', bpm: 80, tags: [], time_signature: '4/4', vocal_keys: {} }));
-const initialEvents = [{ id: 'event-1', date: '2026-10-25', time: '18:00:00', label: 'Culto de Teste', type: 'culto', event_songs: songs.map((song, index) => ({ id: `row-${index}`, song_id: song.id, order_index: index + 1, item_type: 'song' })), event_members: [{ member_id: admin.id, confirmed: null }, { member_id: member.id, confirmed: null }] }];
+const initialEvents = [{ id: 'event-1', date: '2026-10-25', time: '18:00:00', label: 'Culto de Teste', type: 'culto', event_songs: songs.map((song, index) => ({ id: index + 1, song_id: song.id, order_index: index + 1, item_type: 'song' })), event_members: [{ member_id: admin.id, confirmed: null }, { member_id: member.id, confirmed: null }] }];
 async function fixture(browser) {
   const pages = [], contexts = [], failures = [];
-  const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), session: null, notes: {} };
+  const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), session: null, notes: {}, nextItemId: 100 };
   const code = `
+    import { updateEventItems } from '/src/lib/event-storage.js';
     const clone=value=>structuredClone(value);
     const channels=[];
     window.__testDeliver=(name,message)=>channels.filter(c=>c.topic===name).forEach(c=>c.handlers.filter(h=>h.type==='broadcast'&&h.filter.event===message.event).forEach(h=>h.fn({payload:message.payload})));
-    export const supabase={channel(name){const c={topic:name,state:'joined',handlers:[],on(type,filter,fn){this.handlers.push({type,filter,fn});return this;},subscribe(fn){queueMicrotask(()=>fn?.('SUBSCRIBED'));return this;},unsubscribe(){},send(message){return window.__testBroadcast(name,message).then(()=> 'ok');}};channels.push(c);return c;},removeChannel(c){const i=channels.indexOf(c);if(i>=0)channels.splice(i,1);},from(table){const query={table,op:'select',filters:{}};return {select(){return this;},eq(k,v){query.filters[k]=v;return this;},order(){return this;},single(){return this;},maybeSingle(){return this;},upsert(data){query.op='upsert';query.data=data;return this;},insert(data){query.op='insert';query.data=data;return this;},delete(){query.op='delete';return this;},update(data){query.op='update';query.data=data;return this;},then(resolve,reject){return window.__testDb('query',[query]).then(resolve,reject);}};}};
-    ${names.map(name=>`export async function ${name}(...args){return window.__testDb('${name}',args);}`).join('\n')}
+    export const supabase={channel(name){const c={topic:name,state:'joined',handlers:[],on(type,filter,fn){this.handlers.push({type,filter,fn});return this;},subscribe(fn){queueMicrotask(()=>fn?.('SUBSCRIBED'));return this;},unsubscribe(){},send(message){return window.__testBroadcast(name,message).then(()=> 'ok');}};channels.push(c);return c;},removeChannel(c){const i=channels.indexOf(c);if(i>=0)channels.splice(i,1);},from(table){const query={table,op:'select',filters:{},inFilters:{}};return {select(){return this;},eq(k,v){query.filters[k]=v;return this;},in(k,v){query.inFilters[k]=v;return this;},order(){return this;},single(){return this;},maybeSingle(){return this;},upsert(data){query.op='upsert';query.data=data;return this;},insert(data){query.op='insert';query.data=data;return this;},delete(){query.op='delete';return this;},update(data){query.op='update';query.data=data;return this;},then(resolve,reject){return window.__testDb('query',[query]).then(resolve,reject);}};}};
+    export async function setEventItems(...args){return updateEventItems(supabase,...args);}
+    ${names.filter(name=>name!=='setEventItems').map(name=>`export async function ${name}(...args){return window.__testDb('${name}',args);}`).join('\n')}
   `;
   async function open(profile = admin, time = '2026-10-24T12:00:00-03:00', options = {}) {
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block' }); contexts.push(context);
@@ -43,15 +44,29 @@ async function fixture(browser) {
         if(unknown)throw new Error("Could not find the '"+unknown+"' column of 'events' in the schema cache");
         const index=state.events.findIndex(event=>event.id===args[0].id);if(index<0)state.events.push(args[0]);else state.events[index]={...state.events[index],...args[0]};return args[0];
       }
-      if (action === 'setEventItems') {
-        const event=state.events.find(event=>event.id===args[0]);
-        event.event_songs=args[1].map((item,index)=>({id:item.id,song_id:item.song_id,item_type:item.type,note_text:item.text,singer_member_id:item.singer_id,order_index:index+1}));
-        if(args[3]!==undefined)event.event_songs.push({id:'preferences-'+event.id,song_id:null,item_type:'note',note_text:encodeEventPreferences(args[3]),order_index:event.event_songs.length+1});
-        event.event_members=args[2].map(member_id=>event.event_members?.find(row=>row.member_id===member_id)||{member_id,confirmed:null});
-        return;
-      }
       if (action === 'query') {
         const query = args[0];
+        if (['event_songs', 'event_members'].includes(query.table)) {
+          const eventId=query.filters.event_id||query.data?.[0]?.event_id;
+          const event=state.events.find(event=>event.id===eventId);
+          if(!event)return {data:null,error:{message:'Event not found'}};
+          const rows=event[query.table]||[];
+          const matches=row=>Object.entries(query.filters).every(([key,value])=>key==='event_id'||row[key]===value)&&Object.entries(query.inFilters).every(([key,values])=>values.includes(row[key]));
+          if(['insert','upsert'].includes(query.op)) {
+            if(query.table==='event_songs') {
+              const invalid=query.data.find(row=>Object.hasOwn(row,'id')&&!Number.isSafeInteger(row.id));
+              if(invalid)return {data:null,error:{code:'22P02',message:'invalid input syntax for type bigint: "'+invalid.id+'"'}};
+            }
+            for(const row of query.data) {
+              const existing=query.op==='upsert'?rows.find(existing=>existing.id===row.id):null;
+              if(existing)Object.assign(existing,row);
+              else rows.push(query.table==='event_songs'?{id:state.nextItemId++,...row}:row);
+            }
+            event[query.table]=rows;
+          }
+          if(query.op==='delete')event[query.table]=rows.filter(row=>!matches(row));
+          return {data:structuredClone((event[query.table]||[]).filter(matches)),error:null};
+        }
         if (query.table === 'rehearsal_sessions') { if(query.op==='upsert')state.session={...state.session,...query.data};return {data:state.session,error:null}; }
         if (query.table === 'rehearsal_notes') { if(query.op==='upsert')state.notes[query.data.song_id]=query.data;return {data:state.notes[query.filters.song_id]||null,error:null}; }
         return {data:[],error:null};
@@ -238,7 +253,8 @@ for (const viewport of [{name:'mobile',width:360,height:740},{name:'desktop',wid
       await expect(dialog).toHaveCount(0);
       expect(await page.locator('#root').evaluate(root=>root.inert)).toBe(false);
       expect(app.state.events[0].label).toBe('Culto revisado'+(viewport.name==='mobile'?' no celular':''));
-      expect(app.state.events[0].event_songs.filter(row=>row.song_id).map(row=>row.song_id)).toEqual(['song-2','song-0','extra-0']);
+      expect(app.state.events[0].event_songs.filter(row=>row.song_id).sort((a,b)=>a.order_index-b.order_index).map(row=>row.song_id)).toEqual(['song-2','song-0','extra-0']);
+      expect(app.state.events[0].event_songs.every(row=>Number.isSafeInteger(row.id))).toBe(true);
       expect(app.state.events[0].event_members.map(row=>row.member_id)).toEqual([admin.id]);
       expect(app.failures).toEqual([]);
     }finally{await app.close();}
@@ -387,10 +403,10 @@ test('denied WhatsApp copy offers the complete new text for manual copying',asyn
   }finally{await app.close();}
 });
 
-test('event saves without optional events columns and another device can reopen and clear its music selections',async({browser})=>{
+test('event saves with bigint item IDs, and another device can reopen and clear its music selections',async({browser})=>{
   const app=await fixture(browser);
   app.state.events[0].event_members[0].confirmed=true;
-  app.state.events[0].event_songs.splice(1,0,{id:'ordinary-note',song_id:null,item_type:'note',note_text:'Oração inicial',order_index:1.5});
+  app.state.events[0].event_songs.splice(1,0,{id:4,song_id:null,item_type:'note',note_text:'Oração inicial',order_index:1.5});
   const edit=async page=>{
     await page.getByRole('button',{name:'Escala',exact:true}).click();
     await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
@@ -413,6 +429,9 @@ test('event saves without optional events columns and another device can reopen 
     expect(Object.hasOwn(app.state.events[0],'requested_songs')).toBe(false);
     expect(Object.hasOwn(app.state.events[0],'santa_ceia_song')).toBe(false);
     expect(app.state.events[0].event_members[0].confirmed).toBe(true);
+    expect(app.state.events[0].event_songs.every(row=>Number.isSafeInteger(row.id))).toBe(true);
+    expect(app.state.events[0].event_songs.find(row=>row.note_text==='Oração inicial').id).toBe(4);
+    const savedIds=app.state.events[0].event_songs.map(row=>row.id);
     const second=await app.open();
     const reopened=await edit(second);
     await reopened.getByRole('tab',{name:'Setlist',exact:true}).click();
@@ -426,6 +445,7 @@ test('event saves without optional events columns and another device can reopen 
     await reopened.getByRole('button',{name:'Remover pedido Teste jubilo',exact:true}).click();
     await reopened.getByRole('button',{name:'Salvar Alterações',exact:true}).click();
     await expect(reopened).toHaveCount(0);
+    expect(app.state.events[0].event_songs.map(row=>row.id)).toEqual(savedIds);
     await second.reload();
     await second.getByRole('button',{name:'Escala',exact:true}).click();
     await second.getByRole('button',{name:'Ver detalhes →',exact:true}).click();

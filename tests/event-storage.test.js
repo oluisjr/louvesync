@@ -33,13 +33,14 @@ function database() {
   const calls = [];
   const tables = {
     event_songs: [
-      { id: 'row-a', event_id: 'event', song_id: 'song-a', item_type: 'song', order_index: 1, singer_member_id: 'member', sequence: encodeSequence('Intro, refrão', 'Eb') },
-      { id: 'row-note', event_id: 'event', song_id: null, item_type: 'note', note_text: 'Oração inicial', order_index: 2 },
-      { id: 'row-b', event_id: 'event', song_id: 'song-b', item_type: 'song', order_index: 3, sequence: 'Verso 2x' },
+      { id: 101, event_id: 'event', song_id: 'song-a', item_type: 'song', order_index: 1, singer_member_id: 'member', sequence: encodeSequence('Intro, refrão', 'Eb') },
+      { id: 102, event_id: 'event', song_id: null, item_type: 'note', note_text: 'Oração inicial', order_index: 2 },
+      { id: 103, event_id: 'event', song_id: 'song-b', item_type: 'song', order_index: 3, sequence: 'Verso 2x' },
     ],
     event_members: [{ event_id: 'event', member_id: 'member', confirmed: true }],
   };
   let fail = false;
+  let nextId = 104;
   const client = { from(table) {
     const query = { table, operation: 'select', filters: [] };
     return {
@@ -51,19 +52,24 @@ function database() {
       delete() { query.operation = 'delete'; return this; },
       then(resolve, reject) {
         calls.push(query);
-        if (fail && query.operation === 'upsert') return Promise.resolve({ data: null, error: new Error('write failed') }).then(resolve, reject);
+        const writing = ['upsert', 'insert'].includes(query.operation);
+        if (writing && (fail === true || fail === query.operation)) return Promise.resolve({ data: null, error: new Error('write failed') }).then(resolve, reject);
+        if (table === 'event_songs' && writing) {
+          const invalid = query.rows.find(row => Object.hasOwn(row, 'id') && !Number.isSafeInteger(row.id));
+          if (invalid) return Promise.resolve({ data: null, error: new Error(`invalid input syntax for type bigint: "${invalid.id}"`) }).then(resolve, reject);
+        }
         if (query.operation === 'upsert') for (const row of query.rows) {
           const index = tables[table].findIndex(existing => existing.id === row.id);
           if (index < 0) tables[table].push(structuredClone(row));
           else tables[table][index] = { ...tables[table][index], ...structuredClone(row) };
         }
-        if (query.operation === 'insert') tables[table].push(...structuredClone(query.rows));
+        if (query.operation === 'insert') tables[table].push(...query.rows.map(row => table === 'event_songs' ? { id: nextId++, ...structuredClone(row) } : structuredClone(row)));
         if (query.operation === 'delete') tables[table] = tables[table].filter(row => !query.filters.every(filter => filter(row)));
         return Promise.resolve({ data: structuredClone(tables[table].filter(row => query.filters.every(filter => filter(row)))), error: null }).then(resolve, reject);
       },
     };
   } };
-  return { client, calls, tables, failWrites() { fail = true; } };
+  return { client, calls, tables, failWrites(operation = true) { fail = operation; } };
 }
 
 test('requested and Communion selections survive a database reload without optional events columns', async () => {
@@ -75,7 +81,7 @@ test('requested and Communion selections survive a database reload without optio
   const loaded = normalizeEvent({ event_songs: db.tables.event_songs, event_members: db.tables.event_members });
   assert.deepEqual(loaded.requested_songs, ['song-b']); assert.equal(loaded.santa_ceia_song, 'song-a');
   assert.deepEqual(loaded.songs, ['song-a', 'song-b']);
-  assert.deepEqual(loaded.items.map(item => item.id), ['row-a', 'row-note', 'row-b']);
+  assert.deepEqual(loaded.items.map(item => item.id), [101, 102, 103]);
   assert.equal(loaded.items[1].text, 'Oração inicial');
   assert.equal(loaded.confirmations.member, true);
   assert.equal(loaded.singerBySong['song-a'], 'member');
@@ -86,6 +92,60 @@ test('requested and Communion selections survive a database reload without optio
   assert.equal(db.tables.event_songs.find(row => decodeEventPreferences(row)).id, internal[0].id);
   const cleared = normalizeEvent({ requested_songs: ['old-value'], santa_ceia_song: 'old-value', event_songs: db.tables.event_songs });
   assert.deepEqual(cleared.requested_songs, []); assert.equal(cleared.santa_ceia_song, null);
+});
+
+test('the PostgREST wire contract lets the database allocate bigint IDs for all new items', async () => {
+  const db = database();
+  const posts = [];
+  const client = createClient('https://fixture.supabase.co', 'fixture-anon-key', {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: async (url, options) => {
+      const endpoint = new URL(url);
+      const table = endpoint.pathname.split('/').at(-1);
+      const operation = options.method === 'GET' ? 'select' : options.method === 'DELETE' ? 'delete' : new Headers(options.headers).get('Prefer')?.includes('resolution=merge-duplicates') ? 'upsert' : 'insert';
+      let query = db.client.from(table);
+      if (operation === 'select') query = query.select('*');
+      else if (operation === 'delete') query = query.delete();
+      else {
+        const body = JSON.parse(options.body);
+        posts.push({ table, operation, body, columns: endpoint.searchParams.get('columns') });
+        query = query[operation](body);
+      }
+      for (const [key, value] of endpoint.searchParams) {
+        if (value.startsWith('eq.')) query = query.eq(key, value.slice(3));
+        if (key === 'id' && value.startsWith('in.')) query = query.in(key, value.slice(4, -1).split(',').map(Number));
+      }
+      const { data, error } = await query;
+      return new Response(JSON.stringify(error ? { code: '22P02', message: error.message } : data), { status: error ? 400 : 200, headers: { 'Content-Type': 'application/json' } });
+    } },
+  });
+  const before = normalizeEvent({ event_songs: db.tables.event_songs, event_members: db.tables.event_members });
+  // UI/offline IDs must never be reused as database primary keys.
+  const localNoteId = 'e4b0e327-a19e-4a52-98ac-7df4bb7294dc';
+  const items = [before.items[2], before.items[0], before.items[1], { id: localNoteId, type: 'note', text: 'Avisos finais' }, { id: 'song_song-c_4', type: 'song', song_id: 'song-c' }];
+  const preferences = { requested_songs: ['song-c'], santa_ceia_song: 'song-a' };
+  await updateEventItems(client, 'event', items, ['member', 'new-member'], preferences);
+  const loaded = normalizeEvent({ event_songs: db.tables.event_songs, event_members: db.tables.event_members });
+  assert.deepEqual(loaded.items.map(item => item.id), [103, 101, 102, 104, 105]);
+  assert.deepEqual(loaded.songs, ['song-b', 'song-a', 'song-c']);
+  assert.equal(loaded.items[3].text, 'Avisos finais');
+  assert.equal(loaded.confirmations.member, true);
+  assert.equal(loaded.confirmations['new-member'], null);
+  assert.equal(loaded.singerBySong['song-a'], 'member');
+  assert.equal(loaded.keyBySong['song-a'], 'Eb');
+  assert.equal(loaded.sequenceBySong['song-a'], 'Intro, refrão');
+  assert.deepEqual(loaded.requested_songs, ['song-c']);
+  assert.equal(loaded.santa_ceia_song, 'song-a');
+  const insert = posts.find(request => request.table === 'event_songs' && request.operation === 'insert');
+  assert.equal(insert.body.length, 3);
+  assert.equal(insert.body.every(row => !Object.hasOwn(row, 'id')), true);
+  assert.equal(insert.columns.includes('"id"'), false);
+  assert.equal(db.tables.event_songs.every(row => Number.isSafeInteger(row.id)), true);
+  const ids = db.tables.event_songs.map(row => row.id);
+  await updateEventItems(client, 'event', loaded.items.slice(1), loaded.members, { requested_songs: [], santa_ceia_song: null });
+  assert.deepEqual(db.tables.event_songs.map(row => row.id), ids.filter(id => id !== 103));
+  assert.equal(db.tables.event_songs.filter(row => decodeEventPreferences(row)).length, 1);
+  assert.deepEqual(normalizeEvent({ event_songs: db.tables.event_songs }).requested_songs, []);
 });
 
 test('an older caller preserves internal preferences, and a failed write leaves the old setlist untouched', async () => {
@@ -100,6 +160,32 @@ test('an older caller preserves internal preferences, and a failed write leaves 
   assert.deepEqual(db.tables, old);
   assert.equal(db.calls.slice(start).some(call => call.operation === 'delete'), false);
   assert.deepEqual(normalizeEvent({ event_songs: db.tables.event_songs }).requested_songs, ['song-a']);
+});
+
+test('a new event and an offline-style replay use generated keys without duplicating songs or preferences', async () => {
+  const db = database();
+  db.tables.event_songs = [];
+  db.tables.event_members = [];
+  const items = [{ id: 'song_song-a_0', type: 'song', song_id: 'song-a', singer_id: 'member' }];
+  const preferences = { requested_songs: ['song-a'], santa_ceia_song: null };
+  await updateEventItems(db.client, 'event', items, ['member'], preferences);
+  const ids = db.tables.event_songs.map(row => row.id);
+  assert.equal(ids.length, 2);
+  assert.equal(ids.every(Number.isSafeInteger), true);
+  assert.equal(db.calls.some(call => call.operation === 'upsert'), false);
+  assert.equal(normalizeEvent({ event_members: db.tables.event_members }).confirmations.member, null);
+  await updateEventItems(db.client, 'event', items, ['member'], preferences);
+  assert.deepEqual(db.tables.event_songs.map(row => row.id), ids);
+  assert.equal(db.tables.event_members.length, 1);
+});
+
+test('a failed insert never deletes existing songs, notes or participants', async () => {
+  const db = database();
+  const before = structuredClone(db.tables);
+  db.failWrites('insert');
+  await assert.rejects(updateEventItems(db.client, 'event', [{ type: 'song', song_id: 'song-c' }], [], {}), /write failed/);
+  assert.deepEqual(db.tables, before);
+  assert.equal(db.calls.some(call => call.operation === 'delete'), false);
 });
 
 test('legacy preferences and ordinary notes remain readable; malformed metadata is not hidden', () => {

@@ -29,7 +29,7 @@ export async function updateEventItems(supabase, eventId, items, memberIds, pref
     const old = index >= 0 ? available.splice(index, 1)[0] : null;
     if (old) retained.add(old.id);
     return {
-      id: old?.id || crypto.randomUUID(), event_id: eventId,
+      ...(old ? { id: old.id } : {}), event_id: eventId,
       song_id: it.type === 'song' ? it.song_id : null, item_type: it.type || 'song',
       note_text: it.text || null, order_index: i + 1,
       singer_member_id: Object.hasOwn(it, 'singer_id') ? it.singer_id : old?.singer_member_id || null,
@@ -40,18 +40,28 @@ export async function updateEventItems(supabase, eventId, items, memberIds, pref
     const previous = internal.at(-1);
     if (previous) retained.add(previous.id);
     rows.push({
-      id: previous?.id || crypto.randomUUID(), event_id: eventId,
+      ...(previous ? { id: previous.id } : {}), event_id: eventId,
       song_id: null, item_type: 'note', note_text: encodeEventPreferences(preferences),
       order_index: rows.length + 1, singer_member_id: null, sequence: null,
     });
   }
-  if (rows.length) {
-    const { error } = await supabase.from('event_songs').upsert(rows);
+  // event_songs.id may be a generated bigint, even when events/songs use UUIDs.
+  // Existing keys stay unchanged; new rows omit id and use the database default.
+  // Separate requests prevent PostgREST from filling a missing id with null in
+  // a mixed upsert batch. UI/offline item IDs never become database row IDs.
+  const updates = rows.filter(row => Object.hasOwn(row, 'id'));
+  const additions = rows.filter(row => !Object.hasOwn(row, 'id'));
+  if (updates.length) {
+    const { error } = await supabase.from('event_songs').upsert(updates);
     if (error) throw error;
   }
-  const additions = [...new Set(memberIds || [])].filter(id => !(existingMembers || []).some(row => row.member_id === id));
   if (additions.length) {
-    const { error } = await supabase.from('event_members').insert(additions.map(member_id => ({ event_id: eventId, member_id, confirmed: null })));
+    const { error } = await supabase.from('event_songs').insert(additions);
+    if (error) throw error;
+  }
+  const newMembers = [...new Set(memberIds || [])].filter(id => !(existingMembers || []).some(row => row.member_id === id));
+  if (newMembers.length) {
+    const { error } = await supabase.from('event_members').insert(newMembers.map(member_id => ({ event_id: eventId, member_id, confirmed: null })));
     if (error) throw error;
   }
   const obsoleteSongs = (existing || []).filter(row => !retained.has(row.id)).map(row => row.id);

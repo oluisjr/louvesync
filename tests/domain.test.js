@@ -36,7 +36,7 @@ function database({ fail = false } = {}) {
   const tables = { event_songs: [{ id: 'existing-song-row', song_id: 'song', sequence: 'Intro', singer_member_id: 'singer' }], event_members: [{ member_id: 'member', confirmed: true }] };
   const client = { from(table) {
     const query = { operation: 'select', table };
-    const chain = { select() { return this; }, eq() { return this; }, in() { return this; }, upsert(rows) { query.operation = 'upsert'; query.rows = rows; return this; }, insert(rows) { query.operation = 'insert'; query.rows = rows; return this; }, delete() { query.operation = 'delete'; return this; }, then(resolve, reject) { calls.push(query); return Promise.resolve({ data: tables[table], error: fail && query.operation === 'upsert' ? new Error('write failed') : null }).then(resolve, reject); } };
+    const chain = { select() { return this; }, eq() { return this; }, in() { return this; }, upsert(rows) { query.operation = 'upsert'; query.rows = rows; return this; }, insert(rows) { query.operation = 'insert'; query.rows = rows; return this; }, delete() { query.operation = 'delete'; return this; }, then(resolve, reject) { calls.push(query); return Promise.resolve({ data: tables[table], error: fail && ['upsert', 'insert'].includes(query.operation) ? new Error('write failed') : null }).then(resolve, reject); } };
     return chain;
   } };
   return { client, calls };
