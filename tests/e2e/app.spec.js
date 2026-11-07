@@ -39,6 +39,7 @@ async function fixture(browser) {
       if (action === 'setPresence') { state.events[0].event_members.find(row => row.member_id === args[1]).confirmed = args[2]; return; }
       if (action === 'upsertSong') { const index = state.songs.findIndex(song => song.id === args[0].id); if(index<0)state.songs.push(args[0]);else state.songs[index]=args[0];return args[0]; }
       if (action === 'saveVocalKey') { const song=state.songs.find(song=>song.id===args[0]);song.vocal_keys[args[1]]=args[2];return song.vocal_keys; }
+      if (action === 'setSingerForSong') { const event=state.events.find(event=>event.id===args[0]);event.event_songs.filter(row=>row.song_id===args[1]).forEach(row=>{row.singer_member_id=args[2];});return; }
       if (action === 'upsertEvent') {
         const unknown=Object.keys(args[0]).find(key=>!['id','date','time','type','label','theme'].includes(key));
         if(unknown)throw new Error("Could not find the '"+unknown+"' column of 'events' in the schema cache");
@@ -457,6 +458,63 @@ test('event saves with bigint item IDs, and another device can reopen and clear 
     await expect(cleared.getByRole('combobox',{name:'Música da Santa Ceia',exact:true})).toHaveValue('');
     await expect(cleared.getByRole('button',{name:'Remover pedido Teste jubilo',exact:true})).toHaveCount(0);
     expect(app.state.events[0].event_members[0].confirmed).toBe(true);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('PDF degrees follow assigned ministers in B and A across devices, stage, rehearsal and printing',async({browser})=>{
+  const app=await fixture(browser);
+  Object.assign(app.state.songs[0],{title:'Tua Unção',key:'C',lyrics:'',vocal_keys:{[admin.id]:'B',[member.id]:'A'}});
+  app.state.events[0].event_songs[0].singer_member_id=admin.id;
+  try {
+    const first=await app.open(admin),second=await app.open(member);
+    for(const page of [first,second]){
+      await page.getByRole('button',{name:'Escala',exact:true}).click();
+      await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    }
+    await second.locator('.gL2').getByText('Tua Unção',{exact:true}).click();
+    await expect(second.getByRole('combobox',{name:'Tom da cifra',exact:true})).toHaveValue('B');
+    await expect(second.getByRole('combobox',{name:'Vocal para o tom',exact:true})).toHaveValue(admin.id);
+    await expect(second.locator('.lyrics-content b').first()).toHaveText('G#m');
+    await expect(second.locator('.lyrics-content')).toContainText('B/D#');
+
+    await first.getByRole('combobox',{name:'Vocal principal de Tua Unção',exact:true}).selectOption(member.id);
+    await expect(second.getByRole('combobox',{name:'Vocal para o tom',exact:true})).toHaveValue(member.id);
+    await expect(second.getByRole('combobox',{name:'Tom da cifra',exact:true})).toHaveValue('A');
+    await expect(second.locator('.lyrics-content b').first()).toHaveText('F#m');
+    await expect(second.locator('.lyrics-content')).toContainText('A/C#');
+
+    await first.locator('.gL2').getByText('Tua Unção',{exact:true}).click();
+    await first.getByRole('combobox',{name:'Vocal para o tom',exact:true}).selectOption(admin.id);
+    await expect(first.getByRole('combobox',{name:'Tom da cifra',exact:true})).toHaveValue('B');
+    await expect(first.locator('.lyrics-content b').first()).toHaveText('G#m');
+    await first.getByRole('combobox',{name:'Vocal para o tom',exact:true}).selectOption(member.id);
+    await first.getByRole('combobox',{name:'Tom da cifra',exact:true}).selectOption('E');
+    await first.getByRole('button',{name:'Salvar tom deste vocal',exact:true}).click();
+    await expect(second.getByRole('combobox',{name:'Tom da cifra',exact:true})).toHaveValue('E');
+    await expect(second.locator('.lyrics-content b').first()).toHaveText('C#m');
+    await second.getByRole('button',{name:'Modo Palco 🖥️',exact:true}).click();
+    await expect(second.locator('.stage-wrap b').first()).toHaveText('C#m');
+    await second.keyboard.press('Escape');
+    // Browser Back closes the stage through the same route as Android Back.
+    if(await second.locator('.stage-wrap').count())await second.goBack();
+    await expect(second.locator('.stage-wrap')).toHaveCount(0);
+    await second.emulateMedia({media:'print'});
+    await expect(second.locator('#print-cifra pre')).toContainText('[E/G#]');
+    await expect(second.locator('#print-cifra pre')).not.toContainText('{key:');
+    await expect(second.locator('#print-cifra pre')).not.toContainText('[6m]');
+    await second.emulateMedia({media:'screen'});
+    await second.getByRole('button',{name:'✎ Editar',exact:true}).click();
+    await expect(second.getByRole('textbox',{name:'Editar cifra',exact:true})).toHaveValue(/\[6m\]/);
+    await second.getByRole('button',{name:'Descartar',exact:true}).click();
+
+    await first.reload();
+    await first.getByRole('button',{name:'Ensaio',exact:true}).click();
+    await first.getByRole('button',{name:'Tua Unção',exact:true}).click();
+    await expect(first.locator('.ui-rehearsal-lyrics b').first()).toHaveText('C#m');
+    await expect(first.locator('.ui-rehearsal-lyrics')).toContainText('E/G#');
+    expect(app.state.songs[0].lyrics).toBe('');
+    expect(app.state.songs[0].vocal_keys).toEqual({[admin.id]:'B',[member.id]:'E'});
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });

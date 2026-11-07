@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { requestMicrophone } from '../lib/native.js';
 import { supabase } from '../lib/supabase';
 import { localDate, readCache, writeCache, timerSeconds, keyDistance } from '../lib/domain.js';
+import { performanceKey } from '../lib/chords.js';
 import { broadcastUpdate, onRealtime, onRealtimeStatus } from '../lib/realtime.js';
 import { Icon, PageHeading, Section } from './Interface.jsx';
 
@@ -29,7 +30,7 @@ export default function Rehearsal({ dark, events, songs, profile, connectionStat
   const owner = useRef(false);
   const activeSong = songs.find(song => song.id === session.activeSongId);
   const eventSongs = (event?.songs || []).map(id => songs.find(song => song.id === id)).filter(Boolean);
-  const selectedKey = event?.keyBySong?.[activeSong?.id] || activeSong?.vocal_keys?.[event?.singerBySong?.[activeSong?.id]] || activeSong?.key;
+  const selectedKey = performanceKey(activeSong,event);
   const apply = value => { current.current = value; setSession(value); };
   async function persist(value, selectedEventId) {
     if (!supabase || !navigator.onLine) return;
@@ -179,9 +180,9 @@ export default function Rehearsal({ dark, events, songs, profile, connectionStat
     {notice&&<div className="ui-message" role="status"><Icon name="info" size={17}/><span>{notice}</span></div>}
     {!event?<div className="ui-card ui-empty"><Icon name="calendar" size={28}/><strong>Nenhum evento para ensaiar</strong><p>Os próximos cultos e ensaios aparecerão aqui.</p></div>:<>
       <Section icon="music" title="Músicas do ensaio" description="Selecione a música que a equipe vai tocar agora." action={<span className="ui-badge">{eventSongs.length}</span>}>
-        <div className="ui-list">{eventSongs.map((song,index)=><button className="ui-list-row ui-song-choice" aria-label={song.title} aria-pressed={song.id===session.activeSongId} key={song.id} onClick={()=>change({activeSongId:song.id})}><span className="ui-row-number">{song.id===session.activeSongId?<Icon name="sound" size={15}/>:String(index+1).padStart(2,'0')}</span><span className="ui-row-copy"><strong>{song.title}</strong><small>{song.artist}</small></span><span className="ui-badge">{event?.keyBySong?.[song.id]||song?.vocal_keys?.[event?.singerBySong?.[song.id]]||song.key}</span></button>)}</div>
+        <div className="ui-list">{eventSongs.map((song,index)=><button className="ui-list-row ui-song-choice" aria-label={song.title} aria-pressed={song.id===session.activeSongId} key={song.id} onClick={()=>change({activeSongId:song.id})}><span className="ui-row-number">{song.id===session.activeSongId?<Icon name="sound" size={15}/>:String(index+1).padStart(2,'0')}</span><span className="ui-row-copy"><strong>{song.title}</strong><small>{song.artist}</small></span><span className="ui-badge">{performanceKey(song,event)}</span></button>)}</div>
         {!eventSongs.length&&<div className="ui-empty"><Icon name="music"/><strong>O setlist ainda está vazio</strong><p>Adicione músicas na edição deste evento.</p></div>}
-        {activeSong&&<div className="ui-now-playing"><span className="ui-eyebrow">Tocando agora</span><h4 aria-label={'Tocando agora: '+activeSong.title}>{activeSong.title}</h4><p className="ui-helper">Tom {selectedKey} · {activeSong.bpm} BPM</p><div className="ui-rehearsal-lyrics"><LyricView text={activeSong.lyrics||''} st={keyDistance(activeSong.key,selectedKey)} mode="chords" dark={dark}/></div></div>}
+        {activeSong&&<div className="ui-now-playing"><span className="ui-eyebrow">Tocando agora</span><h4 aria-label={'Tocando agora: '+activeSong.title}>{activeSong.title}</h4><p className="ui-helper">Tom {selectedKey} · {activeSong.bpm} BPM</p><div className="ui-rehearsal-lyrics"><LyricView text={activeSong.lyrics||''} baseKey={activeSong.key} st={keyDistance(activeSong.key,selectedKey)} mode="chords" dark={dark}/></div></div>}
       </Section>
       <Section icon="note" title="Anotações do ensaio" description="Combine entradas, repetições e detalhes do arranjo.">
         <label className="ui-field"><span className="ui-sr-only">Anotações do ensaio</span><textarea aria-label="Anotações do ensaio" placeholder={activeSong?'O que a equipe precisa lembrar?':'Selecione uma música para anotar.'} value={note} disabled={!activeSong} onChange={e=>{setNote(e.target.value);setNoteDirty(true);}} rows={4}/></label>

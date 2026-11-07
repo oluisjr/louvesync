@@ -40,6 +40,16 @@ Bíblia, Ensaio e controles de cifra compartilham cores, campos, botões, ícone
 
 Nos detalhes do evento, **Exportar para Excel** baixa uma planilha `.xlsx` com categoria, música, vocalista escalado e tom. **Copiar setlist para WhatsApp** usa os mesmos dados, com a categoria no lugar da numeração. Ambos preservam a sequência do evento e priorizam seu tom específico; sem vocalista vinculado, exibem “Vocalista não definido”. No APK 1.0.2, o Android oferece seu diálogo de salvamento para escolher a pasta, sem solicitar acesso geral ao armazenamento. APKs anteriores orientam a atualizar ou exportar pelo navegador. O salvamento nativo ainda precisa de conferência em um Android físico.
 
+## Cifras dos PDFs e tons por ministro
+
+As 21 músicas dos cinco PDFs enviados em 07/11/2026 estão em `src/data/pdf-charts.js`, com fontes, páginas e 24 arranjos (incluindo versões alternativas). A primeira versão de cada música é a preferencial: para Autoridade e Poder e Coração igual ao Teu, usa-se o PDF de 17/09; para Te agradeço, o culto de 06/09. A versão completa de Se Cristo comigo vai é usada no lugar da página que contém somente o título.
+
+O app associa essas cifras aos registros existentes pelo título, ignorando acentos, caixa e pontuação. Os aliases conhecidos “A tua glória” e “Autoridade de Poder” são explícitos; “Celebrarei” não é confundida com “Celebrai com júbilo ao Senhor”. Preenche letras vazias/sem acordes, preserva cifras já editadas com acordes, IDs, categorias e os tons por vocal. Não cria músicas, não grava automaticamente no Supabase e não adiciona colunas. O pacote acompanha o deploy e fica disponível offline com o restante do app. Uma edição salva pelo usuário segue o caminho normal de gravação da música.
+
+Graus como `[1]`, `[6m7]`, `[4/6]`, `[5/7]`, `[b7]` e `[#4º]` permanecem na letra; são convertidos em acordes no tom escolhido durante a exibição e a impressão. Por exemplo, `[5/7]` vira `F#/A#` em B e `E/G#` em A. As diretivas `{key: F}` / `{key: G}` nos arranjos registram modulações relativas à origem e são ocultadas da leitura e do PDF. Cabeçalhos de modulação também acompanham a transposição. Cifras com nomes de acordes continuam compatíveis.
+
+Em **Tom por vocal**, escolha o ministro, selecione o tom e use **Salvar tom deste vocal**. Ao abrir uma música da escala, o vocal escalado e seu tom salvo são aplicados automaticamente; um tom definido expressamente para aquele evento tem prioridade. A troca do vocal escalado ou a atualização de seu tom sincroniza a cifra aberta e o ensaio nos outros clientes. O modo palco e o PDF usam o mesmo cálculo. A letra em graus não é regravada ao trocar de ministro.
+
 ## Android
 
 O aplicativo Android usa `https://louvesync.vercel.app` e acompanha os deploys web automaticamente. A impressão usa o diálogo nativo do Android, incluindo Salvar como PDF; a gravação solicita permissão do microfone. O iOS continua web/PWA: Safari → Compartilhar → Adicionar à Tela de Início.

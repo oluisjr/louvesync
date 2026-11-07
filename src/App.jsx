@@ -9,6 +9,8 @@ import Rehearsal from './components/Rehearsal.jsx';
 import { Dialog, Icon, Section, SearchField } from './components/Interface.jsx';
 import { downloadSetlistExcel, setlistWhatsAppText } from './lib/setlist-export.js';
 import { copyTextToClipboard } from './lib/clipboard.js';
+import { performanceKey, renderChordText } from './lib/chords.js';
+import { withSongChart } from './lib/song-charts.js';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
 import { onRealtime, onRealtimeStatus, broadcastUpdate, disconnectRealtime } from './lib/realtime.js';
@@ -143,8 +145,6 @@ const CAT = {
   corinho:  { label:'Corinhos', color:'#06B6D4', cls:'bCo', acc:'aC-corinho' },
   ceia:     { label:'Santa Ceia', color:'#E11D48', cls:'bC', acc:'aC-ceia' }
 };
-const SH = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const FL = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
 const TIME_SIGS = ['4/4','3/4','2/4','6/8','12/8'];
 const KEYS     = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const GROQ_URL = '/api/maestro';
@@ -192,9 +192,6 @@ const BIBLE_BOOKS = [
 
 
 /* ─── HELPERS ───────────────────────────────────────────────── */
-function tNote(n,st){if(!n)return '';let i=SH.indexOf(n);if(i===-1)i=FL.indexOf(n);if(i===-1)return n;return(n.includes('b')&&n!=='B')?FL[((i+st)%12+12)%12]:SH[((i+st)%12+12)%12];}
-function tChord(ch,st){if(!ch)return '';const m=ch.match(/^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?)(.*))?$/);if(!m)return ch;const r=tNote(m[1],st),q=m[2]||'';if(m[3])return r+q+'/'+tNote(m[3],st)+(m[4]||'');return r+q;}
-function tLyrics(txt,st){if(!txt)return '';if(!st)return txt;return txt.replace(/\[([A-G][#b]?[^\]]*)\]/g,(_,c)=>'['+tChord(c,st)+']');}
 function getKey(k,st){return transposeKey(k,st);}
 function fDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});}
 function today(){return localDate();}
@@ -400,9 +397,9 @@ const ConfirmDialog = ({dark, title, msg, onConfirm, onCancel, isAlert}) => (
 );
 
 /* ─── LYRIC VIEW ────────────────────────────────────────────── */
-const LyricView = memo(({text,st=0,mode='chords',dark,fs=17,fontFam,chordColor})=>{
+const LyricView = memo(({text,baseKey='C',st=0,mode='chords',dark,fs=17,fontFam,chordColor})=>{
   const color=dark?'#E2E8F0':'#1E293B';
-  return <div style={{fontFamily:fontFam||"'Nunito',sans-serif"}}>{tLyrics(String(text||''),st).split('\n').map((line,index)=>{
+  return <div style={{fontFamily:fontFam||"'Nunito',sans-serif"}}>{renderChordText(text,baseKey,st).split('\n').map((line,index)=>{
     if(!line.trim())return <div key={index} style={{height:12}}/>;
     if(/^\[?(Verso|Coro|Refrão|Pré-Refrão|Pré-Coro|Ponte|Intro|Final|Outro|Bridge)(?:[\s:]*\d*)?\]?$/i.test(line.trim()))return <Sec key={index} t={line.replace(/[[\]]/g,'')}/>;
     return <div key={index} style={{fontSize:fs,lineHeight:1.7,color,marginBottom:6,whiteSpace:'pre-wrap'}}>{parseLine(line).map((segment,i)=>mode==='lyrics'?segment.ly:<span key={i} style={{display:'inline-flex',flexDirection:'column',verticalAlign:'bottom',whiteSpace:'pre-wrap',minWidth:segment.ch?'1.5em':undefined}}>{segment.ch&&<b style={{fontSize:Math.max(12,fs-2),color:chordColor||(dark?'#C4A7FF':'#7B3FF2'),fontFamily:'monospace',lineHeight:1.4}}>{segment.ch}</b>}<span>{segment.ly||' '}</span></span>)}</div>;
@@ -1766,7 +1763,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
           {nS.map((s,i)=><div key={s.id} onClick={()=>onSelectSong(s,evt)} className="touch-scale" style={{display:'flex',alignItems:'center',gap:9,padding:'8px 0',borderBottom:i<nS.length-1?`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`:''}}>
             <span style={{width:22,height:22,borderRadius:7,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
             <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc,lineHeight:1.2}}>{String(s.title || 'Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{String(s.artist || 'Ministério')}</div></div>
-            <KeyChip k={s.key} size={10}/>
+            <KeyChip k={performanceKey(s,evt)} size={10}/>
           </div>)}
         </div>}
 
@@ -1877,9 +1874,16 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
   const [editBpm, setEditBpm] = useState(parseInt(song?.bpm) || 80);
   const [editLyrics, setEditLyrics] = useState(String(song?.lyrics || ''));
   const [isDirty, setIsDirty] = useState(false);
-  const [vocalId,setVocalId]=useState(event?.singerBySong?.[song?.id]||profile?.id||'');
+  const assignedVocal = event?.singerBySong?.[song?.id] || (members.some(m=>m.id===profile?.id && /vocal|voz/i.test(m.instrument||'')) ? profile.id : '');
+  const [vocalChoice,setVocalChoice]=useState(null);
+  const followsAssigned = !vocalChoice || vocalChoice.assigned!==assignedVocal;
+  const vocalId = followsAssigned ? assignedVocal : vocalChoice.id;
+  const automaticKey = followsAssigned && event ? performanceKey(song,event) : song?.vocal_keys?.[vocalId] || song?.key;
   const [saving,setSaving]=useState(false);
   const [isEditingLyrics, setIsEditingLyrics] = useState(false);
+
+  useEffect(()=>{setVocalChoice(null);},[assignedVocal]);
+  useEffect(()=>{setTr(keyDistance(song?.key,automaticKey));},[song?.key,automaticKey,setTr]);
 
   useEffect(() => {
     setEditKey(String(song?.key || ''));
@@ -2001,8 +2005,9 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
       </div>
       {tr!==0&&<p className="ui-helper">Tom atual: {curKey} · {tr>0?'+':''}{tr} semitom</p>}
       <div className="ui-vocal-key">
-        <label className="ui-field">Tom por vocal<select aria-label="Vocal para o tom" value={vocalId} onChange={e=>{setVocalId(e.target.value);const key=song.vocal_keys?.[e.target.value]||sKey;setTr(keyDistance(sKey,key));}}>{members.filter(m=>(m.instrument||'').match(/vocal|voz/i)).map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label>
-        {(profile?.is_admin||vocalId===profile?.id)&&<button className="ui-button ui-button-soft ui-button-wide" style={{marginTop:10}} onClick={()=>onSaveVocalKey(song.id,vocalId,curKey)}><Icon name="check" size={15}/>Salvar tom deste vocal</button>}
+        <label className="ui-field">Tom por vocal<select aria-label="Vocal para o tom" value={vocalId} onChange={e=>{setVocalChoice({assigned:assignedVocal,id:e.target.value});const key=song.vocal_keys?.[e.target.value]||sKey;setTr(keyDistance(sKey,key));}}><option value="">Tom original</option>{members.filter(m=>(m.instrument||'').match(/vocal|voz/i)).map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label>
+        <p className="ui-helper">A cifra acompanha o tom salvo do vocal selecionado, incluindo acordes com baixo e modulações.</p>
+        {vocalId&&(profile?.is_admin||vocalId===profile?.id)&&<button className="ui-button ui-button-soft ui-button-wide" style={{marginTop:10}} onClick={()=>onSaveVocalKey(song.id,vocalId,curKey)}><Icon name="check" size={15}/>Salvar tom deste vocal</button>}
       </div>
       {isDirty && <div style={{display:'flex',gap:8,marginTop:12}}><button disabled={saving} onClick={handleSaveMetadata} className="bp" style={{flex:1,padding:'10px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>✓ Salvar</button><button onClick={()=>{setEditKey(String(song?.key||'')); setEditBpm(parseInt(song?.bpm)||80); setIsDirty(false);}} style={{flex:1,padding:'10px 14px',borderRadius:'var(--r-md)',border:`1.5px solid ${dark?'rgba(168,85,247,.2)':'rgba(79,70,229,.25)'}`,background:'transparent',color:tc,fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer'}}>✕ Cancelar</button></div>}
     </div>
@@ -2046,13 +2051,14 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
       {isEditingLyrics?(
         <>
           <textarea className="ui-manual-lyrics" aria-label="Editar cifra" value={editLyrics} onChange={e=>{setEditLyrics(e.target.value);markDirty();}} rows={14} placeholder="Cole ou digite a cifra aqui..." />
+          <p className="ui-helper">Acordes: [G], [Em7], [D/F#]. Graus: [1], [6m7], [5/7]. Os graus acompanham o tom escolhido.</p>
           <div style={{display:'flex',gap:8,marginTop:12}}>
             <button disabled={saving} onClick={handleSaveMetadata} className="bp" style={{flex:1,padding:'10px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>✓ Salvar Letra</button>
             <button onClick={()=>{setEditLyrics(String(song?.lyrics||'')); setIsDirty(false); setIsEditingLyrics(false);}} style={{flex:1,padding:'10px 14px',borderRadius:'var(--r-md)',border:`1.5px solid ${dark?'rgba(168,85,247,.2)':'rgba(79,70,229,.25)'}`,background:'transparent',color:tc,fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer'}}>Descartar</button>
           </div>
         </>
       ):(
-        <div className="lyrics-content" style={{lineHeight:1.6,color:tc}}><LyricView text={editLyrics} st={tr} mode={mode} dark={dark} fontFam={fontFam}/></div>
+        <div className="lyrics-content" style={{lineHeight:1.6,color:tc}}><LyricView text={editLyrics} baseKey={sKey} st={tr} mode={mode} dark={dark} fontFam={fontFam}/></div>
       )}
     </div>
 
@@ -2069,7 +2075,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
     {typeof document !== 'undefined' && createPortal(<div id="print-cifra">
       <div className="print-title">{sTitle}</div>
       <div className="print-sub">{sArtist} · Tom: {curKey} {tr!==0?`(${tr>0?'+':''}${tr} st)`:''} · {sBpm} BPM · {sTimeSignature}</div>
-      <pre style={{fontFamily:'monospace',whiteSpace:'pre-wrap',fontSize:13,lineHeight:1.7}}>{tLyrics(editLyrics,tr)||'(sem letra cadastrada)'}</pre>
+      <pre style={{fontFamily:'monospace',whiteSpace:'pre-wrap',fontSize:13,lineHeight:1.7}}>{renderChordText(editLyrics,sKey,tr)||'(sem letra cadastrada)'}</pre>
     </div>,document.body)}
   </div>;
 });
@@ -2129,7 +2135,7 @@ const Stage = memo(({song,tr,mode,stageFs,setStageFs,dark,onClose,chordColor,set
         </div>
       </div>
     )}
-    <div ref={lyricsRef} style={{flex:1,overflowY:'auto',padding:'16px 18px 48px',scrollBehavior:'smooth'}}><LyricView text={song.lyrics||''} st={tr} mode={mode} dark={true} fs={stageFs} chordColor={chordColor} fontFam={fontFam}/></div>
+    <div ref={lyricsRef} style={{flex:1,overflowY:'auto',padding:'16px 18px 48px',scrollBehavior:'smooth'}}><LyricView text={song.lyrics||''} baseKey={song.key} st={tr} mode={mode} dark={true} fs={stageFs} chordColor={chordColor} fontFam={fontFam}/></div>
   </div>;
 });
 
@@ -2749,7 +2755,7 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
           </div>
           {form.lyrics&&<div className={gc} style={{borderRadius:'var(--r-md)',padding:14}}>
             <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Preview</div>
-            <LyricView text={form.lyrics} st={0} mode='chords' dark={dark}/>
+            <LyricView text={form.lyrics} baseKey={form.key} st={0} mode='chords' dark={dark}/>
           </div>}
           {saveError&&<p role="alert">{saveError}</p>}
           <button className="bp" onClick={save} disabled={saving||!form.lyrics||!form.title}>{initialData ? 'Salvar Alterações' : 'Salvar Música'}</button>
@@ -3050,7 +3056,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map((it,i)=>{
             if(it.type==='note' || it.type==='text') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:'#D97706', borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
             const s = it.song;
-            const activeKey = ev.keyBySong?.[s.id] || (ev.singerBySong?.[s.id] && s.vocal_keys?.[ev.singerBySong[s.id]] ? s.vocal_keys[ev.singerBySong[s.id]] : s.key);
+            const activeKey = performanceKey(s,ev);
             return <div key={it.id} style={{display:'flex',flexDirection:'column',gap:5,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
               <div style={{display:'flex',alignItems:'center',gap:11}}>
                 <span onClick={()=>onSelectSong(s, ev, activeKey)} style={{cursor:'pointer',width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
@@ -3062,7 +3068,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
               </div>
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4,paddingTop:8,borderTop:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
                 <span style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700}}>🎤 Vocal principal:</span>
-                <select className="fi" style={{flex:1,padding:'4px 8px',fontSize:'var(--fs-xs)'}} disabled={!profile?.is_admin} value={ev.singerBySong?.[s.id]||''} onChange={e=>onSetSinger&&onSetSinger(ev.id,s.id,e.target.value)}>
+                <select className="fi" aria-label={'Vocal principal de '+s.title} style={{flex:1,padding:'4px 8px',fontSize:'var(--fs-xs)'}} disabled={!profile?.is_admin} value={ev.singerBySong?.[s.id]||''} onChange={e=>onSetSinger&&onSetSinger(ev.id,s.id,e.target.value)}>
                   <option value="">- Ninguém -</option>
                   {evM.filter(m=>m.instrument?.toLowerCase().match(/vocal|voz/)).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
@@ -3457,16 +3463,17 @@ export default function LouveSync() {
   const [authLoading,setAuthLoading]=useState(true);
 
   // ── Data
-  const [songs,setSongs]=useState(()=>readCache('ls_songs',[]));
+  const [songRecords,setSongs]=useState(()=>readCache('ls_songs',[]));
+  const songs=useMemo(()=>songRecords.map(withSongChart),[songRecords]);
   const [events,setEvents]=useState(()=>readCache('ls_events',[]).map(patchEvent));
   const [dataLoading,setDataLoading]=useState(true);
 
   // Persist songs locally so added songs survive reload when Supabase is unavailable
   useEffect(()=>{
     try{
-      writeCache('ls_songs', songs || []);
+      writeCache('ls_songs', songRecords || []);
     }catch(e){/* ignore */}
-  },[songs]);
+  },[songRecords]);
   useEffect(()=>{writeCache('ls_events',events);},[events]);
 
   // ── UI
@@ -3819,7 +3826,8 @@ export default function LouveSync() {
     previousScroll.current=mainScrollRef.current?.scrollTop||0;
     vib();setSelSong(s);setSelEvent(ev);
 
-    setTr(keyDistance(s.key,activeKey||s.key));
+    setTr(keyDistance(s.key,activeKey||(ev?performanceKey(s,ev):s.vocal_keys?.[profile?.id]||s.key)));
+    setMode('chords');
 
     console.log('🎵 About to render Cifra component, inCifra will be:', true);
     setMetro(false);setBeatIdx(-1);
