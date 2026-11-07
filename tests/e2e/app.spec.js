@@ -39,7 +39,7 @@ for(const theme of ['light','dark']){
         await expect.poll(async()=>Math.round((await root.boundingBox()).y)).toBe(top);
         expect(Math.round((await shell.boundingBox()).height)).toBe(height);
         const box=await nav.boundingBox();
-        expect(Math.abs(top+height-(box.y+box.height)-54)).toBeLessThan(1);
+        expect(Math.abs(top+height-(box.y+box.height)-34)).toBeLessThan(1);
         expect(await page.evaluate(()=>window.scrollY)).toBe(0);
       };
       await expectFrame(844);
@@ -49,6 +49,14 @@ for(const theme of ['light','dark']){
       const last=page.getByRole('button',{name:'Ver detalhes →',exact:true}).last();
       await expect(last).toBeInViewport();
       expect((await last.boundingBox()).y+(await last.boundingBox()).height).toBeLessThan((await nav.boundingBox()).y-8);
+      await expect.poll(async()=>{
+        await main.evaluate(element=>{element.scrollTop=element.scrollHeight;});
+        return (await nav.boundingBox()).y-await last.evaluate(element=>element.closest('.gL1').getBoundingClientRect().bottom);
+      }).toBeGreaterThanOrEqual(10);
+      const lastCardBottom=await last.evaluate(element=>element.closest('.gL1').getBoundingClientRect().bottom);
+      const endGap=(await nav.boundingBox()).y-lastCardBottom;
+      expect(endGap).toBeGreaterThanOrEqual(10);expect(endGap).toBeLessThanOrEqual(32);
+      await page.screenshot({path:test.info().outputPath('iphone-'+theme+'-bottom.png'),scale:'css'});
       expect((await header.boundingBox()).y).toBe(before.y);
       await header.hover();await page.mouse.wheel(0,-700);
       await expectFrame(844);
@@ -130,6 +138,50 @@ test('login remains scrollable and themed when the visible screen is short',asyn
     expect(await login.evaluate(element=>element.scrollHeight>element.clientHeight)).toBe(true);
     await toggle.click();
     await expect(page.locator('body')).toHaveCSS('background-color','rgb(245, 240, 255)');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('pages use one compact menu clearance and release it when opening a chart',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open();
+    await page.setViewportSize({width:390,height:700});
+    await page.addStyleTag({content:':root { --app-safe-bottom: 0px; }'});
+    const main=page.locator('[data-main-scroll]'),nav=page.locator('.app-nav .gNav');
+    const checkEnd=async last=>{
+      await main.evaluate(element=>{element.scrollTop=element.scrollHeight;});
+      await expect(last).toBeInViewport();
+      await expect.poll(async()=>{
+        await main.evaluate(element=>{element.scrollTop=element.scrollHeight;});
+        const box=await last.boundingBox();
+        return Math.round((await nav.boundingBox()).y-box.y-box.height);
+      }).toBeGreaterThanOrEqual(10);
+      const item=await last.boundingBox(),menu=await nav.boundingBox();
+      expect(menu.y-item.y-item.height).toBeLessThanOrEqual(36);
+      expect(Math.abs(700-menu.y-menu.height-8)).toBeLessThan(1);
+      const bounds=await main.boundingBox();expect(Math.round(bounds.y+bounds.height)).toBe(700);
+    };
+    for(const tab of ['Ensaio','Bíblia','Admin']){
+      await page.getByRole('button',{name:tab,exact:true}).click();
+      await checkEnd(main.locator('.ui-page > .ui-card, .app-page > .gL1').last());
+    }
+    await page.getByRole('button',{name:'Ensaio',exact:true}).click();
+    const last=main.locator('.ui-page > .ui-card').last();
+    const height=(await nav.boundingBox()).height;
+    await nav.locator('button').evaluateAll(buttons=>buttons.forEach(button=>{button.style.paddingBottom='28px';}));
+    await expect.poll(async()=>(await nav.boundingBox()).height).toBeGreaterThan(height);
+    await checkEnd(last);
+    await page.screenshot({path:test.info().outputPath('compact-footer.png'),scale:'css'});
+    await page.getByRole('button',{name:'Músicas',exact:true}).click();
+    await page.getByText('Teste adoracao',{exact:true}).click();
+    await expect(page.locator('.app-nav')).toHaveCount(0);
+    await main.evaluate(element=>{element.scrollTop=element.scrollHeight;});
+    const finalAction=main.getByRole('button',{name:/Excluir.*música/i});
+    await expect(finalAction).toBeInViewport();
+    const box=await finalAction.boundingBox();
+    expect(700-box.y-box.height).toBeGreaterThanOrEqual(16);
+    expect(700-box.y-box.height).toBeLessThanOrEqual(40);
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });

@@ -2,7 +2,7 @@
 
 Capturas do aplicativo em Chromium, com dados de demonstração e sem acesso ao banco de produção.
 
-A janela principal acompanha a altura visível do navegador, inclusive após retorno ao app, teclado e rotação. Cabeçalho, fundo do documento e cor do navegador acompanham o tema salvo; o cabeçalho é opaco. O menu flutuante usa o mesmo quadro da página, com espaço de rolagem reservado para ele e para a área inferior do aparelho. As regressões de layout usam Chromium com áreas seguras de iPhone simuladas (47 px no topo e 34 px embaixo), nos dois temas, além de desktop; essa emulação não substitui a verificação do PWA em um iPhone físico.
+A janela principal acompanha a altura visível do navegador, inclusive após retorno ao app, teclado e rotação. Cabeçalho, fundo do documento e cor do navegador acompanham o tema salvo; o cabeçalho é opaco. O conteúdo e o fundo ocupam a tela até a borda inferior. O menu flutuante fica acima da área de gestos (ou a 8 px da borda quando não há essa área), e a rolagem reserva uma única vez sua altura medida mais 12 px de separação. As páginas não repetem essa reserva e a cifra usa somente o espaço inferior de leitura quando o menu está oculto. As regressões de layout usam Chromium com áreas seguras de iPhone simuladas (47 px no topo e 34 px embaixo), nos dois temas, além de desktop; essa emulação não substitui a verificação do PWA em um iPhone físico.
 
 O editor mantém cabeçalho e ações visíveis durante a rolagem e oferece espaço dedicado para o setlist. Os mesmos campos e botões são usados em Bíblia, Ensaio e cifra.
 

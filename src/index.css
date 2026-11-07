@@ -1,13 +1,20 @@
 html, body, #root { margin: 0; padding: 0; width: 100%; height: 100%; overscroll-behavior: none; }
 html, body { overflow: hidden; background: var(--app-canvas, #F5F0FF); }
-:root { --app-safe-top: env(safe-area-inset-top, 0px); --app-safe-bottom: env(safe-area-inset-bottom, 0px); }
+:root {
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-nav-height: 72px;
+  --app-nav-bottom: max(8px, var(--app-safe-bottom));
+  --app-nav-clearance: calc(var(--app-nav-height) + var(--app-nav-bottom) + 12px);
+}
 body { position: fixed; inset: 0; }
 #root { isolation: isolate; position: fixed; top: var(--app-viewport-top, 0px); left: 0; height: var(--app-viewport-height, 100%); }
 .app-shell { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; max-width: 500px; margin: 0 auto; overflow: hidden; }
 .app-header { touch-action: none; user-select: none; background: var(--app-canvas); }
-.app-main { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; padding-bottom: calc(104px + var(--app-safe-bottom)); scroll-padding-bottom: calc(104px + var(--app-safe-bottom)); }
-.app-main[data-song-open="true"] { padding-bottom: calc(96px + var(--app-safe-bottom)); }
-.app-nav { position: absolute; bottom: calc(20px + var(--app-safe-bottom)); left: 0; right: 0; display: flex; justify-content: center; z-index: 50; pointer-events: none; }
+.app-main { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; padding-bottom: var(--app-nav-clearance); scroll-padding-bottom: 12px; }
+.app-main[data-song-open="true"] { padding-bottom: calc(16px + var(--app-safe-bottom)); }
+.app-page { padding: 16px 16px 0; }
+.app-nav { position: absolute; bottom: var(--app-nav-bottom); left: 0; right: 0; display: flex; justify-content: center; z-index: 50; pointer-events: none; }
 .ls.app-login { overflow-y: auto; padding: calc(24px + var(--app-safe-top)) 24px calc(24px + var(--app-safe-bottom)); }
 [data-main-scroll], .gL2 { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 button, a, select { touch-action: manipulation; }
@@ -35,6 +42,6 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   @page { margin: 1cm; }
 }
 
-.update-notice { pointer-events:none; position:fixed; bottom:calc(88px + env(safe-area-inset-bottom,0px)); left:50%; transform:translateX(-50%); width:calc(100% - 32px); max-width:420px; padding:12px 16px; border-radius:14px; background:#5B21B6; color:white; box-shadow:0 8px 24px #0003; font:600 14px/1.5 sans-serif; z-index:100000; }
+.update-notice { pointer-events:none; position:fixed; bottom:var(--app-nav-clearance); left:50%; transform:translateX(-50%); width:calc(100% - 32px); max-width:420px; padding:12px 16px; border-radius:14px; background:#5B21B6; color:white; box-shadow:0 8px 24px #0003; font:600 14px/1.5 sans-serif; z-index:100000; }
 .update-notice button { pointer-events:auto; margin-left:8px; padding:6px 10px; border:0; border-radius:8px; cursor:pointer; }
 @media print { .update-notice { display:none !important; } }

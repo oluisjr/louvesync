@@ -9,7 +9,7 @@
   --ui-surface:#1b102e; --ui-panel:#160c26; --ui-field:#241637; --ui-line:#362447;
   --ui-row:#211432; --ui-shadow:0 5px 24px #0002; --ui-success:#65d5b6; color-scheme:dark;
 }
-.ui-page { padding:22px 18px 110px; min-width:0; }
+.ui-page { padding:22px 18px 0; min-width:0; }
 .ui-page-heading { display:flex; align-items:center; gap:12px; margin:0 0 22px; }
 .ui-heading-icon { display:grid; place-items:center; width:46px; height:46px; flex:0 0 46px; border-radius:16px; color:var(--ui-accent); background:var(--ui-accent-soft); }
 .ui-heading-copy { min-width:0; flex:1; }

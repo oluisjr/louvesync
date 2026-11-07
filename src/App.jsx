@@ -15,6 +15,7 @@ import MemberEditor from './components/MemberEditor.jsx';
 import MetronomeControls from './components/MetronomeControls.jsx';
 import { useMetronome } from './hooks/useMetronome.js';
 import { useAppDisplay } from './hooks/useAppDisplay.js';
+import { useNavigationClearance } from './hooks/useNavigationClearance.js';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
 import { onRealtime, onRealtimeStatus, broadcastUpdate, disconnectRealtime } from './lib/realtime.js';
@@ -466,7 +467,7 @@ const Devocional = memo(({dark})=>{
     { type: 'video', title: 'Como fluir no louvor', theme: 'Devocional', desc: 'Dicas práticas de adoração', ytId: 'BEkStuKw5Ow' }
   ];
 
-  return <div style={{padding:16, paddingBottom:96}}>
+  return <div className="app-page">
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
       <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoBook s={20}/>Devocional</div>
     </div>
@@ -501,7 +502,7 @@ const Treinamento = memo(({dark, profile})=>{
     { type: 'text', title: 'Volume não é Qualidade', cat: 'Dica Prática', text: 'Bateristas e guitarristas: a dinâmica é a alma da música. Saibam a hora de diminuir o volume para que a igreja ouça a si mesma cantando. O volume da banda deve servir à congregação, não encobri-la.' }
   ];
 
-  return <div style={{padding:16, paddingBottom:96}}>
+  return <div className="app-page">
        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
       <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoGuitar s={20}/>Treinamento</div>
     </div>
@@ -1054,7 +1055,7 @@ const PatrimonioScreen = memo(({members, profile, dark}) => {
     }
   };
 
-  return <div className="aUp" style={{padding: '16px', paddingBottom: '96px'}}>
+  return <div className="app-page aUp">
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em'}}>{isAdm ? 'Controle de Patrimônio' : 'Patrimônio da Igreja'}</div>
       {isAdm && <button onClick={() => setEditItem({id: 'eq_' + Date.now(), name: '', brand: '', status: 'Disponível', custodian_id: null, serial_number: ''})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>}
@@ -1212,7 +1213,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
      return acc + (confirmed / total * 100);
   }, 0) / pastEvents.length) : 0;
 
-  return <div style={{padding:16, paddingBottom:96}}>
+  return <div className="app-page">
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
       <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoPeople s={20}/>Painel Admin</div>
     </div>
@@ -1571,7 +1572,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
     vocalCats.push('oferta', 'santa ceia');
   }
 
-  return <div style={{padding:'16px 16px 0'}}>
+  return <div className="app-page">
     {/* Greeting */}
     <div className="aUp" style={{marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
       <div>
@@ -1730,7 +1731,7 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
   const allKeys=useMemo(()=>[...new Set(songs.map(s=>s.key))].filter(Boolean).sort(),[songs]);
   const filtered=useMemo(()=>{let s=catF==='fav'?songs.filter(x=>favorites?.includes(x.id)):catF==='all'?songs:songs.filter(x=>x.cat===catF);if(keyF)s=s.filter(x=>x.key===keyF);if(search.trim())s=s.filter(x=>x.title.toLowerCase().includes(search.toLowerCase())||(x.artist || '').toLowerCase().includes(search.toLowerCase()));return s;},[songs,catF,keyF,search,favorites]);
 
-  return <div style={{padding:16}}>
+  return <div className="app-page">
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
       <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoMusic s={20}/>Repertório</div>
       <button onClick={()=>onSetAddOpen(true)} style={{display:'flex',alignItems:'center',gap:6,padding:'9px 16px',borderRadius:100,border:'none',background:'#4F46E5',color:'#fff',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer',boxShadow:'0 4px 14px rgba(79,70,229,.35)'}}><IcoPlus s={14}/>Adicionar</button>
@@ -1989,7 +1990,6 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metronome,setStageMod
       <IcoShare s={14}/>Imprimir / Salvar PDF
     </button>
     {profile?.is_admin&&<button onClick={()=>onDeleteSong(song.id)} style={{width:'100%',marginBottom:16,padding:'11px',borderRadius:'var(--r-md)',border:'1px solid rgba(239,68,68,.22)',background:'rgba(239,68,68,.05)',color:'#DC2626',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoTrash s={14}/>Excluir música</button>}
-    <div style={{height:16}}/>
     {/* ── Div oculta usada pelo @media print ── */}
     {typeof document !== 'undefined' && createPortal(<div id="print-cifra">
       <div className="print-title">{sTitle}</div>
@@ -2137,7 +2137,7 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
     document.body.removeChild(link);
   };
 
-  return <div style={{padding:16}}>
+  return <div className="app-page">
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
       <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoCal s={20}/>{showHistory?'Histórico':'Escala'}</div>
       <div style={{display:'flex',gap:6}}>
@@ -2304,7 +2304,7 @@ const Membros = memo(({profile,dark,members,events,selRole,setSelRole})=>{
   const roles=[...new Set(members.map(m=>m.instrument))].filter(Boolean);
   const filtered=selRole==='Todos'?members:members.filter(m=>m.instrument===selRole);
 
-  return <div style={{padding:16}}>
+  return <div className="app-page">
     <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,marginBottom:14,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}} className="aUp"><IcoPeople s={20}/>Membros</div>
     <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:14,paddingBottom:2}} className="aUp">
       {['Todos',...roles].map(r=><button key={r} onClick={()=>setSelRole(r)} style={{flexShrink:0,padding:'7px 14px',borderRadius:100,border:'none',cursor:'pointer',background:selRole===r?'#4F46E5':dark?'rgba(255,255,255,.08)':'rgba(79,70,229,.07)',color:selRole===r?'#fff':tc,fontSize:'var(--fs-sm)',fontWeight:700,transition:'all .2s'}}>{r}</button>)}
@@ -2374,7 +2374,7 @@ const Maestro = memo(({dark,aiMsgs,aiIn,setAiIn,aiLoad,aiCount,onSendAI})=>{
     {l:'Estrutura de Ensaio',p:'Estruture um ensaio eficiente de 2 horas para ministério de louvor, com divisão de tempo.'},
   ];
 
-  return <div style={{display:'flex',flexDirection:'column',height:'100%',padding:'16px 16px 120px'}}>
+  return <div className="app-page" style={{display:'flex',flexDirection:'column',height:'100%',minHeight:0}}>
     <div style={{marginBottom:12}} className="aUp">
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2}}>
         <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoSpark s={20}/>Maestro</div>
@@ -3243,7 +3243,7 @@ if (!navigator.onLine) {
   };
 
   return (
-    <div style={{padding: 16, paddingBottom: 96}} className="aUp">
+    <div className="app-page aUp">
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
         <div style={{fontSize:'var(--fs-xl)', fontWeight:900, color:tc, display:'flex', alignItems:'center', gap:8}}>
           📢 Mural de Comunicados
@@ -3407,6 +3407,7 @@ export default function LouveSync() {
     catch { return document.documentElement.dataset.theme==='dark'; }
   });
   useAppDisplay(dark);
+  const navigationRef=useNavigationClearance();
   const [tab,setTab]=useState('home');
   const [selectedSong,setSelSong]=useState(null);
   const selSong = songs.find(song=>song.id===selectedSong?.id) || selectedSong;
@@ -3971,7 +3972,7 @@ export default function LouveSync() {
 
         {/* BOTTOM NAV — hidden in Cifra */}
         {!inCifra&&<div className="app-nav">
-          <div className="gNav hide-scroll" style={{borderRadius:100,padding:'6px 10px',display:'flex',gap:2,pointerEvents:'all',overflowX:'auto',maxWidth:'90%',WebkitOverflowScrolling:'touch'}}>
+          <div ref={navigationRef} className="gNav hide-scroll" style={{borderRadius:100,padding:'6px 10px',display:'flex',gap:2,pointerEvents:'all',overflowX:'auto',maxWidth:'90%',WebkitOverflowScrolling:'touch'}}>
             {TABS.map(n=>{const active=tab===n.id;return <button key={n.id} className={`nb${active?' on':''}`} onClick={()=>navTo(n.id)}>
               <span className="ni" style={{color:active?(dark?'#A855F7':'#7B3FF2'):dark?'#94A3B8':'#64748B'}}>{n.ico}</span>
               <span className="nl" style={{color:active?(dark?'#A855F7':'#7B3FF2'):dark?'#94A3B8':'#64748B'}}>{n.l}</span>
