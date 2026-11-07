@@ -27,6 +27,7 @@
     </style>
     <script>
       // Apply the saved theme before the first paint, including while updates load.
+      document.documentElement.dataset.displayMode = navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser';
       try {
         if (localStorage.getItem('ls_theme') === 'dark') {
           document.documentElement.dataset.theme = 'dark';

@@ -63,7 +63,11 @@ for(const theme of ['light','dark']){
       await main.evaluate(element=>{element.scrollTop=0;});
       await page.screenshot({path:test.info().outputPath('iphone-'+theme+'.png'),scale:'css'});
 
-      // iOS can resize/pan the visual viewport without resizing the layout viewport.
+      await page.getByRole('button',{name:'Novo',exact:true}).click();
+      const dialog=page.getByRole('dialog',{name:'Novo evento',exact:true});
+      await expect(dialog).toBeVisible();
+      await dialog.getByLabel('Nome do evento',{exact:true}).focus();
+      // A software keyboard can resize/pan the visual viewport during text entry.
       await page.evaluate(()=>{
         Object.defineProperties(window.visualViewport,{height:{configurable:true,value:490},offsetTop:{configurable:true,value:38}});
         window.visualViewport.dispatchEvent(new Event('resize'));
@@ -78,9 +82,6 @@ for(const theme of ['light','dark']){
         delete window.visualViewport.scale;
         Object.defineProperty(window.visualViewport,'height',{configurable:true,value:490});
       });
-      await page.getByRole('button',{name:'Novo',exact:true}).click();
-      const dialog=page.getByRole('dialog',{name:'Novo evento',exact:true});
-      await expect(dialog).toBeVisible();
       const footer=await dialog.locator('footer').boundingBox();
       expect(footer.y+footer.height).toBeLessThanOrEqual(528);
       await page.keyboard.press('Escape');
@@ -123,6 +124,49 @@ test('desktop frame stays centered and covers the viewport after resizing',async
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
+
+for(const theme of ['light','dark']){
+  test(`installed app uses the full screen when iOS reports a shorter visual viewport in ${theme} theme`,async({browser})=>{
+    const app=await fixture(browser);
+    try{
+      const page=await app.open(admin,undefined,{device:{...devices['iPhone 13'],viewport:{width:390,height:844}},theme,standalone:true,visualViewportHeight:797});
+      await page.addStyleTag({content:':root { --app-safe-top: 47px; --app-safe-bottom: 34px; } *,*::before,*::after { animation:none!important; transition:none!important; }'});
+      await page.getByRole('button',{name:'Escala',exact:true}).click();
+      await expect(page.getByRole('button',{name:'Ver detalhes →',exact:true})).toBeVisible();
+      await page.screenshot({path:test.info().outputPath('short-visual-viewport-'+theme+'.png'),scale:'css'});
+      const root=page.locator('#root'),main=page.locator('[data-main-scroll]'),nav=page.locator('.app-nav .gNav');
+      await expect.poll(async()=>Math.round((await root.boundingBox()).height)).toBe(844);
+      const content=await main.boundingBox(),menu=await nav.boundingBox();
+      expect(Math.round(content.y+content.height)).toBe(844);
+      expect(Math.abs(844-menu.y-menu.height-34)).toBeLessThan(1);
+      await page.getByRole('button',{name:'Novo',exact:true}).click();
+      const layer=page.locator('.ui-dialog-layer');
+      await expect.poll(async()=>Math.round((await layer.boundingBox()).height)).toBe(844);
+      await expect(page.getByRole('dialog',{name:'Novo evento',exact:true})).toBeVisible();
+      const footer=await layer.locator('footer').boundingBox();
+      expect(Math.round(footer.y+footer.height)).toBe(844);
+      await page.keyboard.press('Escape');
+      await page.getByRole('button',{name:'Músicas',exact:true}).click();
+      const search=page.getByPlaceholder('Buscar música ou artista...');
+      await search.focus();
+      // A focused field with no software keyboard must not shrink the installed app either.
+      await expect.poll(async()=>Math.round((await root.boundingBox()).height)).toBe(844);
+      await search.blur();
+      await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+      await expect.poll(async()=>Math.round((await root.boundingBox()).height)).toBe(844);
+      await page.evaluate(()=>{
+        Object.defineProperty(window.visualViewport,'offsetTop',{configurable:true,value:47});
+        window.visualViewport.dispatchEvent(new Event('scroll'));
+        window.dispatchEvent(new Event('louvesync:resume'));
+      });
+      await expect.poll(async()=>Math.round((await root.boundingBox()).y)).toBe(0);
+      await expect.poll(async()=>Math.round((await root.boundingBox()).height)).toBe(844);
+      await page.setViewportSize({width:390,height:760});
+      await expect.poll(async()=>Math.round((await root.boundingBox()).height)).toBe(760);
+      expect(app.failures).toEqual([]);
+    }finally{await app.close();}
+  });
+}
 
 test('login remains scrollable and themed when the visible screen is short',async({browser})=>{
   const app=await fixture(browser);
@@ -202,6 +246,7 @@ async function fixture(browser) {
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block', ...options.device }); contexts.push(context);
     await context.addInitScript(profile => { localStorage.setItem('ls_profile', JSON.stringify(profile)); localStorage.removeItem('ls_last_activity'); }, profile);
     if(options.theme)await context.addInitScript(theme=>{if(!localStorage.getItem('ls_theme'))localStorage.setItem('ls_theme',theme);},options.theme);
+    if(options.visualViewportHeight)await context.addInitScript(height=>Object.defineProperty(window.visualViewport,'height',{configurable:true,value:height}),options.visualViewportHeight);
     if(options.standalone)await context.addInitScript(()=>{
       Object.defineProperty(navigator,'standalone',{value:true});
       const match=window.matchMedia.bind(window);

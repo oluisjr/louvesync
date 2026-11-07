@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 export function Icon({ name, size = 20, ...props }) {
@@ -42,22 +42,13 @@ export function SearchField({ label, value, onChange, placeholder }) {
 export function Dialog({ dark, title, description, icon = 'calendar', closeLabel = 'Fechar editor de evento', onClose, footer, tabs, children, contentKey, busy = false }) {
   const titleId = useId();
   const panel = useRef(null);
-  const [viewport, setViewport] = useState(null);
   useEffect(() => {
     const previous = document.activeElement;
     const root = document.getElementById('root');
     const inert = root?.inert;
     if (root) root.inert = true;
     panel.current?.focus({ preventScroll: true });
-    const resize = () => {
-      const visual = window.visualViewport;
-      if (!visual || visual.scale !== 1) return;
-      setViewport({ height: Math.round(visual.height), top: Math.round(visual.offsetTop) });
-    };
-    resize();
-    window.visualViewport?.addEventListener('resize', resize);
     return () => {
-      window.visualViewport?.removeEventListener('resize', resize);
       if (root) root.inert = inert;
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
@@ -70,7 +61,7 @@ export function Dialog({ dark, title, description, icon = 'calendar', closeLabel
     if (event.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) { event.preventDefault(); last?.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   };
-  return createPortal(<div className="ui-scope ui-dialog-layer" data-theme={dark ? 'dark' : 'light'} style={viewport ? { '--dialog-viewport-height': `${viewport.height}px`, '--dialog-viewport-top': `${viewport.top}px` } : undefined}>
+  return createPortal(<div className="ui-scope ui-dialog-layer" data-theme={dark ? 'dark' : 'light'}>
     <div className="ui-dialog-scrim" aria-hidden="true"/>
     <section ref={panel} className="ui-dialog" role="dialog" aria-modal="true" aria-busy={busy} aria-labelledby={titleId} tabIndex={-1} onKeyDown={keyDown} data-update-blocking="true">
       <header className="ui-dialog-header"><span className="ui-heading-icon"><Icon name={icon} size={22}/></span><div className="ui-heading-copy"><span className="ui-eyebrow">Sua equipe em harmonia</span><h2 id={titleId}>{title}</h2>{description && <p>{description}</p>}</div><button type="button" className="ui-icon-button" onClick={onClose} disabled={busy} aria-label={closeLabel}><Icon name="close"/></button></header>

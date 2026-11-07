@@ -78,7 +78,7 @@
 .ui-selection { display:grid; place-items:center; width:23px; height:23px; flex:0 0 23px; border-radius:8px; border:1.5px solid var(--ui-line); color:var(--ui-muted); background:var(--ui-field); }
 [aria-pressed="true"] .ui-selection { border-color:var(--ui-accent); background:var(--ui-accent); color:var(--ui-panel); }
 .ui-avatar { display:grid; place-items:center; width:36px; height:36px; flex:0 0 36px; border-radius:12px; font-size:11px; font-weight:900; background:var(--avatar-tint,var(--ui-accent-soft)); color:var(--avatar-color,var(--ui-accent)); }
-.ui-dialog-layer { position:fixed; top:var(--dialog-viewport-top,0px); left:0; right:0; height:var(--dialog-viewport-height,100dvh); display:flex; justify-content:center; align-items:flex-end; z-index:1000; overflow:hidden; overscroll-behavior:none; }
+.ui-dialog-layer { position:fixed; top:var(--app-keyboard-top,0px); left:0; right:0; height:var(--app-keyboard-height,var(--app-layout-height,100vh)); display:flex; justify-content:center; align-items:flex-end; z-index:1000; overflow:hidden; overscroll-behavior:none; }
 .ui-dialog-scrim { position:absolute; inset:0; background:rgba(22,10,39,.45); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); }
 .ui-dialog { position:relative; display:flex; flex-direction:column; width:100%; max-width:720px; height:calc(100% - max(16px,env(safe-area-inset-top))); max-height:900px; min-height:0; overflow:hidden; outline:0; border:1px solid var(--ui-line); border-bottom:0; border-radius:26px 26px 0 0; background:var(--ui-panel); box-shadow:0 -12px 80px rgba(27,8,58,.2); }
 .ui-dialog-header { display:flex; align-items:center; gap:11px; flex:0 0 auto; padding:20px 20px 17px; background:var(--ui-surface); }
