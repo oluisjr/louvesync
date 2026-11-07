@@ -9,7 +9,7 @@ const songs = ['adoracao', 'ceia', 'jubilo'].map((cat, index) => ({ id: `song-${
 const initialEvents = [{ id: 'event-1', date: '2026-10-25', time: '18:00:00', label: 'Culto de Teste', type: 'culto', event_songs: songs.map((song, index) => ({ id: index + 1, song_id: song.id, order_index: index + 1, item_type: 'song' })), event_members: [{ member_id: admin.id, confirmed: null }, { member_id: member.id, confirmed: null }] }];
 async function fixture(browser) {
   const pages = [], contexts = [], failures = [];
-  const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), session: null, notes: {}, nextItemId: 100 };
+  const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), members: structuredClone([admin,member]), memberRequests: [], session: null, notes: {}, nextItemId: 100 };
   const code = `
     import { updateEventItems } from '/src/lib/event-storage.js';
     const clone=value=>structuredClone(value);
@@ -35,7 +35,17 @@ async function fixture(browser) {
     await context.exposeBinding('__testDb', async (_source, action, args) => {
       if (action === 'fetchSongs') return structuredClone(state.songs);
       if (action === 'fetchEvents') return structuredClone(state.events);
-      if (action === 'fetchMembers') return [admin, member];
+      if (action === 'fetchMembers') return structuredClone(state.members);
+      if (action === 'upsertMember') {
+        state.memberRequests.push(structuredClone(args[0]));
+        await state.memberSaveGate;
+        if(state.memberSaveError)throw new Error(state.memberSaveError);
+        const unsupported=Object.keys(args[0]).find(key=>!['id','name','role','instrument','avatar','color','status','is_admin','pin','vocal_category'].includes(key));
+        if(unsupported)throw new Error('Unknown members column: '+unsupported);
+        const index=state.members.findIndex(member=>member.id===args[0].id);
+        if(index<0)state.members.push(structuredClone(args[0]));else state.members[index]=structuredClone(args[0]);
+        return args[0];
+      }
       if (action === 'setPresence') { state.events[0].event_members.find(row => row.member_id === args[1]).confirmed = args[2]; return; }
       if (action === 'upsertSong') { const index = state.songs.findIndex(song => song.id === args[0].id); if(index<0)state.songs.push(args[0]);else state.songs[index]=args[0];return args[0]; }
       if (action === 'saveVocalKey') { const song=state.songs.find(song=>song.id===args[0]);song.vocal_keys[args[1]]=args[2];return song.vocal_keys; }
@@ -518,3 +528,129 @@ test('PDF degrees follow assigned ministers in B and A across devices, stage, re
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
+
+test('the event catalog groups and colors every category while search and selection preserve event order',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.songs.push(...[
+    {id:'hino-a',title:'A Face Adorada',cat:'hinario'},
+    {id:'hino-b',title:'Em fervente oração',cat:'hinario'},
+    {id:'oferta',title:'Sete vezes mais',cat:'oferta'},
+    {id:'corinho',title:'Corinho de teste',cat:'corinho'},
+    {id:'sem-cat',title:'Sem categoria de teste',cat:null},
+    {id:'especial',title:'Música especial',cat:'Especial'},
+  ].map(song=>({...songs[0],...song})));
+  try{
+    const page=await app.open();
+    await page.getByRole('button',{name:'Escala',exact:true}).click();
+    await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    await page.getByRole('button',{name:'Editar',exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:'Editar evento',exact:true});
+    await dialog.getByRole('tab',{name:'Setlist',exact:true}).click();
+    const catalog=dialog.locator('.ui-song-catalog');
+    expect(await catalog.locator('.ui-category-heading h4').allTextContents()).toEqual(['Júbilo','Hinário','Adoração','Oferta','Corinhos','Santa Ceia','Sem categoria','Especial']);
+    const hinos=catalog.getByRole('region',{name:'Hinário',exact:true});
+    expect(await hinos.getByRole('button').allTextContents()).toEqual(['A Face AdoradaFixtureC','Em fervente oraçãoFixtureC']);
+    for(const [name,color] of [['Júbilo','rgb(0, 201, 167)'],['Hinário','rgb(255, 107, 53)'],['Adoração','rgb(123, 63, 242)']]){
+      const group=catalog.getByRole('region',{name,exact:true});
+      await expect(group.locator('.ui-category-dot')).toHaveCSS('background-color',color);
+      await expect(group.getByRole('button').first()).toHaveCSS('border-left-color',color);
+    }
+    await hinos.getByRole('button',{name:'Selecionar A Face Adorada',exact:true}).click();
+    await expect(hinos.getByRole('button',{name:'Selecionar A Face Adorada',exact:true})).toHaveAttribute('aria-pressed','true');
+    await expect(hinos.locator('.ui-category-heading')).toContainText('1 no setlist');
+    expect(await dialog.getByRole('list',{name:'Músicas do setlist'}).locator('li strong').allTextContents()).toEqual(['Teste adoracao','Teste ceia','Teste jubilo','A Face Adorada']);
+    await dialog.getByRole('searchbox',{name:'Buscar música no repertório'}).fill('especial');
+    expect(await catalog.locator('.ui-category-heading h4').allTextContents()).toEqual(['Especial']);
+    await catalog.getByRole('button',{name:'Selecionar Música especial',exact:true}).click();
+    await dialog.getByRole('searchbox',{name:'Buscar música no repertório'}).fill('nenhuma corresponde');
+    await expect(catalog.locator('.ui-category-group')).toHaveCount(0);
+    await expect(catalog.getByText('Nenhuma música encontrada',{exact:true})).toBeVisible();
+    await dialog.getByRole('searchbox',{name:'Buscar música no repertório'}).fill('');
+    await dialog.getByRole('searchbox',{name:'Buscar música no repertório'}).blur();
+    await catalog.getByRole('region',{name:'Júbilo',exact:true}).evaluate(element=>element.scrollIntoView({block:'start'}));
+    await page.screenshot({path:test.info().outputPath('event-categories.png')});
+    await dialog.getByRole('button',{name:'Salvar Alterações',exact:true}).click();
+    await expect(dialog).toHaveCount(0);
+    expect(app.state.events[0].event_songs.filter(row=>row.song_id).sort((a,b)=>a.order_index-b.order_index).map(row=>row.song_id)).toEqual(['song-0','song-1','song-2','hino-a','especial']);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+for(const viewport of [{name:'mobile',width:320,height:740},{name:'desktop-dark',width:1280,height:900}]){
+  test('member editor stays above app chrome and saves a complete form on '+viewport.name,async({browser})=>{
+    const app=await fixture(browser);
+    try{
+      const page=await app.open();
+      await page.setViewportSize({width:viewport.width,height:viewport.height});
+      if(viewport.name==='desktop-dark')await page.getByRole('button',{name:'Tema',exact:true}).click();
+      await page.getByRole('button',{name:'Admin',exact:true}).click();
+      const open=page.getByRole('button',{name:'Adicionar membro',exact:true});
+      await open.click();
+      const dialog=page.getByRole('dialog',{name:'Novo membro',exact:true});
+      await expect(dialog).toBeVisible();
+      expect(await dialog.evaluate(element=>element.parentElement.parentElement===document.body)).toBe(true);
+      expect(await page.locator('#root').evaluate(element=>element.inert)).toBe(true);
+      await expect(dialog).toHaveAttribute('data-update-blocking','true');
+      const header=dialog.locator('.ui-dialog-header'),footer=dialog.locator('footer'),content=dialog.locator('.ui-dialog-content');
+      const initial={header:await header.boundingBox(),footer:await footer.boundingBox()};
+      const background=await page.locator('[data-main-scroll]').evaluate(element=>element.scrollTop);
+      await dialog.getByRole('button',{name:'Cadastrar membro',exact:true}).click();
+      expect(app.state.memberRequests).toHaveLength(0);
+      await expect(dialog.getByLabel('Nome completo',{exact:true})).toBeFocused();
+      await dialog.getByLabel('Nome completo',{exact:true}).fill('Pessoa de Teste');
+      await dialog.getByLabel('Função ou instrumento',{exact:true}).fill('Vocal 2');
+      await dialog.getByLabel('PIN de acesso',{exact:true}).fill('TESTE26');
+      await dialog.getByRole('checkbox',{name:'Administrador',exact:false}).check();
+      await expect(dialog.getByRole('checkbox',{name:'Painel administrativo',exact:true})).toBeChecked();
+      await expect(dialog.getByRole('checkbox',{name:'Painel administrativo',exact:true})).toBeDisabled();
+      await dialog.getByRole('checkbox',{name:'Administrador',exact:false}).uncheck();
+      await dialog.getByRole('checkbox',{name:'Patrimônio',exact:true}).uncheck();
+      await dialog.getByLabel('Categoria vocal',{exact:true}).selectOption('jubilo');
+      await dialog.getByRole('checkbox',{name:'Indisponível: Dom',exact:true}).check();
+      await dialog.getByRole('checkbox',{name:'Indisponível: Sáb',exact:true}).check();
+      await content.evaluate(element=>{element.scrollTop=element.scrollHeight;});
+      for(const [name,element] of [['header',header],['footer',footer]]){
+        expect(Math.abs((await element.boundingBox()).y-initial[name].y)).toBeLessThan(1);
+      }
+      expect(await page.locator('[data-main-scroll]').evaluate(element=>element.scrollTop)).toBe(background);
+      expect(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+      await page.screenshot({path:test.info().outputPath('member-'+viewport.name+'-availability.png')});
+      await content.evaluate(element=>{element.scrollTop=0;});
+      await page.screenshot({path:test.info().outputPath('member-'+viewport.name+'.png')});
+      if(viewport.name==='mobile'){
+        await page.setViewportSize({width:viewport.width,height:420});
+        await dialog.getByLabel('PIN de acesso',{exact:true}).focus();
+        await expect.poll(async()=>Math.round((await footer.boundingBox()).y+(await footer.boundingBox()).height)).toBeLessThanOrEqual(420);
+        const button=dialog.getByRole('button',{name:'Cadastrar membro',exact:true});
+        expect(await button.evaluate(element=>{const box=element.getBoundingClientRect();return element.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2));})).toBe(true);
+      }
+      let release;
+      app.state.memberSaveGate=new Promise(resolve=>{release=resolve;});
+      app.state.memberSaveError='Falha de conexão simulada';
+      await dialog.getByRole('button',{name:'Cadastrar membro',exact:true}).click();
+      await expect(dialog.getByRole('button',{name:'Salvando…',exact:true})).toBeDisabled();
+      await expect(dialog.getByRole('button',{name:'Fechar cadastro de membro',exact:true})).toBeDisabled();
+      await page.keyboard.press('Escape');
+      await expect(dialog).toBeVisible();
+      release();app.state.memberSaveGate=null;
+      await expect(dialog.getByRole('alert')).toContainText('Falha de conexão simulada');
+      await expect(dialog.getByLabel('Nome completo',{exact:true})).toHaveValue('Pessoa de Teste');
+      expect(app.state.members.some(member=>member.name==='Pessoa de Teste')).toBe(false);
+      app.state.memberSaveError=null;
+      await dialog.getByRole('button',{name:'Cadastrar membro',exact:true}).click();
+      await expect(dialog).toHaveCount(0);
+      expect(await page.locator('#root').evaluate(element=>element.inert)).toBe(false);
+      const saved=app.state.members.find(member=>member.name==='Pessoa de Teste');
+      expect(saved).toMatchObject({pin:'TESTE26',instrument:'Vocal 2',vocal_category:'jubilo',avatar:'PD',status:'ativo',is_admin:false});
+      expect(saved.permissions).toBeUndefined();expect(saved.unavailableDays).toBeUndefined();
+      await page.getByRole('button',{name:'Editar Pessoa de Teste',exact:true}).click();
+      const edit=page.getByRole('dialog',{name:'Editar membro',exact:true});
+      await expect(edit.getByLabel('Nome completo',{exact:true})).toHaveValue('Pessoa de Teste');
+      await expect(edit.getByRole('checkbox',{name:'Indisponível: Sáb',exact:true})).toBeChecked();
+      await expect(edit.getByRole('checkbox',{name:'Patrimônio',exact:true})).not.toBeChecked();
+      await page.keyboard.press('Escape');
+      await expect(edit).toHaveCount(0);
+      expect(app.failures).toEqual([]);
+    }finally{await app.close();}
+  });
+}

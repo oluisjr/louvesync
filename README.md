@@ -32,6 +32,10 @@ Os testes de navegador simulam o banco e o transporte Realtime e exercitam duas 
 
 O editor usa um painel com altura definida, fora dos contêineres da aplicação, e uma única área de rolagem. Cabeçalho, abas e ações ficam visíveis. As abas **Detalhes**, **Setlist** e **Equipe** preservam os dados enquanto o usuário navega; os pedidos e a Santa Ceia ficam próximos do setlist, antes do catálogo completo. O painel acompanha a altura disponível quando o teclado abre, contém o foco e bloqueia a interação com a tela ao fundo.
 
+No catálogo do evento, as músicas aparecem em grupos de Júbilo, Hinário, Adoração, Oferta, Corinhos e Santa Ceia, com as cores das categorias e contagem de músicas selecionadas. Categorias adicionais e músicas sem categoria também aparecem. A busca filtra os grupos; as músicas escolhidas recebem categoria e cor na lista ordenada, e as setas continuam definindo a sequência do evento.
+
+O cadastro e a edição de membros usam o mesmo painel, renderizado diretamente no corpo da página para ficar acima do cabeçalho e da navegação. Perfil, acesso e participação na escala têm campos rotulados, opções de telas com nomes legíveis e seleção dos dias indisponíveis. As ações permanecem no rodapé durante a rolagem e a redução da área disponível. Um erro ao salvar mantém o formulário preenchido e permite tentar novamente; a lista de membros só é atualizada após o sucesso. O contrato existente de gravação no Supabase e a autenticação não foram alterados.
+
 Bíblia, Ensaio e controles de cifra compartilham cores, campos, botões, ícones e estados de seleção nos temas claro e escuro. Os testes do editor cobrem rolagem, filtragem, reordenação, salvamento e navegação por teclado, em celular e desktop, incluindo uma janela de altura reduzida. A abertura real do teclado e os gestos nativos ainda devem ser conferidos em um aparelho físico.
 
 [Capturas da interface com dados de demonstração](docs/interface.md).

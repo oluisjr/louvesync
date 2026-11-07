@@ -11,6 +11,7 @@ import { downloadSetlistExcel, setlistWhatsAppText } from './lib/setlist-export.
 import { copyTextToClipboard } from './lib/clipboard.js';
 import { performanceKey, renderChordText } from './lib/chords.js';
 import { withSongChart } from './lib/song-charts.js';
+import MemberEditor from './components/MemberEditor.jsx';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
 import { onRealtime, onRealtimeStatus, broadcastUpdate, disconnectRealtime } from './lib/realtime.js';
@@ -1140,31 +1141,19 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
 
   const [editMember, setEditMember] = useState(null);
 
-  const saveMember = async () => {
-    if(!editMember.name || !editMember.pin) return alert('Nome e PIN são obrigatórios!');
-    const newMember = {...editMember};
+  const saveMember = async member => {
+    const newMember = {...member};
     // Garante UUID válido para novos membros
     if (!newMember.id || String(newMember.id).startsWith('new_')) {
       newMember.id = crypto.randomUUID();
     }
-    setMembers(mList => {
-      const exists = mList.find(m => m.id === newMember.id);
-      if (exists) return mList.map(m => m.id === newMember.id ? newMember : m);
-      return [...mList, newMember];
-    });
+    // Preserve the existing database contract. Keep the form open if this write
+    // fails, and update the list only after the save succeeds.
+    const { permissions, unavailableDays, confirmRate, ...dbMember } = newMember;
+    const saved = await upsertMember(dbMember);
+    const record = {...newMember,...saved};
+    setMembers(list => list.some(item => item.id === record.id) ? list.map(item => item.id === record.id ? record : item) : [...list,record]);
     setEditMember(null);
-    try {
-      // Colunas reais da tabela: id, name, role, instrument, avatar, color, status, is_admin, pin
-      // Remover apenas campos de UI que não existem no banco
-      const { permissions, unavailableDays, confirmRate, ...dbMember } = newMember;
-      const saved = await upsertMember(dbMember);
-      if (saved) {
-        setMembers(mList => mList.map(m => m.id === newMember.id ? {...newMember, ...saved} : m));
-      }
-    } catch (e) {
-      console.error('Failed to save member:', e);
-      alert('Erro ao salvar membro: ' + (e?.message || 'Verifique o console.'));
-    }
   };
 
   const delMember = (id) => {
@@ -1314,7 +1303,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     <div className={`${gc} aUp`} style={CS}>
        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
          <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>Gerenciar Membros</div>
-         <button onClick={()=>setEditMember({id:crypto.randomUUID(), name:'', pin:'', role:'Membro', instrument:'', is_admin:false, status:'ativo', permissions:['home','repertorio','escala','devocional','treinamento','membros','patrimonio'], unavailableDays:[], color: '#4F46E5', avatar: 'NM'})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>
+         <button aria-label="Adicionar membro" onClick={()=>setEditMember({id:crypto.randomUUID(), name:'', pin:'', role:'Membro', instrument:'', is_admin:false, status:'ativo', permissions:['home','repertorio','escala','devocional','treinamento','membros','patrimonio'], unavailableDays:[], color: '#4F46E5', avatar: 'NM'})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo membro</button>
        </div>
        {members.map(m => (
          <div key={m.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'6px 0',borderBottom:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
@@ -1325,7 +1314,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
                  <span style={{fontSize:'var(--fs-xs)',color:t2}}>{m.instrument} {m.is_admin ? '(Admin)' : ''}</span>
                </div>
              </div>
-             <button onClick={()=>setEditMember({...m})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'rgba(79,70,229,.1)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Editar</button>
+             <button aria-label={'Editar '+m.name} onClick={()=>setEditMember({...m})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'rgba(79,70,229,.1)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Editar</button>
          </div>
        ))}
     </div>
@@ -1382,78 +1371,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
        </button>
     </div>
 
-    {/* Member Edit Modal */}
-    {editMember && <div data-update-blocking="true" style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-       <div className={gc} style={{width:'100%',maxWidth:420,borderRadius:'var(--r-xl)',padding:24,maxHeight:'85vh',overflowY:'auto'}}>
-          <div style={{fontSize:18,fontWeight:900,color:tc,marginBottom:16}}>{(!editMember.name && !editMember.pin) ? 'Novo Membro' : 'Editar Membro'}</div>
-          <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.name} onChange={e=>{
-             const n=e.target.value;
-             let ava = 'NM';
-             if(n){
-               const parts = n.split(' ').filter(Boolean);
-               if(parts.length > 1) ava = (parts[0][0]+parts[1][0]).toUpperCase();
-               else ava = n.substring(0,2).toUpperCase();
-             }
-             setEditMember(m=>({...m,name:n, avatar:ava}));
-          }} placeholder="Nome Completo" style={{color:tc}}/></div>
-          <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editMember.pin} onChange={e=>setEditMember(m=>({...m,pin:e.target.value}))} placeholder="PIN (Senha num ou alfanum)" type="text" style={{color:tc}}/></div>
-          <div className="gIn" style={{marginBottom:16}}><input className="fi" value={editMember.instrument} onChange={e=>setEditMember(m=>({...m,instrument:e.target.value}))} placeholder="Função/Instrumento (ex: Bateria, Vocal 1)" style={{color:tc}}/></div>
-
-          <label style={{display:'flex',alignItems:'center',gap:8,fontSize:'var(--fs-sm)',color:tc,fontWeight:700,marginBottom:10}}>
-             <input type="checkbox" checked={editMember.is_admin} onChange={e=>setEditMember(m=>({...m,is_admin:e.target.checked}))}/> É Administrador (Acesso Total)
-          </label>
-          <label style={{display:'flex',alignItems:'center',gap:8,fontSize:'var(--fs-sm)',color:tc,fontWeight:700,marginBottom:20}}>
-             <input type="checkbox" checked={editMember.status==='ativo'} onChange={e=>setEditMember(m=>({...m,status:e.target.checked?'ativo':'inativo'}))}/> Ativo na Escala
-          </label>
-
-          {editMember.instrument?.toLowerCase().includes('vocal') && (
-             <div style={{marginBottom:12}}>
-                <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Categoria Vocal (Setlist Solos)</div>
-                <div className="gIn"><select className="fi" value={editMember.vocal_category || ''} onChange={e=>setEditMember(m=>({...m, vocal_category: e.target.value || null}))} style={{color:tc,padding:'10px',fontSize:'var(--fs-sm)'}}>
-                   <option value="">- Nenhuma -</option>
-                   <option value="adoracao">Adoração</option>
-                   <option value="jubilo">Júbilo</option>
-                   <option value="hinario">Hinário</option>
-                   <option value="oferta">Oferta</option>
-                </select></div>
-             </div>
-          )}
-
-          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Permissões de Telas</div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
-             {['home','repertorio','escala','devocional','treinamento','patrimonio','membros','admin'].map(p=>
-               <label key={p} style={{display:'flex',alignItems:'center',gap:4,fontSize:'var(--fs-xs)',color:tc,fontWeight:600,padding:'4px 8px',borderRadius:100,background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',cursor:'pointer'}}>
-                 <input type="checkbox" checked={(editMember.permissions||[]).includes(p) || (editMember.is_admin && p==='admin')} onChange={e=>{
-                    let perms = editMember.permissions || [];
-                    if(e.target.checked && !perms.includes(p)) perms = [...perms, p];
-                    if(!e.target.checked) perms = perms.filter(x=>x!==p);
-                    setEditMember(m=>({...m, permissions:perms}));
-                 }} disabled={editMember.is_admin && p==='admin'}/> {p}
-               </label>
-             )}
-          </div>
-
-          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Dias Indisponíveis (Não escalar autom.)</div>
-          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:24}}>
-             {['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map((d,i)=>
-               <label key={i} style={{display:'flex',alignItems:'center',gap:4,fontSize:'var(--fs-xs)',color:tc,fontWeight:600,padding:'4px 8px',borderRadius:100,background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',cursor:'pointer'}}>
-                 <input type="checkbox" checked={(editMember.unavailableDays||[]).includes(i)} onChange={e=>{
-                    let u = editMember.unavailableDays || [];
-                    if(e.target.checked && !u.includes(i)) u = [...u, i];
-                    if(!e.target.checked) u = u.filter(x=>x!==i);
-                    setEditMember(m=>({...m, unavailableDays:u}));
-                 }}/> {d}
-               </label>
-             )}
-          </div>
-
-          <div style={{display:'flex',gap:10}}>
-             <button className="bp" onClick={saveMember} style={{flex:1}}>Salvar</button>
-             <button onClick={()=>setEditMember(null)} style={{padding:'10px',borderRadius:'var(--r-md)',border:'none',background:'rgba(0,0,0,.1)',color:tc,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
-          </div>
-          {(editMember.name || editMember.pin) && editMember.id !== profile.id && <button onClick={()=>{setEditMember(null); delMember(editMember.id);}} style={{width:'100%',padding:'10px',borderRadius:'var(--r-md)',border:'none',background:'transparent',color:'#EF4444',fontWeight:700,cursor:'pointer',marginTop:10}}>Excluir Membro</button>}
-       </div>
-    </div>}
+    {editMember && <MemberEditor dark={dark} member={editMember} isNew={!members.some(member=>member.id===editMember.id)} canDelete={members.some(member=>member.id===editMember.id)&&editMember.id!==profile.id} onSave={saveMember} onClose={()=>setEditMember(null)} onDelete={()=>{setEditMember(null);delMember(editMember.id);}}/>}
 
     {/* ── QR Code de Convite ── */}
     <div className={`${gc} aUp`} style={CS}>
@@ -2907,6 +2825,8 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
   }
   const filtM=members.filter(m=>m.name.toLowerCase().includes(memberSearch.toLowerCase()));
   const filtS=songs.filter(s=>s.title.toLowerCase().includes(songSearch.toLowerCase()));
+  const categoryIds = [...new Set(['jubilo','hinario','adoracao','oferta','corinho','ceia',...filtS.map(song=>song.cat||'uncategorized')])];
+  const songGroups = categoryIds.map(id=>({id,label:CAT[id]?.label||(id==='uncategorized'?'Sem categoria':id),color:CAT[id]?.color||'#64748B',songs:filtS.filter(song=>(song.cat||'uncategorized')===id).sort((a,b)=>a.title.localeCompare(b.title,'pt-BR',{sensitivity:'base',numeric:true}))})).filter(group=>group.songs.length);
 
 
   const hasSetlist = form.type !== 'ebd' && form.type !== 'consagracao';
@@ -2954,8 +2874,8 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
     </>}
     {activeTab==='setlist'&&<>
       <Section icon="music" title="Ordem das músicas" description="Use as setas para organizar a sequência." action={form.type==='culto'&&<button className="ui-button ui-button-soft ui-button-small" onClick={autoGenerate}><Icon name="sparkles" size={14}/>Auto-gerar</button>}>
-        {form.selSongs.length?<ol className="ui-list" aria-label="Músicas do setlist">{form.selSongs.map((id,index)=>{const song=songs.find(item=>item.id===id);return <li key={id} className="ui-list-row ui-ordered-song">
-          <span className="ui-row-number">{String(index+1).padStart(2,'0')}</span><div className="ui-row-copy"><strong>{song?.title||'Música indisponível'}</strong><small>{song?.artist}{song?.key?' · '+song.key:''}</small></div>
+        {form.selSongs.length?<ol className="ui-list" aria-label="Músicas do setlist">{form.selSongs.map((id,index)=>{const song=songs.find(item=>item.id===id);return <li key={id} className="ui-list-row ui-ordered-song ui-category-song" style={{'--song-category':CAT[song?.cat]?.color||'#64748B'}}>
+          <span className="ui-row-number">{String(index+1).padStart(2,'0')}</span><div className="ui-row-copy"><strong>{song?.title||'Música indisponível'}</strong><small>{song?.artist}{song?.key?' · '+song.key:''}</small><span className="ui-category-tag">{CAT[song?.cat]?.label||song?.cat||'Sem categoria'}</span></div>
           <div className="ui-row-actions"><button className="ui-icon-button" aria-label={'Subir '+song?.title} disabled={index===0} onClick={()=>moveSong(index,-1)}><Icon name="up" size={16}/></button><button className="ui-icon-button" aria-label={'Descer '+song?.title} disabled={index===form.selSongs.length-1} onClick={()=>moveSong(index,1)}><Icon name="down" size={16}/></button><button className="ui-icon-button" aria-label={'Remover '+song?.title} onClick={()=>toggleSong(id)}><Icon name="close" size={15}/></button></div>
         </li>;})}</ol>:<div className="ui-empty"><Icon name="music" size={26}/><strong>O setlist começa aqui</strong><p>Selecione as músicas no repertório abaixo.</p></div>}
       </Section>
@@ -2966,11 +2886,14 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
         {!!form.requestedSongs.length&&<div className="ui-chip-group" style={{marginTop:12}}>{form.requestedSongs.map(id=>{const song=songs.find(item=>item.id===id);return song?<button key={id} className="ui-chip" aria-label={'Remover pedido '+song.title} onClick={()=>toggleRequestedSong(id)}>{song.title}<Icon name="close" size={12}/></button>:null;})}</div>}
         <p className="ui-helper">Os pedidos e a música da ceia também entram no setlist ao salvar.</p>
       </details>}
-      <Section icon="plus" title="Adicionar do repertório" description="Toque nas músicas que farão parte deste evento.">
+      <Section icon="plus" title="Adicionar do repertório" description="Encontre as músicas por categoria e adicione ao evento." className="ui-song-catalog">
         <SearchField label="Buscar música no repertório" value={songSearch} onChange={e=>setSongSearch(e.target.value)} placeholder="Buscar música..."/>
-        <div className="ui-list" style={{marginTop:12}}>{filtS.map(song=><button key={song.id} className="ui-list-row ui-song-choice" aria-label={'Selecionar '+song.title} aria-pressed={form.selSongs.includes(song.id)} onClick={()=>toggleSong(song.id)}>
-          <span className="ui-selection"><Icon name={form.selSongs.includes(song.id)?'check':'plus'} size={14}/></span><div className="ui-row-copy"><strong>{song.title}</strong><small>{song.artist} · {(CAT[song.cat]||{}).label||song.cat}</small></div><span className="ui-badge">{song.key}</span>
-        </button>)}</div>
+        {songGroups.map(group=><section className="ui-category-group" key={group.id} aria-label={group.label} style={{'--song-category':group.color}}>
+          <div className="ui-category-heading"><h4><span className="ui-category-dot"/>{group.label}</h4><span>{group.songs.length} {group.songs.length===1?'música':'músicas'}{group.songs.some(song=>form.selSongs.includes(song.id))&&' · '+group.songs.filter(song=>form.selSongs.includes(song.id)).length+' no setlist'}</span></div>
+          <div className="ui-list">{group.songs.map(song=><button key={song.id} className="ui-list-row ui-song-choice ui-category-song" aria-label={'Selecionar '+song.title} aria-pressed={form.selSongs.includes(song.id)} onClick={()=>toggleSong(song.id)}>
+            <span className="ui-selection"><Icon name={form.selSongs.includes(song.id)?'check':'plus'} size={14}/></span><div className="ui-row-copy"><strong>{song.title}</strong><small>{song.artist}</small></div><span className="ui-badge">{song.key}</span>
+          </button>)}</div>
+        </section>)}
         {!filtS.length&&<div className="ui-empty"><Icon name="search"/><strong>Nenhuma música encontrada</strong><p>Tente buscar por outro nome.</p></div>}
       </Section>
 

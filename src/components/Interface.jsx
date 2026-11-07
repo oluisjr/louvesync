@@ -39,7 +39,7 @@ export function SearchField({ label, value, onChange, placeholder }) {
   return <label className="ui-search"><Icon name="search" size={18}/><input type="search" aria-label={label} value={value} onChange={onChange} placeholder={placeholder}/></label>;
 }
 
-export function Dialog({ dark, title, description, icon = 'calendar', onClose, footer, tabs, children, contentKey, busy = false }) {
+export function Dialog({ dark, title, description, icon = 'calendar', closeLabel = 'Fechar editor de evento', onClose, footer, tabs, children, contentKey, busy = false }) {
   const titleId = useId();
   const panel = useRef(null);
   const [viewport, setViewport] = useState(null);
@@ -73,7 +73,7 @@ export function Dialog({ dark, title, description, icon = 'calendar', onClose, f
   return createPortal(<div className="ui-scope ui-dialog-layer" data-theme={dark ? 'dark' : 'light'} style={viewport ? { '--dialog-viewport-height': `${viewport.height}px`, '--dialog-viewport-top': `${viewport.top}px` } : undefined}>
     <div className="ui-dialog-scrim" aria-hidden="true"/>
     <section ref={panel} className="ui-dialog" role="dialog" aria-modal="true" aria-busy={busy} aria-labelledby={titleId} tabIndex={-1} onKeyDown={keyDown} data-update-blocking="true">
-      <header className="ui-dialog-header"><span className="ui-heading-icon"><Icon name={icon} size={22}/></span><div className="ui-heading-copy"><span className="ui-eyebrow">Sua equipe em harmonia</span><h2 id={titleId}>{title}</h2>{description && <p>{description}</p>}</div><button type="button" className="ui-icon-button" onClick={onClose} disabled={busy} aria-label="Fechar editor de evento"><Icon name="close"/></button></header>
+      <header className="ui-dialog-header"><span className="ui-heading-icon"><Icon name={icon} size={22}/></span><div className="ui-heading-copy"><span className="ui-eyebrow">Sua equipe em harmonia</span><h2 id={titleId}>{title}</h2>{description && <p>{description}</p>}</div><button type="button" className="ui-icon-button" onClick={onClose} disabled={busy} aria-label={closeLabel}><Icon name="close"/></button></header>
       {tabs}
       <div className="ui-dialog-content" key={contentKey}>{children}</div>
       <footer className="ui-dialog-footer">{footer}</footer>
