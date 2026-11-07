@@ -1,8 +1,14 @@
 html, body, #root { margin: 0; padding: 0; width: 100%; height: 100%; overscroll-behavior: none; }
-html, body { overflow: hidden; }
+html, body { overflow: hidden; background: var(--app-canvas, #F5F0FF); }
+:root { --app-safe-top: env(safe-area-inset-top, 0px); --app-safe-bottom: env(safe-area-inset-bottom, 0px); }
 body { position: fixed; inset: 0; }
-#root { isolation: isolate; }
-.app-header { touch-action: none; user-select: none; }
+#root { isolation: isolate; position: fixed; top: var(--app-viewport-top, 0px); left: 0; height: var(--app-viewport-height, 100%); }
+.app-shell { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; max-width: 500px; margin: 0 auto; overflow: hidden; }
+.app-header { touch-action: none; user-select: none; background: var(--app-canvas); }
+.app-main { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; padding-bottom: calc(104px + var(--app-safe-bottom)); scroll-padding-bottom: calc(104px + var(--app-safe-bottom)); }
+.app-main[data-song-open="true"] { padding-bottom: calc(96px + var(--app-safe-bottom)); }
+.app-nav { position: absolute; bottom: calc(20px + var(--app-safe-bottom)); left: 0; right: 0; display: flex; justify-content: center; z-index: 50; pointer-events: none; }
+.ls.app-login { overflow-y: auto; padding: calc(24px + var(--app-safe-top)) 24px calc(24px + var(--app-safe-bottom)); }
 [data-main-scroll], .gL2 { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 button, a, select { touch-action: manipulation; }
 button:disabled { opacity: .5; cursor: not-allowed; }
@@ -16,6 +22,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 #print-cifra { display: none; }
 @media print {
   html, body { position: static; height: auto !important; overflow: visible !important; background: white !important; color: black !important; }
+  #root { position: static; height: auto; }
   body:has(#print-cifra) #root { display: none !important; }
   #print-cifra { display: block !important; position: static; width: auto; padding: 12px; color: #000; background: #fff; font-family: sans-serif; }
   #print-cifra .print-title { font-size: 22px; font-weight: 900; margin-bottom: 4px; }

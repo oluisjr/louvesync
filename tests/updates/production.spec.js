@@ -46,10 +46,12 @@ test('actual production app applies a changed JS build after saving a draft and 
     await context.addInitScript(() => {
       // Seed once: subsequent reloads must retain the app's saved draft.
       if (!localStorage.getItem('ls_profile')) localStorage.setItem('ls_profile', JSON.stringify({ id: 'update-test', name: 'Teste', avatar: 'T', color: '#7B3FF2', is_admin: true }));
+      if (!localStorage.getItem('ls_theme')) localStorage.setItem('ls_theme', 'dark');
     });
     const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message));
     await page.goto(origin, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.app-header')).toContainText('seu ministério em harmonia');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(10, 4, 20)');
     await page.waitForFunction(async () => (await navigator.serviceWorker.getRegistration())?.active?.state === 'activated');
     await page.getByRole('button', { name: 'Músicas', exact: true }).click();
     await page.getByRole('button', { name: 'Adicionar', exact: true }).click();
@@ -63,10 +65,13 @@ test('actual production app applies a changed JS build after saving a draft and 
     expect(await page.locator('meta[name="louvesync-build"]').getAttribute('content')).toBe(before);
     await page.getByRole('button', { name: 'Salvar Música', exact: true }).click();
     await expect(page.locator('.app-header')).toContainText('Atualização de teste recebida');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(10, 4, 20)');
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0A0414');
     expect(await page.locator('meta[name="louvesync-build"]').getAttribute('content')).toBe(after);
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('ls_songs')).some(song => song.title === 'Cifra preservada durante atualização'))).toBe(true);
     await context.setOffline(true); await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.locator('.app-header')).toContainText('Atualização de teste recebida');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(10, 4, 20)');
     await page.getByRole('button', { name: 'Músicas', exact: true }).click();
     await expect(page.getByText('Cifra preservada durante atualização', { exact: true })).toBeVisible();
     expect(errors).toEqual([]);

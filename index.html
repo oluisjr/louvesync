@@ -15,11 +15,25 @@
     <meta http-equiv="Expires" content="0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <meta name="theme-color" content="#4F46E5" />
+    <meta name="theme-color" content="#F5F0FF" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="LouveSync" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <style>
+      :root { --app-canvas: #F5F0FF; color-scheme: light; background: var(--app-canvas); color: #0F172A; }
+      :root[data-theme="dark"] { --app-canvas: #0A0414; color-scheme: dark; color: #E2E8F0; }
+      body { margin: 0; background: var(--app-canvas); }
+    </style>
+    <script>
+      // Apply the saved theme before the first paint, including while updates load.
+      try {
+        if (localStorage.getItem('ls_theme') === 'dark') {
+          document.documentElement.dataset.theme = 'dark';
+          document.querySelector('meta[name="theme-color"]').content = '#0A0414';
+        }
+      } catch { /* Use the default light theme when storage is unavailable. */ }
+    </script>
     <title>LouveSync · IMWAL</title>
     <meta name="description" content="Gestão de ministério de louvor — IMWAL" />
   </head>

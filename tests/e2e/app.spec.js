@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, devices } from '@playwright/test';
 import fs from 'node:fs';
 import { strFromU8, unzipSync } from 'fflate';
 import { encodeSequence } from '../../src/lib/domain.js';
@@ -7,6 +7,133 @@ const admin = { id: 'user-admin', name: 'Admin Teste', instrument: 'Vocal', role
 const member = { ...admin, id: 'user-member', name: 'Membro Teste', is_admin: false };
 const songs = ['adoracao', 'ceia', 'jubilo'].map((cat, index) => ({ id: `song-${index}`, title: `Teste ${cat}`, artist: 'Fixture', cat, key: 'C', lyrics: '[C]Letra para [G]teste', bpm: 80, tags: [], time_signature: '4/4', vocal_keys: {} }));
 const initialEvents = [{ id: 'event-1', date: '2026-10-25', time: '18:00:00', label: 'Culto de Teste', type: 'culto', event_songs: songs.map((song, index) => ({ id: index + 1, song_id: song.id, order_index: index + 1, item_type: 'song' })), event_members: [{ member_id: admin.id, confirmed: null }, { member_id: member.id, confirmed: null }] }];
+
+test('saved dark theme covers the document before application JavaScript loads',async({browser})=>{
+  const context=await browser.newContext();
+  try{
+    await context.addInitScript(()=>localStorage.setItem('ls_theme','dark'));
+    const page=await context.newPage();
+    await page.route('**/src/main.jsx',route=>route.fulfill({contentType:'text/javascript',body:''}));
+    await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/,route=>route.abort());
+    await page.goto('http://127.0.0.1:5174/');
+    await expect(page.getByRole('status')).toHaveText('Abrindo LouveSync…');
+    for(const selector of ['html','body'])await expect(page.locator(selector)).toHaveCSS('background-color','rgb(10, 4, 20)');
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#0A0414');
+  }finally{await context.close();}
+});
+
+for(const theme of ['light','dark']){
+  test(`app fills the visible screen and clears the floating menu with simulated iPhone safe areas in ${theme} theme`,async({browser})=>{
+    const app=await fixture(browser);
+    app.state.events.push(...Array.from({length:6},(_,index)=>({...structuredClone(initialEvents[0]),id:'extra-event-'+index,label:'Evento extra '+index})));
+    try{
+      const page=await app.open(admin,undefined,{device:{...devices['iPhone 13'],viewport:{width:390,height:844}},theme,standalone:true});
+      await page.addStyleTag({content:':root { --app-safe-top: 47px; --app-safe-bottom: 34px; }'});
+      const root=page.locator('#root'),shell=page.locator('.app-shell'),header=page.locator('.app-header'),main=page.locator('[data-main-scroll]'),nav=page.locator('.app-nav .gNav');
+      const canvas=theme==='dark'?'rgb(10, 4, 20)':'rgb(245, 240, 255)';
+      for(const selector of ['html','body','.app-header'])await expect(page.locator(selector)).toHaveCSS('background-color',canvas);
+      await expect(header).toHaveCSS('backdrop-filter','none');
+      await expect(header).toHaveCSS('padding-top','58px');
+      const expectFrame=async(height,top=0)=>{
+        await expect.poll(async()=>Math.round((await root.boundingBox()).height)).toBe(height);
+        await expect.poll(async()=>Math.round((await root.boundingBox()).y)).toBe(top);
+        expect(Math.round((await shell.boundingBox()).height)).toBe(height);
+        const box=await nav.boundingBox();
+        expect(Math.abs(top+height-(box.y+box.height)-54)).toBeLessThan(1);
+        expect(await page.evaluate(()=>window.scrollY)).toBe(0);
+      };
+      await expectFrame(844);
+      await page.getByRole('button',{name:'Escala',exact:true}).click();
+      const before=await header.boundingBox();
+      await main.evaluate(element=>{element.scrollTop=element.scrollHeight;});
+      const last=page.getByRole('button',{name:'Ver detalhes →',exact:true}).last();
+      await expect(last).toBeInViewport();
+      expect((await last.boundingBox()).y+(await last.boundingBox()).height).toBeLessThan((await nav.boundingBox()).y-8);
+      expect((await header.boundingBox()).y).toBe(before.y);
+      await header.hover();await page.mouse.wheel(0,-700);
+      await expectFrame(844);
+      await main.evaluate(element=>{element.scrollTop=0;});
+      await page.screenshot({path:test.info().outputPath('iphone-'+theme+'.png'),scale:'css'});
+
+      // iOS can resize/pan the visual viewport without resizing the layout viewport.
+      await page.evaluate(()=>{
+        Object.defineProperties(window.visualViewport,{height:{configurable:true,value:490},offsetTop:{configurable:true,value:38}});
+        window.visualViewport.dispatchEvent(new Event('resize'));
+      });
+      await expectFrame(490,38);
+      await page.evaluate(()=>{
+        Object.defineProperties(window.visualViewport,{height:{configurable:true,value:245},scale:{configurable:true,value:2}});
+        window.visualViewport.dispatchEvent(new Event('resize'));
+      });
+      await expectFrame(490,38);
+      await page.evaluate(()=>{
+        delete window.visualViewport.scale;
+        Object.defineProperty(window.visualViewport,'height',{configurable:true,value:490});
+      });
+      await page.getByRole('button',{name:'Novo',exact:true}).click();
+      const dialog=page.getByRole('dialog',{name:'Novo evento',exact:true});
+      await expect(dialog).toBeVisible();
+      const footer=await dialog.locator('footer').boundingBox();
+      expect(footer.y+footer.height).toBeLessThanOrEqual(528);
+      await page.keyboard.press('Escape');
+      await page.evaluate(()=>{
+        delete window.visualViewport.height;delete window.visualViewport.offsetTop;
+        window.dispatchEvent(new Event('pageshow'));
+      });
+      await expectFrame(844);
+      await page.setViewportSize({width:390,height:700});await expectFrame(700);
+      await page.setViewportSize({width:844,height:390});
+      await expect(page.getByText('Gire o dispositivo',{exact:true})).toBeVisible();
+      await expect.poll(async()=>Math.round((await page.locator('.rotate-msg').boundingBox()).height)).toBe(390);
+      await page.setViewportSize({width:390,height:844});await expectFrame(844);
+
+      await page.getByRole('button',{name:'Tema',exact:true}).click();
+      const changed=theme==='dark'?'light':'dark';
+      await expect(page.locator('html')).toHaveAttribute('data-theme',changed);
+      await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content',changed==='dark'?'#0A0414':'#F5F0FF');
+      await expect.poll(()=>page.evaluate(()=>localStorage.getItem('ls_theme'))).toBe(changed);
+      await page.reload();
+      await expect(page.getByRole('button',{name:'Escala',exact:true})).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('data-theme',changed);
+      await expect(page.locator('body')).toHaveCSS('background-color',changed==='dark'?'rgb(10, 4, 20)':'rgb(245, 240, 255)');
+      expect(app.failures).toEqual([]);
+    }finally{await app.close();}
+  });
+}
+
+test('desktop frame stays centered and covers the viewport after resizing',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open();
+    for(const size of [{width:1440,height:1000},{width:1024,height:650}]){
+      await page.setViewportSize(size);
+      await expect.poll(async()=>Math.round((await page.locator('.app-shell').boundingBox()).height)).toBe(size.height);
+      const shell=await page.locator('.app-shell').boundingBox();
+      expect(shell.width).toBe(500);expect(shell.x).toBe((size.width-500)/2);
+      expect(await page.locator('html').evaluate(element=>element.scrollWidth)).toBe(size.width);
+    }
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('login remains scrollable and themed when the visible screen is short',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.members.push(...Array.from({length:10},(_,index)=>({...member,id:'extra-member-'+index,name:'Pessoa extra '+index})));
+  try{
+    const page=await app.open(admin,undefined,{theme:'dark'});
+    await page.setViewportSize({width:390,height:420});
+    await page.getByRole('button',{name:'Sair',exact:true}).click();
+    const login=page.locator('.app-login'),toggle=page.getByRole('button',{name:'Modo escuro',exact:true});
+    await toggle.scrollIntoViewIfNeeded();
+    await expect(toggle).toBeInViewport();
+    expect((await toggle.boundingBox()).y+(await toggle.boundingBox()).height).toBeLessThanOrEqual(420);
+    expect(await login.evaluate(element=>element.scrollHeight>element.clientHeight)).toBe(true);
+    await toggle.click();
+    await expect(page.locator('body')).toHaveCSS('background-color','rgb(245, 240, 255)');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
 async function fixture(browser) {
   const pages = [], contexts = [], failures = [];
   const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), members: structuredClone([admin,member]), memberRequests: [], session: null, notes: {}, nextItemId: 100 };
@@ -20,8 +147,18 @@ async function fixture(browser) {
     ${names.filter(name=>name!=='setEventItems').map(name=>`export async function ${name}(...args){return window.__testDb('${name}',args);}`).join('\n')}
   `;
   async function open(profile = admin, time = '2026-10-24T12:00:00-03:00', options = {}) {
-    const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block' }); contexts.push(context);
+    const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block', ...options.device }); contexts.push(context);
     await context.addInitScript(profile => { localStorage.setItem('ls_profile', JSON.stringify(profile)); localStorage.removeItem('ls_last_activity'); }, profile);
+    if(options.theme)await context.addInitScript(theme=>{if(!localStorage.getItem('ls_theme'))localStorage.setItem('ls_theme',theme);},options.theme);
+    if(options.standalone)await context.addInitScript(()=>{
+      Object.defineProperty(navigator,'standalone',{value:true});
+      const match=window.matchMedia.bind(window);
+      window.matchMedia=query=>{
+        const result=match(query);
+        if(query==='(display-mode: standalone)')Object.defineProperty(result,'matches',{value:true});
+        return result;
+      };
+    });
     if(options.nativeExcel)await context.addInitScript(mode=>{
       window.CapacitorCustomPlatform={name:'android'};
       window.Capacitor={

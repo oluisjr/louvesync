@@ -14,6 +14,7 @@ import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
 import MetronomeControls from './components/MetronomeControls.jsx';
 import { useMetronome } from './hooks/useMetronome.js';
+import { useAppDisplay } from './hooks/useAppDisplay.js';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
 import { onRealtime, onRealtimeStatus, broadcastUpdate, disconnectRealtime } from './lib/realtime.js';
@@ -40,7 +41,7 @@ class ErrorBoundary extends Component {
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
+html,body,#root{-webkit-font-smoothing:antialiased;}
 :root{
   --fs-xs:12px;--fs-sm:14px;--fs-base:16px;--fs-lg:18px;--fs-xl:22px;--fs-2xl:28px;
   /* Paleta Presença: Violeta + Chama */
@@ -48,7 +49,7 @@ html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
   --c-i-light:#9B6BF8;--c-a-light:#FF8C5A;
   --r-sm:10px;--r-md:14px;--r-lg:18px;--r-xl:22px;--r-full:100px;
 }
-.ls{font-family:'Nunito', sans-serif;height:100dvh;overflow:hidden;position:relative;}
+.ls{font-family:'Nunito', sans-serif;height:100%;overflow:hidden;position:relative;}
 .font-serif { font-family: 'Nunito', sans-serif; letter-spacing: -.02em; }
 .bg{position:fixed;inset:0;z-index:0;transition:background .7s;}
 .bg-l{background:linear-gradient(145deg,#F5F0FF 0%,#FFF7F3 50%,#F0F4FF 100%);}
@@ -87,7 +88,7 @@ html,body,#root{height:100%;-webkit-font-smoothing:antialiased;}
 .aUp{animation:slideUp .38s cubic-bezier(.22,1,.36,1) both;}
 .touch-scale{transition:transform .2s cubic-bezier(.34,1.56,.64,1);cursor:pointer;}
 .touch-scale:active{transform:scale(.97);}
-.stage-wrap{position:fixed;inset:0;z-index:200;overflow:hidden;animation:stageIn .35s ease;}
+.stage-wrap{position:absolute;inset:0;z-index:200;overflow:hidden;animation:stageIn .35s ease;}
 .conf-p{position:fixed;pointer-events:none;z-index:9999;animation:confDrop 1.5s ease-out forwards;}
 .bp{background:linear-gradient(135deg,#7B3FF2 0%,#5B21B6 100%);color:#fff;border:none;border-radius:var(--r-md);padding:14px 20px;font-family:'Nunito',sans-serif;font-weight:800;font-size:var(--fs-base);cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .25s;box-shadow:0 4px 20px rgba(123,63,242,.3);}
 .bp:hover{opacity:.92;box-shadow:0 8px 32px rgba(123,63,242,.45);transform:translateY(-1px);}.bp:active{transform:scale(.97) translateY(0);}.bp:disabled{opacity:.5;cursor:not-allowed;transform:none;}
@@ -117,7 +118,7 @@ input, textarea, select, button { touch-action: manipulation; }
 select { -webkit-appearance: none; appearance: none; }
 @keyframes shareBtn{0%{transform:scale(1)}50%{transform:scale(.9)}100%{transform:scale(1)}}
 @keyframes rotatePhone{0%,100%{transform:rotate(0deg) scale(1)}45%,55%{transform:rotate(-90deg) scale(.85)}}
-.rotate-msg{position:fixed;inset:0;z-index:9999;background:#0A0414;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#E2E8F0;}
+.rotate-msg{position:absolute;inset:0;z-index:9999;background:#0A0414;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#E2E8F0;}
 .pbar{height:3px;border-radius:100px;background:rgba(123,63,242,.12);overflow:hidden;}
 .pbar-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,#7B3FF2,#A855F7);transition:width .5s ease;}
 .fi{width:100%;padding:12px 14px;background:transparent;border:none;outline:none;font-family:'Nunito',sans-serif;font-size:var(--fs-base);font-weight:500;}
@@ -1453,13 +1454,13 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
     if(!ok){setErr('PIN incorreto. Tente novamente.');setPin('');setShake(true);setTimeout(()=>setShake(false),500);}
   }
 
-  return <div className={`ls${dark?' dark':''}`} style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,gap:0}}>
+  return <div className={`ls app-login${dark?' dark':''}`} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:0}}>
     <style>{CSS}</style>
     <div className={`bg ${dark?'bg-d':'bg-l'}`}>
       <div className="orb" style={{width:400,height:400,top:-120,left:-100,background:dark?'rgba(79,70,229,.14)':'rgba(79,70,229,.22)',animation:'oA 14s ease-in-out infinite'}}/>
       <div className="orb" style={{width:300,height:300,bottom:-80,right:-60,background:dark?'rgba(16,185,129,.1)':'rgba(16,185,129,.16)',animation:'oB 17s ease-in-out infinite'}}/>
     </div>
-    <div style={{position:'relative',zIndex:1,width:'100%',maxWidth:420,animation:'loginIn .5s cubic-bezier(.22,1,.36,1)'}}>
+    <div style={{position:'relative',zIndex:1,width:'100%',maxWidth:420,marginBlock:'auto',flexShrink:0,animation:'loginIn .5s cubic-bezier(.22,1,.36,1)'}}>
       {/* Header */}
       <div style={{textAlign:'center',marginBottom:32}}>
         <img src="/louve.png" alt="LouveSync" style={{height: 100, objectFit: 'contain', margin: '0 auto 14px', display: 'block', filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.1))'}} />
@@ -2020,7 +2021,7 @@ const Stage = memo(({song,tr,mode,stageFs,setStageFs,dark,onClose,chordColor,set
 
   const curK=getKey(song.key,tr);
   return <div data-update-blocking={true} className="stage-wrap" style={{background:dark?'#05091A':'#0A0F1E',color:'#E2E8F0',display:'flex',flexDirection:'column'}}>
-    <div style={{background:dark?'rgba(5,9,26,.95)':'rgba(10,15,30,.95)',padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.07)'}}>
+    <div style={{background:dark?'rgba(5,9,26,.95)':'rgba(10,15,30,.95)',padding:'12px 16px',paddingTop:'calc(12px + var(--app-safe-top))',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.07)'}}>
       <button onClick={onClose} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',borderRadius:'var(--r-sm)',border:'1px solid rgba(255,255,255,.14)',background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.7)',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer'}}><IcoChevL s={14}/>Sair</button>
       <div style={{textAlign:'center'}}><div className="font-serif" style={{fontSize:22,fontWeight:800,color:'#E2E8F0'}}>{String(song.title || 'Música Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:'rgba(255,255,255,.4)'}}>{String(song.artist || 'Ministério')}</div></div>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
@@ -2054,7 +2055,7 @@ const Stage = memo(({song,tr,mode,stageFs,setStageFs,dark,onClose,chordColor,set
         </div>
       </div>
     )}
-    <div ref={lyricsRef} style={{flex:1,overflowY:'auto',padding:'16px 18px 48px',scrollBehavior:'smooth'}}><LyricView text={song.lyrics||''} baseKey={song.key} st={tr} mode={mode} dark={true} fs={stageFs} chordColor={chordColor} fontFam={fontFam}/></div>
+    <div ref={lyricsRef} style={{flex:1,overflowY:'auto',padding:'16px 18px',paddingBottom:'calc(48px + var(--app-safe-bottom))',scrollBehavior:'smooth'}}><LyricView text={song.lyrics||''} baseKey={song.key} st={tr} mode={mode} dark={true} fs={stageFs} chordColor={chordColor} fontFam={fontFam}/></div>
   </div>;
 });
 
@@ -3401,7 +3402,11 @@ export default function LouveSync() {
   useEffect(()=>{writeCache('ls_events',events);},[events]);
 
   // ── UI
-  const [dark,setDark]=useState(false);
+  const [dark,setDark]=useState(()=>{
+    try { return localStorage.getItem('ls_theme')==='dark'; }
+    catch { return document.documentElement.dataset.theme==='dark'; }
+  });
+  useAppDisplay(dark);
   const [tab,setTab]=useState('home');
   const [selectedSong,setSelSong]=useState(null);
   const selSong = songs.find(song=>song.id===selectedSong?.id) || selectedSong;
@@ -3912,14 +3917,14 @@ export default function LouveSync() {
       <div className="orb" style={{width:260,height:260,top:'55%',left:'35%',background:dark?'radial-gradient(circle, rgba(0,201,167,.12) 0%, transparent 70%)':'radial-gradient(circle, rgba(0,201,167,.18) 0%, transparent 70%)',animation:'oD 12s ease-in-out infinite'}}/>
     </div>
     {/* Shell */}
-    <div style={{position:'relative',zIndex:1,height:'100dvh',display:'flex',flexDirection:'column',maxWidth:500,margin:'0 auto',overflow:'hidden'}}>
+    <div className="app-shell">
       {stageMode&&inCifra&&<Stage metronome={metronome} song={selSong} tr={tr} mode={mode} setMode={setMode} stageFs={stageFs} setStageFs={setStageFs} dark={dark} onClose={()=>setStageMode(false)} chordColor={chordColor} setChordColor={setChordColor} fontFam={fontFam} setFontFam={setFontFam}/>}
       {!stageMode&&<>
         {/* OFFLINE BANNER */}
         {!isOnline&&<div style={{background:'rgba(239,68,68,.9)',color:'#fff',textAlign:'center',padding:'5px',fontSize:'var(--fs-xs)',fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',gap:6,flexShrink:0}}><IcoWifi s={12} off/>Sem conexão — usando dados locais</div>}
         {syncError&&<div role="alert" style={{padding:10,background:'#FEF3C7',color:'#92400E',fontSize:12,flexShrink:0}}>{syncError}<button onClick={()=>{setSyncError('');setRetrySync(n=>n+1);}} style={{marginLeft:8}}>Tentar novamente</button></div>}
         {/* TOP BAR */}
-        <div className="gL0 app-header" style={{padding:'11px 16px', paddingTop:'calc(env(safe-area-inset-top, 0px) + 11px)', display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${dark?'rgba(168,85,247,.1)':'rgba(123,63,242,.06)'}`,position:'sticky',top:0,zIndex:30,flexShrink:0}}>
+        <div className="app-header" style={{padding:'11px 16px', paddingTop:'calc(var(--app-safe-top) + 11px)', display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${dark?'rgba(168,85,247,.1)':'rgba(123,63,242,.06)'}`,position:'sticky',top:0,zIndex:30,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             {inCifra&&<button onClick={()=>{vib();backFromSong();}} style={{padding:'8px 16px',borderRadius:'var(--r-full)',border:'none',background:'rgba(123,63,242,.14)',color:'#7B3FF2',display:'flex',alignItems:'center',gap:6,fontWeight:800,fontSize:'var(--fs-sm)',cursor:'pointer',boxShadow:'0 2px 10px rgba(123,63,242,.15)'}}><IcoChevL s={16}/> Voltar</button>}
             {inCifra?<div style={{lineHeight:1.3,textAlign:'right'}}><div className="font-serif" style={{fontSize:16,fontWeight:900,color:tc}}>{String(selSong.title || 'Música Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:dark?'#94A3B8':'#475569'}}>{String(selSong.artist || 'Ministério')}</div></div>
@@ -3945,7 +3950,7 @@ export default function LouveSync() {
         </div>
 
         {/* MAIN SCROLL */}
-        <div ref={mainScrollRef} data-main-scroll style={{flex:1,overflowY:'auto',overscrollBehavior:'contain',paddingBottom:inCifra?96:10,minHeight:0,display:'flex',flexDirection:'column'}}>
+        <div ref={mainScrollRef} className="app-main" data-main-scroll data-song-open={inCifra}>
           {dataLoading&&!inCifra?<Skeleton dark={dark} count={6}/>:<>
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
@@ -3965,7 +3970,7 @@ export default function LouveSync() {
         </div>
 
         {/* BOTTOM NAV — hidden in Cifra */}
-        {!inCifra&&<div style={{position:'fixed',bottom:'calc(env(safe-area-inset-bottom, 0px) + 20px)',left:0,right:0,display:'flex',justifyContent:'center',zIndex:50,pointerEvents:'none',maxWidth:500,margin:'0 auto'}}>
+        {!inCifra&&<div className="app-nav">
           <div className="gNav hide-scroll" style={{borderRadius:100,padding:'6px 10px',display:'flex',gap:2,pointerEvents:'all',overflowX:'auto',maxWidth:'90%',WebkitOverflowScrolling:'touch'}}>
             {TABS.map(n=>{const active=tab===n.id;return <button key={n.id} className={`nb${active?' on':''}`} onClick={()=>navTo(n.id)}>
               <span className="ni" style={{color:active?(dark?'#A855F7':'#7B3FF2'):dark?'#94A3B8':'#64748B'}}>{n.ico}</span>

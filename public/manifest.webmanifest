@@ -4,8 +4,8 @@
   "description": "Aplicativo para gerenciar repert\u00f3rio e minist\u00e9rio de louvor.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0F172A",
-  "theme_color": "#3B82F6",
+  "background_color": "#F5F0FF",
+  "theme_color": "#F5F0FF",
   "icons": [
     {
       "src": "/pwa-192x192.png",
