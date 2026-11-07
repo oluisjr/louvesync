@@ -12,6 +12,8 @@ import { copyTextToClipboard } from './lib/clipboard.js';
 import { performanceKey, renderChordText } from './lib/chords.js';
 import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
+import MetronomeControls from './components/MetronomeControls.jsx';
+import { useMetronome } from './hooks/useMetronome.js';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
 import { onRealtime, onRealtimeStatus, broadcastUpdate, disconnectRealtime } from './lib/realtime.js';
@@ -1785,11 +1787,12 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
 });
 
 /* ─── CIFRA ─────────────────────────────────────────────────── */
-const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,onSaveVocalKey,onSaveSong,profile,members,fontFam})=>{
+const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metronome,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,onSaveVocalKey,onSaveSong,profile,members,fontFam})=>{
   const iframeRef = useRef(null);
   const [seqStr, setSeqStr] = useState(event?.sequenceBySong?.[song?.id] || '');
   const [editKey, setEditKey] = useState(String(song?.key || ''));
-  const [editBpm, setEditBpm] = useState(parseInt(song?.bpm) || 80);
+  const editBpm = metronome.bpm, setEditBpm = metronome.setBpm;
+  const bpmDirty = editBpm !== metronome.sourceBpm;
   const [editLyrics, setEditLyrics] = useState(String(song?.lyrics || ''));
   const [isDirty, setIsDirty] = useState(false);
   const assignedVocal = event?.singerBySong?.[song?.id] || (members.some(m=>m.id===profile?.id && /vocal|voz/i.test(m.instrument||'')) ? profile.id : '');
@@ -1805,7 +1808,6 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
 
   useEffect(() => {
     setEditKey(String(song?.key || ''));
-    setEditBpm(parseInt(song?.bpm) || 80);
     setEditLyrics(String(song?.lyrics || ''));
     setIsDirty(false);
   }, [song?.id, song?.key, song?.bpm, song?.lyrics]);
@@ -1830,6 +1832,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
   useEffect(() => {
     const onKey = (e) => {
       if(e.target.closest?.('input, textarea, select, [contenteditable]'))return;
+      if(e.key===' ' && e.target.closest?.('button, a, [role="button"]'))return;
       const scroller=document.querySelector('[data-main-scroll]');
       if (['ArrowDown','ArrowRight','PageDown',' '].includes(e.key)) {
         e.preventDefault(); scroller?.scrollBy({top:240,behavior:'smooth'});
@@ -1855,7 +1858,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
   const sArtist = String(song.artist || 'Ministério');
   const sKey = String(song.key || 'N/A');
   const sLyrics = String(song.lyrics || '');
-  const sBpm = parseInt(song.bpm) || 80;
+  const sBpm = editBpm;
   const sTimeSignature = String(song.time_signature || '4/4');
 
   console.log('🎵 Cifra component initialized:', {sTitle, sArtist, sKey, sBpm, sTimeSignature, lyricsLength: sLyrics.length});
@@ -1908,7 +1911,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
   // Usa ytUrl como fallback quando media_url não está preenchida
   const embedUrl = getEmbedUrl(song.media_url || song.ytUrl);
 
-  return <div className="ui-scope ui-page" data-theme={dark?'dark':'light'} data-update-blocking={isDirty||isEditingLyrics||saving}>
+  return <div className="ui-scope ui-page" data-theme={dark?'dark':'light'} data-update-blocking={isDirty||bpmDirty||isEditingLyrics||saving||metronome.active||metronome.starting}>
     {/* Key info card */}
     <div className={`${gc} aUp`} style={CS}>
       <Bdg cat={song.cat}/>
@@ -1927,7 +1930,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
         <p className="ui-helper">A cifra acompanha o tom salvo do vocal selecionado, incluindo acordes com baixo e modulações.</p>
         {vocalId&&(profile?.is_admin||vocalId===profile?.id)&&<button className="ui-button ui-button-soft ui-button-wide" style={{marginTop:10}} onClick={()=>onSaveVocalKey(song.id,vocalId,curKey)}><Icon name="check" size={15}/>Salvar tom deste vocal</button>}
       </div>
-      {isDirty && <div style={{display:'flex',gap:8,marginTop:12}}><button disabled={saving} onClick={handleSaveMetadata} className="bp" style={{flex:1,padding:'10px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>✓ Salvar</button><button onClick={()=>{setEditKey(String(song?.key||'')); setEditBpm(parseInt(song?.bpm)||80); setIsDirty(false);}} style={{flex:1,padding:'10px 14px',borderRadius:'var(--r-md)',border:`1.5px solid ${dark?'rgba(168,85,247,.2)':'rgba(79,70,229,.25)'}`,background:'transparent',color:tc,fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer'}}>✕ Cancelar</button></div>}
+      {(isDirty||bpmDirty) && <div style={{display:'flex',gap:8,marginTop:12}}><button disabled={saving} onClick={handleSaveMetadata} className="bp" style={{flex:1,padding:'10px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>✓ Salvar</button><button onClick={()=>{setEditKey(String(song?.key||'')); setEditBpm(parseInt(song?.bpm)||80); setIsDirty(false);}} style={{flex:1,padding:'10px 14px',borderRadius:'var(--r-md)',border:`1.5px solid ${dark?'rgba(168,85,247,.2)':'rgba(79,70,229,.25)'}`,background:'transparent',color:tc,fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer'}}>✕ Cancelar</button></div>}
     </div>
 
     {/* Media Player */}
@@ -1945,10 +1948,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
     <div className="ui-mode-buttons"><button className="ui-chip" aria-pressed={mode==='chords'} onClick={()=>setMode('chords')}>Letra e acordes</button><button className="ui-chip" aria-pressed={mode==='lyrics'} onClick={()=>setMode('lyrics')}>Somente letra</button></div>
     {/* Mode controls */}
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.1s'}}>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-        <button onClick={()=>setMetro(m=>!m)} style={{padding:'10px 6px',borderRadius:'var(--r-md)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:700,background:metro?'rgba(16,185,129,.18)':'rgba(0,0,0,.04)',color:metro?'#10B981':t2}}>{metro?'Metrônomo ● Ativo':'Ativar Metrônomo'}</button>
-        <button onClick={()=>setStageMode(true)} style={{padding:'10px 6px',borderRadius:'var(--r-md)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:700,background:'rgba(0,0,0,.04)',color:t2}}>Modo Palco 🖥️</button>
-      </div>
+      <MetronomeControls metronome={metronome} action={<button className="ui-button" onClick={()=>setStageMode(true)}>Modo Palco 🖥️</button>}/>
     </div>
 
     {/* Sequence field if event is present */}
@@ -1999,7 +1999,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metro,setMetro,setSta
 });
 
 /* ─── STAGE ─────────────────────────────────────────────────── */
-const Stage = memo(({song,tr,mode,stageFs,setStageFs,dark,onClose,chordColor,setChordColor,fontFam,setFontFam})=>{
+const Stage = memo(({song,tr,mode,stageFs,setStageFs,dark,onClose,chordColor,setChordColor,fontFam,setFontFam,metronome})=>{
   const [autoScroll,setAutoScroll]=useState(false);
   const [showSettings,setShowSettings] = useState(false);
   const lyricsRef=useRef(null);
@@ -2035,6 +2035,7 @@ const Stage = memo(({song,tr,mode,stageFs,setStageFs,dark,onClose,chordColor,set
         </div>
       </div>
     </div>
+    <div className="ui-scope ui-stage-metronome" data-theme="dark"><MetronomeControls metronome={metronome} compact/></div>
     <button className="bSec" onClick={()=>setShowSettings(value=>!value)}>Ajustes de palco</button>
     {showSettings && (
       <div style={{background:'rgba(10,15,30,.98)', padding:16, borderBottom:'1px solid rgba(255,255,255,.07)', display:'flex', flexDirection:'column', gap:10}} className="aUp">
@@ -3404,14 +3405,14 @@ export default function LouveSync() {
   const [tab,setTab]=useState('home');
   const [selectedSong,setSelSong]=useState(null);
   const selSong = songs.find(song=>song.id===selectedSong?.id) || selectedSong;
+  const metronome = useMetronome(selSong?.id, selSong?.bpm, selSong?.time_signature);
+  const stopMetronome = metronome.stop;
   const [selectedEvent,setSelEvent]=useState(null);
   const selEvent = events.find(event=>event.id===selectedEvent?.id) || selectedEvent;
   const [tr,setTr]=useState(0);
   const [mode,setMode]=useState('chords');
   const [stageMode,setStageMode]=useState(false);
   const [stageFs,setStageFs]=useState(22);
-  const [metro,setMetro]=useState(false);
-  const [beatIdx,setBeatIdx]=useState(-1);
   const [catF,setCatF]=useState('all');
   const [search,setSearch]=useState('');
   const [selectedSheet,setEvSheet]=useState(null);
@@ -3566,8 +3567,6 @@ export default function LouveSync() {
   const [aiLoad,setAiLoad]=useState(false);
   const [aiCount,setAiCount]=useState(0);
 
-  const audioCtx=useRef(null);
-  const metroTimer=useRef(null);
 
   const [keyF,setKeyF]=useState('');
   // inCifra: qualquer tab pode abrir a cifra de uma música
@@ -3623,10 +3622,10 @@ export default function LouveSync() {
 
 
   const backFromSong=useCallback(()=>{
-    setSelSong(null);setSelEvent(null);setMetro(false);
+    stopMetronome();setSelSong(null);setSelEvent(null);
     if(selEvent)setEvSheet(selEvent);
     requestAnimationFrame(()=>{if(mainScrollRef.current)mainScrollRef.current.scrollTop=previousScroll.current;});
-  },[selEvent]);
+  },[selEvent,stopMetronome]);
   /* ── Preserve event context for browser and Android back navigation ── */
   const overlayType=stageMode?'stage':addOpen?'song-editor':createEvOpen?'event-editor':notifsOpen?'notifications':inCifra?'cifra':evSheet?'event':null;
   const previousOverlay=useRef(null);
@@ -3689,37 +3688,6 @@ export default function LouveSync() {
     return ()=>{disposed=true;off();offStatus();if(pg)supabase.removeChannel(pg);disconnectRealtime();clearInterval(poll);document.removeEventListener('visibilitychange',resume);window.removeEventListener('online',loadData);};
   },[profile]);
 
-  /* ── Metronome ── */
-  useEffect(()=>{
-    if(metro&&selSong){
-      const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
-      if(!audioCtx.current)audioCtx.current=new AC();
-      const beats=parseInt(String(selSong.time_signature||'4/4').split('/')[0])||4;
-      let idx=-1;
-      const tick=()=>{
-        const ctx=audioCtx.current;if(!ctx)return;
-        idx=(idx+1)%beats;setBeatIdx(idx);
-        const o=ctx.createOscillator(),g=ctx.createGain();
-        o.connect(g);g.connect(ctx.destination);
-        o.frequency.value=idx===0?1200:880;
-        g.gain.setValueAtTime(idx===0?.35:.2,ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.055);
-        o.start(ctx.currentTime);o.stop(ctx.currentTime+.055);
-        if(idx===0&&navigator.vibrate)navigator.vibrate(20);
-      };
-      tick();
-      const bpm = parseInt(selSong.bpm) || 80;
-      metroTimer.current=setInterval(tick,(60/bpm)*1000);
-    }else{setBeatIdx(-1);}
-    return()=>{
-      clearInterval(metroTimer.current);
-      if(audioCtx.current){
-        try { audioCtx.current.close(); } catch {/* preserve existing local state */}
-        audioCtx.current=null;
-      }
-    };
-  },[metro,selSong]);
-
   /* ── Handlers ── */
   const handleAppUpdate = () => checkForAppUpdate();
 
@@ -3753,7 +3721,7 @@ export default function LouveSync() {
     setMode('chords');
 
     console.log('🎵 About to render Cifra component, inCifra will be:', true);
-    setMetro(false);setBeatIdx(-1);
+    metronome.stop();
   }
 
   function spawnConfetti(){
@@ -3945,7 +3913,7 @@ export default function LouveSync() {
     </div>
     {/* Shell */}
     <div style={{position:'relative',zIndex:1,height:'100dvh',display:'flex',flexDirection:'column',maxWidth:500,margin:'0 auto',overflow:'hidden'}}>
-      {stageMode&&inCifra&&<Stage song={selSong} tr={tr} mode={mode} setMode={setMode} stageFs={stageFs} setStageFs={setStageFs} dark={dark} onClose={()=>setStageMode(false)} beatIdx={beatIdx} chordColor={chordColor} setChordColor={setChordColor} fontFam={fontFam} setFontFam={setFontFam}/>}
+      {stageMode&&inCifra&&<Stage metronome={metronome} song={selSong} tr={tr} mode={mode} setMode={setMode} stageFs={stageFs} setStageFs={setStageFs} dark={dark} onClose={()=>setStageMode(false)} chordColor={chordColor} setChordColor={setChordColor} fontFam={fontFam} setFontFam={setFontFam}/>}
       {!stageMode&&<>
         {/* OFFLINE BANNER */}
         {!isOnline&&<div style={{background:'rgba(239,68,68,.9)',color:'#fff',textAlign:'center',padding:'5px',fontSize:'var(--fs-xs)',fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',gap:6,flexShrink:0}}><IcoWifi s={12} off/>Sem conexão — usando dados locais</div>}
@@ -3981,7 +3949,7 @@ export default function LouveSync() {
           {dataLoading&&!inCifra?<Skeleton dark={dark} count={6}/>:<>
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
-            {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metro={metro} setMetro={setMetro} beatIdx={beatIdx} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} onSaveSong={handleSaveSong} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
+            {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metronome={metronome} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} onSaveSong={handleSaveSong} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
 
             {tab==='mural'&&!inCifra&&<Mural profile={profile} dark={dark} members={allMembers}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio connectionStatus={connectionStatus} dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}

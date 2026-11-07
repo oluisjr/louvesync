@@ -54,6 +54,14 @@ Graus como `[1]`, `[6m7]`, `[4/6]`, `[5/7]`, `[b7]` e `[#4º]` permanecem na let
 
 Em **Tom por vocal**, escolha o ministro, selecione o tom e use **Salvar tom deste vocal**. Ao abrir uma música da escala, o vocal escalado e seu tom salvo são aplicados automaticamente; um tom definido expressamente para aquele evento tem prioridade. A troca do vocal escalado ou a atualização de seu tom sincroniza a cifra aberta e o ensaio nos outros clientes. O modo palco e o PDF usam o mesmo cálculo. A letra em graus não é regravada ao trocar de ministro.
 
+## Metrônomo
+
+Na cifra, **Ativar metrônomo** libera o áudio no toque do botão, inclusive em navegadores que iniciam o Web Audio suspenso. O BPM editado responde imediatamente e permanece ao entrar e sair do modo palco; use **Salvar** para gravar a mudança na música. O palco também oferece iniciar/parar e a indicação visual das batidas.
+
+As batidas são programadas pelo relógio de áudio, com acento no início do compasso. O BPM corresponde à semínima (♩); em 6/8 e 12/8, cada colcheia é marcada e os grupos de três recebem acento. Atualizações dos dados com o mesmo ID, BPM e compasso preservam o áudio já liberado. Parar, voltar da cifra ou sair do app encerra os sons e temporizadores; interrupções e bloqueios mostram um erro e permitem nova ativação. O som é local a cada aparelho e precisa de seu próprio toque para iniciar. Atualizações automáticas aguardam o fim da reprodução.
+
+Os testes medem sinal no grafo Web Audio real do Chromium e simulam a exigência de ativação por gesto, bloqueio, interrupção e cancelamento durante a abertura do áudio. Isso não substitui a conferência do alto-falante, volume e saída física em Safari/PWA e Android.
+
 ## Android
 
 O aplicativo Android usa `https://louvesync.vercel.app` e acompanha os deploys web automaticamente. A impressão usa o diálogo nativo do Android, incluindo Salvar como PDF; a gravação solicita permissão do microfone. O iOS continua web/PWA: Safari → Compartilhar → Adicionar à Tela de Início.

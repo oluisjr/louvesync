@@ -185,6 +185,20 @@
 .ui-vocal-key { margin-top:18px; border-top:1px solid var(--ui-line); padding-top:16px; }
 .ui-mode-buttons { display:flex; gap:8px; margin:16px 0; }
 .ui-mode-buttons > button { flex:1; min-height:42px; }
+.ui-metronome-actions { display:flex; gap:8px; }
+.ui-metronome-actions > button { flex:1; }
+.ui-metronome .ui-button-primary[aria-pressed="true"] { background:linear-gradient(125deg,#8b4cf6,#7133df) !important; }
+.ui-metronome-status { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-top:12px; color:var(--ui-muted); font-size:11px; font-weight:800; }
+.ui-metronome-beats { display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-height:12px; }
+.ui-metronome-dot { display:block; width:7px; height:7px; border:1px solid var(--ui-muted); border-radius:50%; }
+.ui-metronome-dot:first-child { width:10px; height:10px; }
+.ui-metronome-dot[data-active="true"] { background:var(--ui-accent); border-color:var(--ui-accent); box-shadow:0 0 0 3px var(--ui-accent-soft); }
+.ui-metronome .ui-message { margin:12px 0 0; }
+.ui-stage-metronome { padding:10px 16px; flex:0 0 auto; background:#0a0f1e; border-bottom:1px solid #ffffff12; }
+.ui-metronome-compact { display:flex; flex-wrap:wrap; align-items:center; gap:14px; }
+.ui-metronome-compact .ui-button { min-height:36px; padding:8px 12px; font-size:12px; }
+.ui-metronome-compact .ui-metronome-status { flex:1; margin:0; gap:6px; }
+.ui-metronome-compact .ui-message { flex-basis:100%; }
 .ui-manual-lyrics { width:100%; min-height:300px; padding:14px; border:1px solid var(--ui-line); border-radius:14px; background:var(--ui-field); color:var(--ui-text); font:16px/1.65 'JetBrains Mono',monospace; resize:vertical; }
 .ui-sr-only { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 @media (min-width:600px) { .ui-dialog-layer { align-items:center; padding:24px; } .ui-dialog { height:min(820px,100%); border-bottom:1px solid var(--ui-line); border-radius:25px; } .ui-dialog-content { padding:24px; } }
