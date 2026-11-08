@@ -1,6 +1,6 @@
 # LouveSync
 
-Aplicação React/Vite para repertório, escalas e ensaios compartilhados. O login por membro/PIN foi mantido. Estas correções não exigem migração nem executam alterações no banco de produção.
+Aplicação React/Vite para repertório, escalas e ensaios compartilhados. O login por membro/PIN foi mantido. O monitoramento administrativo possui uma instalação SQL separada; o build e o deploy não executam migrações no banco.
 
 ## Desenvolvimento
 
@@ -20,6 +20,7 @@ O Maestro usa `/api/maestro`; configure `GROQ_API_KEY` somente no servidor/Verce
 ```sh
 npm run lint
 npm test
+npm run test:activity:sql
 npm run build
 npx playwright install chromium
 npm run test:e2e
@@ -29,6 +30,8 @@ npm run test:updates
 Os testes de navegador simulam o banco e o transporte Realtime e exercitam duas sessões independentes, presença, navegação, calendário, cifras, impressão/PDF, Bíblia, permissões e ensaio. Não escrevem no Supabase real. Os testes unitários cobrem preservação de presenças, falhas de gravação, transposição, datas, metadados de evento e APIs. A configuração ESLint separa navegador, Node e service workers e aplica as regras de execução/dependências dos Hooks; React Compiler não é usado pelo projeto.
 
 ## Interface e edição de eventos
+
+O admin pode consultar membros on-line e visualizações de escalas/avisos após a instalação das tabelas de atividade: [instruções de ativação e limites do login atual](docs/admin-activity.md). O teste SQL requer Docker e usa um PostgreSQL descartável sem rede.
 
 O editor usa um painel com altura definida, fora dos contêineres da aplicação, e uma única área de rolagem. Cabeçalho, abas e ações ficam visíveis. As abas **Detalhes**, **Setlist** e **Equipe** preservam os dados enquanto o usuário navega; os pedidos e a Santa Ceia ficam próximos do setlist, antes do catálogo completo. O painel acompanha a altura disponível quando o teclado abre, contém o foco e bloqueia a interação com a tela ao fundo.
 

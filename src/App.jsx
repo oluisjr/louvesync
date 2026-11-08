@@ -16,6 +16,8 @@ import MetronomeControls from './components/MetronomeControls.jsx';
 import { useMetronome } from './hooks/useMetronome.js';
 import { useAppDisplay } from './hooks/useAppDisplay.js';
 import { useNavigationClearance } from './hooks/useNavigationClearance.js';
+import { useActivity, useVisibleView } from './hooks/useActivity.js';
+import { ActivityMonitor, ObservedPost, ViewersButton } from './components/Activity.jsx';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
 import { onRealtime, onRealtimeStatus, broadcastUpdate, disconnectRealtime } from './lib/realtime.js';
@@ -1125,7 +1127,7 @@ const PatrimonioScreen = memo(({members, profile, dark}) => {
 });
 
 /* ─── PAINEL ADMIN ──────────────────────────────────────────── */
-const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState, setMembers})=>{
+const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState, setMembers, activity})=>{
   const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
 
@@ -1218,6 +1220,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
       <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoPeople s={20}/>Painel Admin</div>
     </div>
 
+    <ActivityMonitor activity={activity} members={members} dark={dark}/>
     {/* Admin tabs */}
     <div style={{display:'flex',gap:6,marginBottom:16}} className="aUp">
       {[['geral','⚙️ Geral'],['dashboard','📊 Dashboard'],['patrimonio','🏛️ Patrimônio']].map(([k,l])=>
@@ -2913,7 +2916,8 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
 });
 
 /* ─── EVENT SHEET ───────────────────────────────────────────── */
-const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,onReqDelEv,onSetSinger,onUpdateSongOptions,spawnConfetti})=>{
+const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,onReqDelEv,onSetSinger,onUpdateSongOptions,spawnConfetti,activity})=>{
+  useVisibleView(() => activity.recordView('event', ev.id), ev?.id, { immediate:true, enabled:!!ev?.id });
   const [expandSong, setExpandSong] = useState(null);
   const [exporting,setExporting]=useState(false);
   const [exportError,setExportError]=useState('');
@@ -2947,6 +2951,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           <button onClick={onClose} style={{width:34,height:34,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.07)',color:t2,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={14}/></button>
         </div>
         {ev.theme&&<div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-sm)',padding:'9px 14px',marginBottom:14,fontSize:'var(--fs-sm)',color:'#4F46E5',fontWeight:700,border:'1px solid rgba(79,70,229,.15)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
+        {profile?.is_admin&&<ViewersButton activity={activity} targetType="event" targetId={ev.id} title={ev.label} members={members} audience={ev.members} dark={dark}/>}
         {/* Share setlist */}
         {ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0&&<button disabled={sharing} onClick={async()=>{
           setSharing(true);setShareText('');setShareStatus('');
@@ -3065,7 +3070,7 @@ const NotifsSheet = memo(({dark,notifs,onClose,onMarkRead,onMarkAllRead,onAction
 /* ─── MAIN APP ──────────────────────────────────────────────── */
 
 /* ─── MURAL DE COMUNICADOS ─── */
-const Mural = memo(({profile, dark, members}) => {
+const Mural = memo(({profile, dark, members, activity}) => {
   const tc = dark ? '#E2E8F0' : '#0F172A', t2 = dark ? '#94A3B8' : '#475569';
   const gc = 'gL1', CS = {borderRadius:'var(--r-xl)', padding:20, marginBottom:16};
 
@@ -3266,7 +3271,7 @@ if (!navigator.onLine) {
           const emoTypes = ['👍', '🙏', '🎵', '🔥'];
 
           return (
-            <div key={post.id} className={gc} style={{...CS, position:'relative', borderLeft:`4px solid ${author.color || '#7B3FF2'}`}}>
+            <ObservedPost key={post.id} post={post} enabled={!newPostOpen} onView={() => activity.recordView('announcement', post.id)} className={gc} style={{...CS, position:'relative', borderLeft:`4px solid ${author.color || '#7B3FF2'}`}}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10}}>
                 <div style={{display:'flex', alignItems:'center', gap:10}}>
                   <Ava m={author} size={36} ring />
@@ -3282,6 +3287,7 @@ if (!navigator.onLine) {
 
               <div style={{fontSize:15, fontWeight:800, color:tc, marginBottom:6}}>{post.title}</div>
               <div style={{fontSize:'var(--fs-sm)', color:tc, lineHeight:1.6, marginBottom:14, whiteSpace:'pre-wrap'}}>{post.content}</div>
+              {profile?.is_admin&&<ViewersButton activity={activity} targetType="announcement" targetId={post.id} title={post.title} members={members} dark={dark}/>}
 
               {/* Reactions strip */}
               <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom:12}}>
@@ -3345,7 +3351,7 @@ if (!navigator.onLine) {
                   </div>
                 </div>
               )}
-            </div>
+            </ObservedPost>
           );
         })}
 
@@ -3386,6 +3392,7 @@ export default function LouveSync() {
   const [profile,setProfile]=useState(null);
   const [allMembers,setAllMembers]=useState([]);
   const [authLoading,setAuthLoading]=useState(true);
+  const activity=useActivity(profile,allMembers);
 
   // ── Data
   const [songRecords,setSongs]=useState(()=>readCache('ls_songs',[]));
@@ -3957,7 +3964,7 @@ export default function LouveSync() {
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
             {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metronome={metronome} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} onSaveSong={handleSaveSong} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
 
-            {tab==='mural'&&!inCifra&&<Mural profile={profile} dark={dark} members={allMembers}/>}
+            {tab==='mural'&&!inCifra&&<Mural profile={profile} dark={dark} members={allMembers} activity={activity}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio connectionStatus={connectionStatus} dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
             {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
             {tab==='escala'&&!inCifra&&<Escala selWeekIdx={escalaWeek} setSelWeekIdx={setEscalaWeek} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} onConfirm={handleConfirm} onEvSheet={setEvSheet} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
@@ -3966,7 +3973,7 @@ export default function LouveSync() {
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
             {tab==='treinamento'&&!inCifra&&<Treinamento dark={dark} profile={profile}/>}
             {tab==='biblia'&&!inCifra&&<Biblia dark={dark}/>}
-            {profile?.is_admin&&tab==='admin'&&!inCifra&&<PainelAdmin dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState} setMembers={setAllMembers}/>}
+            {profile?.is_admin&&tab==='admin'&&!inCifra&&<PainelAdmin dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState} setMembers={setAllMembers} activity={activity}/>}
           </>}
         </div>
 
@@ -3985,7 +3992,7 @@ export default function LouveSync() {
       {/* OVERLAYS */}
       {addOpen&&<AddSong dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
       {profile?.is_admin&&createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
-      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{if(!profile?.is_admin)return;setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
+      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{if(!profile?.is_admin)return;setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotifsSheet dark={dark} notifs={notifs} onClose={()=>setNotifsOpen(false)} onMarkRead={id=>setNotifs(ns=>ns.map(n=>n.id===id?{...n,read:true}:n))} onMarkAllRead={()=>setNotifs(ns=>ns.map(n=>({...n,read:true})))} onAction={n=>{if(n.ctaAction==='addSong'){setAddOpen(true);setNotifsOpen(false);}else if(n.ctaTab){navTo(n.ctaTab);setNotifsOpen(false);}}}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
 

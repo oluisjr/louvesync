@@ -21,6 +21,7 @@ export function Icon({ name, size = 20, ...props }) {
     keyboard: <><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 5v9m5-9v9m5-9v9M6 14v5m6-5v5m6-5v5"/></>,
     guitar: <><path d="m14 4 6 6m-3-9 6 6m-7-1-6 6m-2-2c-3-1-5 1-4 3-4 1-3 6 0 8s7 2 8-2c3 1 5-2 3-5l-1-1 5-5"/></>,
     info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.2"/></>,
+    eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></>,
     settings: <><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="currentColor"/><circle cx="15" cy="17" r="3" fill="currentColor"/></>,
     save: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2Z"/><path d="M7 3v6h10V3M7 21v-8h10v8"/></>,
   };
@@ -39,7 +40,7 @@ export function SearchField({ label, value, onChange, placeholder }) {
   return <label className="ui-search"><Icon name="search" size={18}/><input type="search" aria-label={label} value={value} onChange={onChange} placeholder={placeholder}/></label>;
 }
 
-export function Dialog({ dark, title, description, icon = 'calendar', closeLabel = 'Fechar editor de evento', onClose, footer, tabs, children, contentKey, busy = false }) {
+export function Dialog({ dark, title, description, icon = 'calendar', closeLabel = 'Fechar editor de evento', onClose, footer, tabs, children, contentKey, busy = false, compact = false }) {
   const titleId = useId();
   const panel = useRef(null);
   useEffect(() => {
@@ -63,7 +64,7 @@ export function Dialog({ dark, title, description, icon = 'calendar', closeLabel
   };
   return createPortal(<div className="ui-scope ui-dialog-layer" data-theme={dark ? 'dark' : 'light'}>
     <div className="ui-dialog-scrim" aria-hidden="true"/>
-    <section ref={panel} className="ui-dialog" role="dialog" aria-modal="true" aria-busy={busy} aria-labelledby={titleId} tabIndex={-1} onKeyDown={keyDown} data-update-blocking="true">
+    <section ref={panel} className={'ui-dialog'+(compact?' ui-dialog-compact':'')} role="dialog" aria-modal="true" aria-busy={busy} aria-labelledby={titleId} tabIndex={-1} onKeyDown={keyDown} data-update-blocking="true">
       <header className="ui-dialog-header"><span className="ui-heading-icon"><Icon name={icon} size={22}/></span><div className="ui-heading-copy"><span className="ui-eyebrow">Sua equipe em harmonia</span><h2 id={titleId}>{title}</h2>{description && <p>{description}</p>}</div><button type="button" className="ui-icon-button" onClick={onClose} disabled={busy} aria-label={closeLabel}><Icon name="close"/></button></header>
       {tabs}
       <div className="ui-dialog-content" key={contentKey}>{children}</div>

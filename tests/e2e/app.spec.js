@@ -232,7 +232,7 @@ test('pages use one compact menu clearance and release it when opening a chart',
 
 async function fixture(browser) {
   const pages = [], contexts = [], failures = [];
-  const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), members: structuredClone([admin,member]), memberRequests: [], session: null, notes: {}, nextItemId: 100 };
+  const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), members: structuredClone([admin,member]), memberRequests: [], session: null, notes: {}, nextItemId: 100, posts: [], activitySessions:new Map(), activityViews:new Map(), activityRequests:[], activityNow:Date.parse('2026-10-24T15:00:00Z'), activityFailure:null };
   const code = `
     import { updateEventItems } from '/src/lib/event-storage.js';
     const clone=value=>structuredClone(value);
@@ -291,6 +291,7 @@ async function fixture(browser) {
       }
       if (action === 'query') {
         const query = args[0];
+        if(query.table==='announcements')return {data:structuredClone(state.posts),error:null};
         if (['event_songs', 'event_members'].includes(query.table)) {
           const eventId=query.filters.event_id||query.data?.[0]?.event_id;
           const event=state.events.find(event=>event.id===eventId);
@@ -322,6 +323,38 @@ async function fixture(browser) {
     const page = await context.newPage(); pages.push(page);
     page.on('pageerror', error => failures.push(error.message));
     await page.route('**/src/lib/supabase.js*', route => route.fulfill({ contentType: 'text/javascript', body: code }));
+    if(options.activity)await page.route('**/api/activity',async route=>{
+      const body=route.request().postDataJSON();state.activityRequests.push(structuredClone(body));
+      const actor=state.members.find(row=>row.id===body.memberId&&row.pin===body.pin);
+      const reply=(status,json)=>route.fulfill({status,json});
+      if(!actor)return reply(401,{error:'Sessão inválida.'});
+      if(['online','viewers'].includes(body.action)&&!actor.is_admin)return reply(403,{error:'Acesso exclusivo do administrador.'});
+      if(state.activityFailure)return reply(503,{code:'ACTIVITY_SETUP_REQUIRED',error:state.activityFailure});
+      const serverTime=new Date(state.activityNow).toISOString();
+      if(['heartbeat','leave'].includes(body.action)){
+        const existing=state.activitySessions.get(body.sessionId);
+        if(!existing||body.version>existing.version)state.activitySessions.set(body.sessionId,{...body,active:body.action==='heartbeat',lastSeen:state.activityNow});
+        return reply(200,{ok:true,serverTime});
+      }
+      if(body.action==='online'){
+        const active=new Map();
+        for(const session of state.activitySessions.values())if(session.active&&state.activityNow-session.lastSeen<=75000)active.set(session.memberId,{memberId:session.memberId,name:state.members.find(m=>m.id===session.memberId)?.name,lastSeenAt:new Date(session.lastSeen).toISOString()});
+        return reply(200,{members:[...active.values()],serverTime});
+      }
+      if(body.action==='view'){
+        if(!state.activityViews.has(body.viewId))state.activityViews.set(body.viewId,{...body,name:actor.name,receivedAt:serverTime});
+        return reply(200,{ok:true,serverTime});
+      }
+      if(body.action==='viewers'){
+        const groups=new Map();
+        for(const view of state.activityViews.values())if(view.targetType===body.targetType&&view.targetId===body.targetId){
+          const group=groups.get(view.memberId)||{memberId:view.memberId,name:view.name,firstViewedAt:view.viewedAt,lastViewedAt:view.viewedAt,viewCount:0};
+          group.firstViewedAt=[group.firstViewedAt,view.viewedAt].sort()[0];group.lastViewedAt=[group.lastViewedAt,view.viewedAt].sort().at(-1);group.viewCount++;groups.set(view.memberId,group);
+        }
+        return reply(200,{viewers:[...groups.values()],serverTime});
+      }
+      return reply(400,{error:'Ação inválida.'});
+    });
     await page.route('**/version.json', route => route.fulfill({ json: {version:'test'} }));
     await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/, route => route.abort());
     await page.clock.setFixedTime(new Date(time));
@@ -331,6 +364,137 @@ async function fixture(browser) {
   }
   return { open, failures, state, async close(){for(const context of contexts)await context.close();} };
 }
+
+test('admin sees online members across devices, foreground changes, disconnections and logout',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.members=app.state.members.map((member,index)=>({...member,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
+  try{
+    const first=await app.open(admin,undefined,{activity:true}),second=await app.open(member,undefined,{activity:true});
+    await first.getByRole('button',{name:'Admin',exact:true}).click();
+    const list=first.locator('.ui-activity-list');
+    await expect(list.getByText('Membro Teste',{exact:true})).toBeVisible();
+    const third=await app.open(member,undefined,{activity:true});
+    await expect.poll(()=>[...app.state.activitySessions.values()].filter(s=>s.memberId===member.id&&s.active).length).toBe(2);
+    await first.getByRole('button',{name:'Atualizar membros on-line',exact:true}).click();
+    await expect(list.getByText('Membro Teste',{exact:true})).toHaveCount(1);
+    await second.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});document.dispatchEvent(new Event('visibilitychange'));});
+    await expect.poll(()=>[...app.state.activitySessions.values()].filter(s=>s.memberId===member.id&&s.active).length).toBe(1);
+    await expect(list.getByText('Membro Teste',{exact:true})).toHaveCount(1);
+    await third.getByRole('button',{name:'Sair',exact:true}).click();
+    await expect.poll(()=>[...app.state.activitySessions.values()].filter(s=>s.memberId===member.id&&s.active).length).toBe(0);
+    await first.getByRole('button',{name:'Atualizar membros on-line',exact:true}).click();
+    await expect(list.getByText('Membro Teste',{exact:true})).toHaveCount(0);
+    await second.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});document.dispatchEvent(new Event('visibilitychange'));});
+    await expect(list.getByText('Membro Teste',{exact:true})).toBeVisible();
+    await first.screenshot({path:test.info().outputPath('admin-online.png')});
+    app.state.activityNow+=76000;
+    await first.getByRole('button',{name:'Atualizar membros on-line',exact:true}).click();
+    await expect(list.getByText('Membro Teste',{exact:true})).toHaveCount(0);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('event view receipts persist with first/last times and are restricted to admins without confirming attendance',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.members=app.state.members.map((member,index)=>({...member,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
+  try{
+    const first=await app.open(admin,undefined,{activity:true}),second=await app.open(member,undefined,{activity:true});
+    for(const page of [first,second]){await page.getByRole('button',{name:'Escala',exact:true}).click();await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();}
+    await expect(second.getByRole('button',{name:/Ver visualizações/})).toHaveCount(0);
+    await first.getByRole('button',{name:'Ver visualizações de Culto de Teste',exact:true}).click();
+    const dialog=first.getByRole('dialog',{name:'Visualizações da escala',exact:true});
+    await expect(dialog.locator('.ui-activity-readers').getByText('Membro Teste',{exact:true})).toBeVisible();
+    expect(app.state.events[0].event_members.find(m=>m.member_id===member.id).confirmed).toBe(null);
+    await second.reload();
+    await second.clock.setFixedTime(new Date('2026-10-24T12:05:00-03:00'));
+    await second.getByRole('button',{name:'Escala',exact:true}).click();await second.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    const row=dialog.locator('.ui-activity-readers .ui-activity-person').filter({hasText:'Membro Teste'});
+    await expect(row).toContainText('2 visualizações');await expect(row).toContainText('12:05');await expect(row).toContainText('12:00');
+    await expect(row).toBeInViewport({ratio:1});
+    const response=await second.evaluate(async()=>{const r=await fetch('/api/activity',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'viewers',memberId:'user-member',pin:'MEMBER_TEST_PIN',is_admin:true,targetType:'event',targetId:'event-1'})});return r.status;});
+    expect(response).toBe(403);
+    await first.screenshot({path:test.info().outputPath('event-viewers.png')});
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('mural records only visible notices, queues offline observation times and keeps history after reopening',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.members=app.state.members.map((member,index)=>({...member,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
+  app.state.posts=[{id:'post-top',title:'Aviso principal',content:Array(24).fill('Prepare-se para o nosso ensaio.').join('\n'),created_at:'2026-10-24T10:00:00Z',created_by:admin.id},{id:'post-bottom',title:'Aviso no fim',content:'Novo horário para a reunião da equipe.',created_at:'2026-10-23T10:00:00Z',created_by:admin.id}];
+  try{
+    const first=await app.open(admin,undefined,{activity:true}),second=await app.open(member,undefined,{activity:true});
+    await second.getByRole('button',{name:'Mural',exact:true}).click();
+    const views=()=>[...app.state.activityViews.values()].filter(v=>v.memberId===member.id);
+    await expect.poll(()=>views().some(v=>v.targetId==='post-top')).toBe(true);
+    expect(views().some(v=>v.targetId==='post-bottom')).toBe(false);
+    await second.context().setOffline(true);
+    await second.clock.setFixedTime(new Date('2026-10-24T12:20:00-03:00'));
+    await second.locator('[data-main-scroll]').evaluate(el=>{el.scrollTop=el.scrollHeight;});
+    await expect(second.getByRole('article',{name:'Aviso no fim',exact:true})).toBeInViewport();
+    await expect.poll(()=>second.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('ls_content_view_v1:')).length)).toBeGreaterThan(0);
+    expect(views().some(v=>v.targetId==='post-bottom')).toBe(false);
+    app.state.activityNow=Date.parse('2026-10-24T15:30:00Z');
+    await second.context().setOffline(false);
+    await expect.poll(()=>views().some(v=>v.targetId==='post-bottom')).toBe(true);
+    expect(views().find(v=>v.targetId==='post-bottom').viewedAt).toBe('2026-10-24T15:20:00.000Z');
+    await second.reload();
+    await first.getByRole('button',{name:'Mural',exact:true}).click();
+    await first.getByRole('button',{name:'Ver visualizações de Aviso no fim',exact:true}).click();
+    const dialog=first.getByRole('dialog',{name:'Visualizações do aviso',exact:true});
+    const row=dialog.locator('.ui-activity-readers .ui-activity-person').filter({hasText:'Membro Teste'});
+    await expect(row).toContainText('12:20');
+    await expect(row).toBeInViewport({ratio:1});
+    await first.screenshot({path:test.info().outputPath('mural-viewers.png')});
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('missing monitoring setup reports unavailable data instead of declaring everyone offline or unread',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.members=app.state.members.map((member,index)=>({...member,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
+  app.state.activityFailure='O monitoramento precisa ser ativado no banco.';
+  try{
+    const page=await app.open(admin,undefined,{activity:true});
+    await page.getByRole('button',{name:'Admin',exact:true}).click();
+    await expect(page.locator('.ui-activity-monitor')).toContainText(app.state.activityFailure);
+    await expect(page.locator('.ui-activity-monitor')).not.toContainText('0 on-line');
+    await page.getByRole('button',{name:'Escala',exact:true}).click();await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    await page.getByRole('button',{name:'Ver visualizações de Culto de Teste',exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:'Visualizações da escala',exact:true});
+    await expect(dialog).toContainText(app.state.activityFailure);
+    await expect(dialog.getByText(/Sem registro de visualização/)).toHaveCount(0);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('long viewer lists scroll inside a compact dark panel with its close action reachable',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.members=app.state.members.map((member,index)=>({...member,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
+  for(let i=0;i<18;i++){
+    const person={...member,id:'reader-'+i,name:'Pessoa de teste '+i,pin:'FIXTURE_PIN'};
+    app.state.members.push(person);
+    app.state.activityViews.set('seed-'+i,{memberId:person.id,name:person.name,targetType:'event',targetId:'event-1',viewedAt:'2026-10-24T10:00:00.000Z'});
+  }
+  try{
+    const page=await app.open(admin,undefined,{activity:true});
+    await page.setViewportSize({width:360,height:640});
+    await page.getByRole('button',{name:'Tema',exact:true}).click();
+    await page.getByRole('button',{name:'Escala',exact:true}).click();await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    await page.getByRole('button',{name:'Ver visualizações de Culto de Teste',exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:'Visualizações da escala',exact:true});
+    const content=dialog.locator('.ui-dialog-content'),footer=dialog.locator('footer');
+    await expect(dialog.getByText('Pessoa de teste 0',{exact:true})).toBeVisible();
+    const before=await footer.boundingBox();
+    await content.evaluate(el=>{el.scrollTop=el.scrollHeight;});
+    await expect(dialog.getByText('Pessoa de teste 17',{exact:true})).toBeInViewport();
+    const after=await footer.boundingBox();expect(Math.abs(after.y-before.y)).toBeLessThan(1);
+    await expect(footer.getByRole('button',{name:'Fechar',exact:true})).toBeInViewport({ratio:1});
+    await page.screenshot({path:test.info().outputPath('viewers-dark-long-list.png')});
+    await footer.getByRole('button',{name:'Fechar',exact:true}).click();
+    await expect(dialog).toHaveCount(0);expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
 test('event presence updates both open event panels and returning from a song restores Escala', async ({browser}) => {
   const app=await fixture(browser);
   try {

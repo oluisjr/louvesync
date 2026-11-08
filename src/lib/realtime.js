@@ -17,8 +17,8 @@ export function connectRealtime() {
 }
 export function onRealtime(callback) { listeners.add(callback); connectRealtime(); return () => listeners.delete(callback); }
 export function onRealtimeStatus(callback) { statusListeners.add(callback); callback(status); connectRealtime(); return () => statusListeners.delete(callback); }
-export async function broadcastUpdate(payload) {
-  connectRealtime();
+export async function broadcastUpdate(payload, { ensureConnection = true } = {}) {
+  if (ensureConnection) connectRealtime();
   if (!channel || status !== 'connected') return false;
   const result = await channel.send({ type: 'broadcast', event: 'app_update', payload });
   return result === 'ok';
