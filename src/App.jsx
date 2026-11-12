@@ -2841,7 +2841,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
         <span className="ui-field-label">Tipo de evento</span>
         <div className="ui-chip-group" style={{marginBottom:18}}>{Object.entries(types).map(([id,label])=><button key={id} className="ui-chip" aria-pressed={form.type===id} onClick={()=>setForm(f=>({...f,type:id}))}>{label}</button>)}</div>
         <label className="ui-field">Nome do evento <input value={form.label} onChange={e=>setForm(f=>({...f,label:e.target.value}))} placeholder="Nome do compromisso *" required/></label>
-        <div className="ui-fields" style={{marginTop:16}}>
+        <div className="ui-fields ui-event-date-fields" style={{marginTop:16}}>
           <label className="ui-field">Data <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} required/></label>
           <label className="ui-field">Horário <input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))}/></label>
         </div>

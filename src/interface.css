@@ -55,9 +55,12 @@
 .ui-scope button:disabled { cursor:not-allowed; opacity:.4; box-shadow:none; }
 .ui-scope :is(button,input,textarea,select):focus-visible { outline:3px solid #ac84ff80; outline-offset:3px; }
 .ui-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; }
+.ui-event-date-fields { grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); }
 .ui-field { display:flex; flex-direction:column; gap:7px; min-width:0; color:var(--ui-text); font-size:12px; font-weight:800; }
 .ui-input, .ui-field :is(input,select,textarea) { display:block; width:100%; min-width:0; max-width:100%; min-height:46px; border:1px solid var(--ui-line); border-radius:12px; padding:11px 12px; color:var(--ui-text); background:var(--ui-field); font:600 16px/1.4 'Nunito',sans-serif; outline:none; box-sizing:border-box; }
-.ui-field input[type="date"], .ui-field input[type="time"] { min-inline-size:0; }
+.ui-field input[type="date"], .ui-field input[type="time"] { min-inline-size:0; inline-size:100%; max-inline-size:100%; appearance:none; -webkit-appearance:none; text-align:left; }
+.ui-field input[type="date"]::-webkit-date-and-time-value, .ui-field input[type="time"]::-webkit-date-and-time-value { min-height:1.4em; text-align:left; }
+.ui-field input[type="date"]::-webkit-datetime-edit, .ui-field input[type="time"]::-webkit-datetime-edit { min-width:0; padding:0; }
 .ui-field :is(input,select,textarea):focus { border-color:var(--ui-accent); box-shadow:0 0 0 3px #a070f211; }
 .ui-field select { padding-right:32px; appearance:auto; }
 .ui-field textarea { resize:vertical; min-height:110px; }
