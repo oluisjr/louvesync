@@ -12,6 +12,7 @@ import { copyTextToClipboard } from './lib/clipboard.js';
 import { performanceKey, renderChordText } from './lib/chords.js';
 import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
+import EquipmentEditor from './components/EquipmentEditor.jsx';
 import MetronomeControls from './components/MetronomeControls.jsx';
 import { useMetronome } from './hooks/useMetronome.js';
 import { useAppDisplay } from './hooks/useAppDisplay.js';
@@ -1025,47 +1026,32 @@ const PatrimonioScreen = memo(({members, profile, dark}) => {
     });
   }, [equipment, search, statusFilter]);
 
-  const handleSave = async () => {
-    if (!editItem.name) return alert('Nome do equipamento é obrigatório!');
-    setEquipment(prev => {
-      const exists = prev.some(x => x.id === editItem.id);
-      if (exists) return prev.map(x => x.id === editItem.id ? editItem : x);
-      return [...prev, editItem];
-    });
-    setEditItem(null);
+  const handleSave = async item => {
+    if (!isAdm) throw new Error('Acesso exclusivo do administrador.');
+    const payload = {id:item.id,name:item.name,brand:item.brand||'',status:item.status,custodian_id:item.custodian_id||null,serial_number:item.serial_number||''};
     if (supabase) {
-      try {
-        await supabase.from('equipment').upsert({
-          id: editItem.id,
-          name: editItem.name,
-          brand: editItem.brand || '',
-          status: editItem.status,
-          custodian_id: editItem.custodian_id || null,
-          serial_number: editItem.serial_number || ''
-        });
-      } catch (e) {
-        console.error(e);
-      }
+      const {error} = await supabase.from('equipment').upsert(payload);
+      if (error) throw error;
     }
+    setEquipment(previous=>previous.some(row=>row.id===payload.id)?previous.map(row=>row.id===payload.id?{...row,...payload}:row):[...previous,payload]);
+    setEditItem(null);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async id => {
+    if (!isAdm) throw new Error('Acesso exclusivo do administrador.');
     if (!window.confirm('Tem certeza que deseja excluir este equipamento?')) return;
-    setEquipment(prev => prev.filter(x => x.id !== id));
-    setEditItem(null);
     if (supabase) {
-      try {
-        await supabase.from('equipment').delete().eq('id', id);
-      } catch (e) {
-        console.error(e);
-      }
+      const {error} = await supabase.from('equipment').delete().eq('id',id);
+      if (error) throw error;
     }
+    setEquipment(previous=>previous.filter(row=>row.id!==id));
+    setEditItem(null);
   };
 
   return <div className="app-page aUp">
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em'}}>{isAdm ? 'Controle de Patrimônio' : 'Patrimônio da Igreja'}</div>
-      {isAdm && <button onClick={() => setEditItem({id: 'eq_' + Date.now(), name: '', brand: '', status: 'Disponível', custodian_id: null, serial_number: ''})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>}
+      {isAdm && <button aria-label="Adicionar equipamento" onClick={() => setEditItem({id: 'eq_' + Date.now(), name: '', brand: '', status: 'Disponível', custodian_id: null, serial_number: ''})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>}
     </div>
 
     <div style={{display:'flex', gap:8, marginBottom:12}}>
@@ -1101,33 +1087,7 @@ const PatrimonioScreen = memo(({members, profile, dark}) => {
       </div>
     )}
 
-    {editItem && <div data-update-blocking="true" style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-      <div className={gc} style={{width:'100%',maxWidth:360,borderRadius:'var(--r-xl)',padding:20}}>
-        <div style={{fontSize:16,fontWeight:900,color:tc,marginBottom:14}}>{equipment.some(x=>x.id===editItem.id) ? 'Editar Equipamento' : 'Novo Equipamento'}</div>
-        <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editItem.name} onChange={e=>setEditItem(x=>({...x,name:e.target.value}))} placeholder="Nome do Equipamento *" style={{color:tc, fontSize:'var(--fs-sm)'}}/></div>
-        <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editItem.brand} onChange={e=>setEditItem(x=>({...x,brand:e.target.value}))} placeholder="Marca/Fabricante" style={{color:tc, fontSize:'var(--fs-sm)'}}/></div>
-        <div className="gIn" style={{marginBottom:10}}><input className="fi" value={editItem.serial_number} onChange={e=>setEditItem(x=>({...x,serial_number:e.target.value}))} placeholder="Número de Série" style={{color:tc, fontSize:'var(--fs-sm)'}}/></div>
-
-        <div style={{fontSize:11, fontWeight:800, color:t2, marginBottom:4, textTransform:'uppercase'}}>Status</div>
-        <div className="gIn" style={{marginBottom:10}}><select className="fi" value={editItem.status} onChange={e=>setEditItem(x=>({...x,status:e.target.value}))} style={{color:tc, padding:'6px 10px', fontSize:'var(--fs-sm)'}}>
-          <option value="Disponível">Disponível</option>
-          <option value="Em uso">Em uso</option>
-          <option value="Manutenção">Manutenção</option>
-        </select></div>
-
-        <div style={{fontSize:11, fontWeight:800, color:t2, marginBottom:4, textTransform:'uppercase'}}>Responsável (Custódia)</div>
-        <div className="gIn" style={{marginBottom:16}}><select className="fi" value={editItem.custodian_id || ''} onChange={e=>setEditItem(x=>({...x,custodian_id:e.target.value || null}))} style={{color:tc, padding:'6px 10px', fontSize:'var(--fs-sm)'}}>
-          <option value="">- Ninguém (Disponível no estúdio) -</option>
-          {members.map(m => <option key={m.id} value={m.id}>{m.name} ({m.instrument})</option>)}
-        </select></div>
-
-        <div style={{display:'flex',gap:10}}>
-          <button className="bp" onClick={handleSave} style={{flex:1, padding:10, fontSize:'var(--fs-sm)'}}>Salvar</button>
-          <button onClick={()=>setEditItem(null)} style={{padding:10,borderRadius:'var(--r-md)',border:'none',background:'rgba(0,0,0,.1)',color:tc,fontWeight:700,cursor:'pointer', fontSize:'var(--fs-sm)'}}>Cancelar</button>
-        </div>
-        {equipment.some(x=>x.id===editItem.id) && <button onClick={()=>handleDelete(editItem.id)} style={{width:'100%',padding:8,borderRadius:'var(--r-md)',border:'none',background:'transparent',color:'var(--app-danger, #EF4444)',fontWeight:700,cursor:'pointer',marginTop:10, fontSize:'var(--fs-xs)'}}>Excluir Equipamento</button>}
-      </div>
-    </div>}
+    {isAdm&&editItem&&<EquipmentEditor key={editItem.id} dark={dark} item={editItem} members={members} isNew={!equipment.some(row=>row.id===editItem.id)} onSave={handleSave} onDelete={()=>handleDelete(editItem.id)} onClose={()=>setEditItem(null)}/>}
   </div>;
 });
 

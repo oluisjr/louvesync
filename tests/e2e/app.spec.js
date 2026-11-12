@@ -333,6 +333,17 @@ async function fixture(browser) {
       if (action === 'query') {
         const query = args[0];
         if(query.table==='announcements')return {data:structuredClone(state.posts),error:null};
+        if(query.table==='equipment'){
+          state.equipment||=[{id:'equipment-fixture',name:'Microfone de teste',brand:'Shure',serial_number:'TEST-01',status:'Disponível',custodian_id:null}];
+          if(query.op==='upsert'){
+            (state.equipmentRequests||=[]).push(structuredClone(query.data));
+            await state.equipmentSaveGate;
+            if(state.equipmentSaveError)return {data:null,error:{message:state.equipmentSaveError}};
+            for(const row of Array.isArray(query.data)?query.data:[query.data]){const index=state.equipment.findIndex(item=>item.id===row.id);if(index<0)state.equipment.push(structuredClone(row));else state.equipment[index]={...state.equipment[index],...structuredClone(row)};}
+          }
+          if(query.op==='delete')state.equipment=state.equipment.filter(row=>row.id!==query.filters.id);
+          return {data:structuredClone(state.equipment),error:null};
+        }
         if (['event_songs', 'event_members'].includes(query.table)) {
           const eventId=query.filters.event_id||query.data?.[0]?.event_id;
           const event=state.events.find(event=>event.id===eventId);
@@ -1072,6 +1083,58 @@ test('the event catalog groups and colors every category while search and select
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
+
+for(const theme of ['light','dark']){
+  test(`equipment editor keeps fields and actions above app chrome and preserves failed saves in ${theme} theme`,async({browser})=>{
+    const app=await fixture(browser);let finishSave;
+    try{
+      const page=await app.open(admin,undefined,{device:{...devices['iPhone 13'],viewport:{width:390,height:844}},theme,standalone:true,visualViewportHeight:797});
+      await page.addStyleTag({content:':root { --app-safe-top:47px; --app-safe-bottom:34px; } *,*::before,*::after { animation:none!important; transition:none!important; }'});
+      await page.getByRole('button',{name:'Patrimônio',exact:true}).click();
+      await page.getByRole('button',{name:'Adicionar equipamento',exact:true}).click();
+      const dialog=page.getByRole('dialog',{name:'Novo equipamento',exact:true}),content=dialog.locator('.ui-dialog-content');
+      await expect(dialog.getByLabel('Nome do equipamento',{exact:true})).toBeInViewport({ratio:1});
+      const heading=dialog.getByRole('heading',{name:'Novo equipamento',exact:true});
+      expect(await heading.evaluate(element=>{const b=element.getBoundingClientRect();return element.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));})).toBe(true);
+      await dialog.getByLabel('Nome do equipamento',{exact:true}).fill('Microfone cadastrado');
+      await dialog.getByLabel('Marca/fabricante',{exact:true}).fill('Marca de teste');
+      await dialog.getByLabel('Número de série',{exact:true}).fill('SERIE-2026');
+      app.state.equipmentSaveError='Falha simulada de conexão';
+      await dialog.getByRole('button',{name:'Salvar',exact:true}).click();
+      await expect(dialog.getByRole('alert')).toContainText('Falha simulada de conexão');
+      await expect(dialog.getByLabel('Nome do equipamento',{exact:true})).toHaveValue('Microfone cadastrado');
+      expect(app.state.equipment).toHaveLength(1);
+      await dialog.getByLabel('Nome do equipamento',{exact:true}).focus();
+      await page.evaluate(()=>{Object.defineProperties(window.visualViewport,{height:{configurable:true,value:370},offsetTop:{configurable:true,value:38}});window.visualViewport.dispatchEvent(new Event('resize'));});
+      await expect.poll(async()=>Math.round((await page.locator('.ui-dialog-layer').boundingBox()).height)).toBe(370);
+      const footerBefore=await dialog.locator('footer').boundingBox();
+      await content.evaluate(element=>{element.scrollTop=element.scrollHeight;});
+      await dialog.getByLabel('Status',{exact:true}).selectOption('Em uso');
+      await dialog.getByLabel('Responsável pela custódia',{exact:true}).selectOption(member.id);
+      await expect.poll(async()=>Math.round((await page.locator('.ui-dialog-layer').boundingBox()).height)).toBe(370);
+      const save=dialog.getByRole('button',{name:'Salvar',exact:true}),saveBox=await save.boundingBox();
+      expect(saveBox.y+saveBox.height).toBeLessThanOrEqual(38+370-12);
+      expect(Math.abs((await dialog.locator('footer').boundingBox()).y-footerBefore.y)).toBeLessThan(1);
+      expect(await save.evaluate(element=>{const b=element.getBoundingClientRect();return element.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));})).toBe(true);
+      await page.screenshot({path:test.info().outputPath('equipment-'+theme+'-keyboard.png'),scale:'css'});
+      app.state.equipmentSaveError=null;app.state.equipmentSaveGate=new Promise(resolve=>{finishSave=resolve;});
+      await save.click();await expect(dialog.getByRole('button',{name:'Salvando…',exact:true})).toBeDisabled();
+      await expect(dialog.getByRole('button',{name:'Fechar cadastro de equipamento',exact:true})).toBeDisabled();
+      finishSave();await expect(dialog).toHaveCount(0);
+      await page.evaluate(()=>{delete window.visualViewport.height;delete window.visualViewport.offsetTop;window.visualViewport.dispatchEvent(new Event('resize'));});
+      expect(app.state.equipmentRequests).toHaveLength(2);
+      expect(Object.keys(app.state.equipmentRequests[1]).sort()).toEqual(['brand','custodian_id','id','name','serial_number','status']);
+      await page.reload();await page.getByRole('button',{name:'Patrimônio',exact:true}).click();
+      const row=page.locator('.gL1').filter({hasText:'Microfone cadastrado'});
+      await row.getByRole('button',{name:'Editar',exact:true}).click();
+      const edit=page.getByRole('dialog',{name:'Editar equipamento',exact:true});
+      await expect(edit.getByLabel('Número de série',{exact:true})).toHaveValue('SERIE-2026');
+      await expect(edit.getByLabel('Status',{exact:true})).toHaveValue('Em uso');
+      await expect(edit.getByLabel('Responsável pela custódia',{exact:true})).toHaveValue(member.id);
+      await edit.getByRole('button',{name:'Cancelar',exact:true}).click();expect(app.failures).toEqual([]);
+    }finally{finishSave?.();await app.close();}
+  });
+}
 
 for(const viewport of [{name:'mobile',width:320,height:740},{name:'desktop-dark',width:1280,height:900}]){
   test('member editor stays above app chrome and saves a complete form on '+viewport.name,async({browser})=>{

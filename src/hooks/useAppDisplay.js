@@ -33,7 +33,7 @@ export function useAppDisplay(dark) {
       root.style.setProperty('--app-bottom-obstruction', `${root.dataset.displayMode === 'standalone' && gap <= limit ? Math.round(gap) : 0}px`);
       const target = document.activeElement;
       const editing = target?.isContentEditable || (!target?.readOnly && !target?.disabled && (
-        target?.tagName === 'TEXTAREA' || (target?.tagName === 'INPUT' && ['text', 'search', 'email', 'tel', 'url', 'password', 'number'].includes(target.type))
+        target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT' || (target?.tagName === 'INPUT' && ['text', 'search', 'email', 'tel', 'url', 'password', 'number'].includes(target.type))
       ));
       // iOS standalone may report a shorter visual viewport with no keyboard.
       // Only a substantial contraction during text entry should shrink the app.
