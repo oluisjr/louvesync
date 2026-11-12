@@ -79,11 +79,11 @@ html,body,#root{-webkit-font-smoothing:antialiased;}
 .aC-jubilo{border-left:3.5px solid #00C9A7;}.aC-adoracao{border-left:3.5px solid #7B3FF2;}
 .aC-hinario{border-left:3.5px solid #FF6B35;}.aC-oferta{border-left:3.5px solid #EC4899;}
 .aC-corinho{border-left:3.5px solid #06B6D4;}.aC-ceia{border-left:3.5px solid #E11D48;}
-.event-setlist-song{border-left:3px solid var(--song-category);}
 .event-setlist-song-open{display:flex;flex-direction:column;align-items:flex-start;gap:4px;flex:1;min-width:0;padding:0;border:0;background:transparent;text-align:left;font-family:inherit;cursor:pointer;overflow-wrap:anywhere;}
 .event-setlist-song-open:focus-visible{outline:2px solid var(--app-link);outline-offset:4px;border-radius:6px;}
-.event-setlist-category{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:800;line-height:1.4;}
-.event-setlist-category::before{content:'';width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:var(--song-category);}
+.event-setlist-meta{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;font-size:var(--fs-xs);line-height:1.4;}
+.event-setlist-category{display:inline-flex;align-items:center;gap:5px;max-width:100%;font-size:11px;font-weight:600;}
+.event-setlist-category::before{content:'';width:4px;height:4px;flex:0 0 4px;border-radius:50%;background:var(--song-category);opacity:.8;}
 ::-webkit-scrollbar{width:3px;height:3px;}::-webkit-scrollbar-thumb{background:rgba(123,63,242,.25);border-radius:2px;}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
@@ -2966,9 +2966,8 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
             return <div key={it.id} className="event-setlist-song" style={{'--song-category':category.color,display:'flex',flexDirection:'column',gap:5,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
               <div style={{display:'flex',alignItems:'center',gap:11}}>
                 <button type="button" className="event-setlist-song-open" aria-label={'Abrir cifra de '+(s.title||'Sem Título')} onClick={()=>onSelectSong(s, ev, activeKey)}>
-                  <span className="event-setlist-category" style={{color:readableTextColor(category.color,dark),background:`${category.color}18`}}>{category.label}</span>
                   <span className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{String(s.title || 'Sem Título')}</span>
-                  <span style={{fontSize:'var(--fs-xs)',color:t2}}>{String(s.artist || 'Ministério')}</span>
+                  <span className="event-setlist-meta" style={{color:t2}}><span className="event-setlist-category">{category.label}</span><span aria-hidden="true">·</span><span>{String(s.artist || 'Ministério')}</span></span>
                 </button>
                 <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,flexShrink:0}}>
                   <KeyChip k={activeKey} size={10}/>
