@@ -79,6 +79,11 @@ html,body,#root{-webkit-font-smoothing:antialiased;}
 .aC-jubilo{border-left:3.5px solid #00C9A7;}.aC-adoracao{border-left:3.5px solid #7B3FF2;}
 .aC-hinario{border-left:3.5px solid #FF6B35;}.aC-oferta{border-left:3.5px solid #EC4899;}
 .aC-corinho{border-left:3.5px solid #06B6D4;}.aC-ceia{border-left:3.5px solid #E11D48;}
+.event-setlist-song{border-left:3px solid var(--song-category);}
+.event-setlist-song-open{display:flex;flex-direction:column;align-items:flex-start;gap:4px;flex:1;min-width:0;padding:0;border:0;background:transparent;text-align:left;font-family:inherit;cursor:pointer;overflow-wrap:anywhere;}
+.event-setlist-song-open:focus-visible{outline:2px solid var(--app-link);outline-offset:4px;border-radius:6px;}
+.event-setlist-category{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:800;line-height:1.4;}
+.event-setlist-category::before{content:'';width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:var(--song-category);}
 ::-webkit-scrollbar{width:3px;height:3px;}::-webkit-scrollbar-thumb{background:rgba(123,63,242,.25);border-radius:2px;}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
@@ -2953,15 +2958,19 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
         </div>}
         {ev.type !== 'ebd' && ev.type !== 'consagracao' && <>
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Setlist</div>
-          {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map((it,i)=>{
+          {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map(it=>{
             if(it.type==='note' || it.type==='text') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:"var(--app-warning, #D97706)", borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
             const s = it.song;
+            const category = CAT[s.cat] || {label:s.cat||'Sem categoria',color:'#94A3B8'};
             const activeKey = performanceKey(s,ev);
-            return <div key={it.id} style={{display:'flex',flexDirection:'column',gap:5,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
+            return <div key={it.id} className="event-setlist-song" style={{'--song-category':category.color,display:'flex',flexDirection:'column',gap:5,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
               <div style={{display:'flex',alignItems:'center',gap:11}}>
-                <span onClick={()=>onSelectSong(s, ev, activeKey)} style={{cursor:'pointer',width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
-                <div onClick={()=>onSelectSong(s, ev, activeKey)} style={{flex:1,cursor:'pointer'}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{String(s.title || 'Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{String(s.artist || 'Ministério')}</div></div>
-                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+                <button type="button" className="event-setlist-song-open" aria-label={'Abrir cifra de '+(s.title||'Sem Título')} onClick={()=>onSelectSong(s, ev, activeKey)}>
+                  <span className="event-setlist-category" style={{color:readableTextColor(category.color,dark),background:`${category.color}18`}}>{category.label}</span>
+                  <span className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{String(s.title || 'Sem Título')}</span>
+                  <span style={{fontSize:'var(--fs-xs)',color:t2}}>{String(s.artist || 'Ministério')}</span>
+                </button>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,flexShrink:0}}>
                   <KeyChip k={activeKey} size={10}/>
                   {profile?.is_admin&&<button onClick={()=>setExpandSong(expandSong===s.id?null:s.id)} style={{background:'none',border:'none',color:'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',cursor:'pointer',fontWeight:700}}>Ajustar</button>}
                 </div>
