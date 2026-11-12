@@ -2,10 +2,10 @@ html, body, #root { margin: 0; padding: 0; width: 100%; height: 100%; overscroll
 html, body { overflow: hidden; background: var(--app-canvas, #F5F0FF); }
 :root {
   --app-link:#4F46E5;
-  --app-danger:#EF4444;
-  --app-positive:#059669;
-  --app-negative:#DC2626;
-  --app-warning:#D97706;
+  --app-danger:#C92D4A;
+  --app-positive:#007A59;
+  --app-negative:#C92D4A;
+  --app-warning:#9B6100;
   --app-layout-height: 100vh;
   --app-safe-top: env(safe-area-inset-top, 0px);
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -15,7 +15,7 @@ html, body { overflow: hidden; background: var(--app-canvas, #F5F0FF); }
   --app-action-bottom: max(14px, var(--app-safe-bottom), calc(var(--app-bottom-obstruction) + 12px));
   --app-nav-clearance: calc(var(--app-nav-height) + var(--app-nav-bottom) + 12px);
 }
-:root[data-theme="dark"] { --app-link:#D2B8FF; --app-danger:#FFA3AF; --app-positive:#6EE7B7; --app-negative:#FFA3AF; --app-warning:#FCD485; }
+:root[data-theme="dark"] { --app-link:#CA9FFF; --app-danger:#FF8BA4; --app-positive:#37E3A3; --app-negative:#FF8BA4; --app-warning:#FFC250; }
 @supports (height: 100dvh) { :root { --app-layout-height: 100dvh; } }
 :root[data-display-mode="standalone"] { --app-layout-height: 100vh; }
 @supports (height: 100lvh) { :root[data-display-mode="standalone"] { --app-layout-height: 100lvh; } }

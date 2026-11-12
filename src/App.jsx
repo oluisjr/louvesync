@@ -57,8 +57,8 @@ html,body,#root{-webkit-font-smoothing:antialiased;}
 .ls{font-family:'Nunito', sans-serif;height:100%;overflow:hidden;position:relative;}
 .font-serif { font-family: 'Nunito', sans-serif; letter-spacing: -.02em; }
 .bg{position:fixed;inset:0;z-index:0;transition:background .7s;}
-.bg-l{background:linear-gradient(145deg,#F5F0FF 0%,#FFF7F3 50%,#F0F4FF 100%);}
-.bg-d{background:linear-gradient(160deg,#1D1B2D 0%,#27233E 50%,#211D34 100%);}
+.bg-l{background:linear-gradient(145deg,#EFE3FF 0%,#FFF1E8 50%,#E8F0FF 100%);}
+.bg-d{background:linear-gradient(160deg,#211934 0%,#30204F 50%,#251C3D 100%);}
 .orb{position:absolute;border-radius:50%;pointer-events:none;filter:blur(100px);will-change:transform;}
 @keyframes oA{0%,100%{transform:translate(0,0) scale(1)}40%{transform:translate(30px,-45px) scale(1.1)}70%{transform:translate(-15px,22px) scale(.93)}}
 @keyframes oB{0%,100%{transform:translate(0,0) scale(1)}35%{transform:translate(-28px,32px) scale(.9)}70%{transform:translate(22px,-18px) scale(1.08)}}
@@ -67,14 +67,14 @@ html,body,#root{-webkit-font-smoothing:antialiased;}
 .gL0{background:rgba(255,255,255,.5);backdrop-filter:blur(16px) saturate(180%) contrast(105%);-webkit-backdrop-filter:blur(16px) saturate(180%) contrast(105%);border:1px solid rgba(255,255,255,.8);box-shadow:inset 0 1px 1px rgba(255,255,255,1), 0 4px 12px rgba(123,63,242,.04);}
 .gL1{background:rgba(255,255,255,.6);backdrop-filter:blur(24px) saturate(200%) contrast(110%);-webkit-backdrop-filter:blur(24px) saturate(200%) contrast(110%);border:1px solid rgba(255,255,255,1);box-shadow:inset 0 1px 1px rgba(255,255,255,1), 0 8px 24px rgba(0,0,0,.04);}
 .gL2{background:rgba(255,255,255,.7);backdrop-filter:blur(32px) saturate(200%) contrast(115%);-webkit-backdrop-filter:blur(32px) saturate(200%) contrast(115%);border-top:1px solid rgba(255,255,255,1);border-left:1px solid rgba(255,255,255,1);box-shadow:inset 0 1px 1px rgba(255,255,255,1), 0 -12px 56px rgba(0,0,0,.05);}
-.gNav{background:rgba(255,255,255,.82);backdrop-filter:blur(24px) saturate(220%);-webkit-backdrop-filter:blur(24px) saturate(220%);border-top:1px solid rgba(255,255,255,1);border-bottom:1px solid rgba(0,0,0,.02);border-left:1px solid rgba(255,255,255,.7);border-right:1px solid rgba(255,255,255,.7);box-shadow:inset 0 1px 1px rgba(255,255,255,.9), 0 8px 40px rgba(123,63,242,.12);}
+.gNav{background:linear-gradient(135deg,rgba(255,255,255,.68),rgba(247,235,255,.4) 50%,rgba(255,255,255,.58));backdrop-filter:blur(18px) saturate(200%) contrast(108%);-webkit-backdrop-filter:blur(18px) saturate(200%) contrast(108%);border:1px solid rgba(255,255,255,.76);box-shadow:inset 0 2px 2px #ffffffd9,inset 0 -1px 2px #ffffff80,inset 1px 0 2px #ffffff99,0 8px 32px #5420ac26;}
 .gIn{background:rgba(255,255,255,.4);backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);border:1px solid rgba(255,255,255,1);border-radius:var(--r-lg);transition:border .2s,box-shadow .2s;box-shadow:inset 0 2px 4px rgba(0,0,0,.02), 0 2px 8px rgba(0,0,0,.01);}
 .gIn:focus-within{border-color:var(--c-i);box-shadow:inset 0 1px 2px rgba(0,0,0,.02), 0 0 0 3px rgba(123,63,242,.15), 0 4px 12px rgba(123,63,242,.1);}
-.dark .gL0{background:#29263E;border:1px solid #605471;box-shadow:inset 0 1px 1px #ffffff0a,0 4px 12px #0002;}
-.dark .gL1{background:#302B47;border:1px solid #6B5B83;box-shadow:inset 0 1px 1px #ffffff0d,0 8px 24px #0003;}
-.dark .gL2{background:#39324F;border-top:1px solid #827094;border-left:1px solid #6B5B83;box-shadow:0 -12px 40px #0004;}
-.dark .gNav{background:#362F4D;border:1px solid #827094;box-shadow:inset 0 1px 1px #ffffff12,0 8px 24px #0004;}
-.dark .gIn{background:#3B3451;border-color:#88759C;box-shadow:inset 0 1px 2px #0002;}
+.dark .gL0{background:#2A1F42;border:1px solid #715392;box-shadow:inset 0 1px 1px #d0a4ff14,0 4px 12px #14072533;}
+.dark .gL1{background:#34244F;border:1px solid #8960AE;box-shadow:inset 0 1px 1px #d0a4ff1a,0 8px 24px #14072540;}
+.dark .gL2{background:#402C5F;border-top:1px solid #A578D0;border-left:1px solid #8960AE;box-shadow:0 -12px 40px #14072555;}
+.dark .gNav{background:linear-gradient(135deg,rgba(100,59,152,.6),rgba(41,23,66,.42) 50%,rgba(73,40,113,.58));border-color:#d8b4ff66;box-shadow:inset 0 2px 2px #eddbff4d,inset 0 -1px 2px #bb82ff33,inset 1px 0 2px #e3c8ff33,0 8px 32px #14072559;}
+.dark .gIn{background:#402B5D;border-color:#A578C4;box-shadow:inset 0 1px 2px #14072533;}
 .dark .gIn:focus-within{border-color:var(--c-id);box-shadow:inset 0 1px 2px rgba(0,0,0,.2), 0 0 0 3px rgba(168,85,247,.18);}
 .aC-jubilo{border-left:3.5px solid #00C9A7;}.aC-adoracao{border-left:3.5px solid #7B3FF2;}
 .aC-hinario{border-left:3.5px solid #FF6B35;}.aC-oferta{border-left:3.5px solid #EC4899;}
@@ -237,8 +237,8 @@ function sortSongsByCategoryAndTitle(a,b){
 
 
 function readableTextColor(color,dark){
-  const tints={'#4F46E5':'#CAB5FF','#7B3FF2':'#D2B8FF','#00C9A7':'#5CE5C8','#FF6B35':'#FFB38B','#EC4899':'#FFA8D0','#E11D48':'#FFA0B2','#06B6D4':'#75D8EA','#10B981':'#6EE7B7','#EF4444':'#FFA3AF','#F59E0B':'#FCD485','#94A3B8':'#C9C3DD'};
-  return dark&&typeof color==='string'?(tints[color.toUpperCase()]||color):color;
+  const tints=dark?{'#4F46E5':'#BD97FF','#7B3FF2':'#CA9FFF','#00C9A7':'#2EE0B6','#FF6B35':'#FFAA68','#EC4899':'#FF83C1','#E11D48':'#FF8BA4','#06B6D4':'#47D7F0','#10B981':'#37E3A3','#EF4444':'#FF8BA4','#F59E0B':'#FFC250','#94A3B8':'#D7C7EA'}:{'#00C9A7':'#007A63','#FF6B35':'#B64315','#EC4899':'#B61969','#E11D48':'#BE123C','#06B6D4':'#08758B','#10B981':'#007A59','#EF4444':'#C92D4A','#F59E0B':'#9B6100','#94A3B8':'#514064'};
+  return typeof color==='string'?(tints[color.toUpperCase()]||color):color;
 }
 function vib(){if(navigator.vibrate)navigator.vibrate(10);}
 
@@ -3910,7 +3910,7 @@ export default function LouveSync() {
               <img src={dark?'/brand/v2/mark-white.png':'/brand/v2/mark-black.png'} alt="LouveSync" width="36" height="36" style={{objectFit:'contain',borderRadius:'22%'}} />
               <div>
                 <div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:tc,letterSpacing:'-.03em',lineHeight:1,backgroundImage:dark?'linear-gradient(135deg,#A855F7,#FF8C5A)':'linear-gradient(135deg,#7B3FF2,#FF6B35)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>Louve</div>
-                <div style={{fontSize:8,color:dark?'#7B5FA8':'#8B6BB0',fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',WebkitTextFillColor:'initial'}}>seu ministério em harmonia</div>
+                <div style={{fontSize:8,color:dark?'#BDA3E3':'#76529B',fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',WebkitTextFillColor:'initial'}}>seu ministério em harmonia</div>
               </div>
             </div>}
           </div>
@@ -3951,8 +3951,8 @@ export default function LouveSync() {
         {!inCifra&&<div className="app-nav">
           <div ref={navigationRef} className="gNav hide-scroll" style={{borderRadius:100,padding:'6px 10px',display:'flex',gap:2,pointerEvents:'all',overflowX:'auto',maxWidth:'90%',WebkitOverflowScrolling:'touch'}}>
             {TABS.map(n=>{const active=tab===n.id;return <button key={n.id} className={`nb${active?' on':''}`} onClick={()=>navTo(n.id)}>
-              <span className="ni" style={{color:active?(dark?'#D2B8FF':'#7B3FF2'):dark?'#C9C3DD':'#64748B'}}>{n.ico}</span>
-              <span className="nl" style={{color:active?(dark?'#D2B8FF':'#7B3FF2'):dark?'#C9C3DD':'#64748B'}}>{n.l}</span>
+              <span className="ni" style={{color:active?(dark?'#D5A8FF':'#7130E5'):dark?'#E9DCF9':'#514064'}}>{n.ico}</span>
+              <span className="nl" style={{color:active?(dark?'#D5A8FF':'#7130E5'):dark?'#E9DCF9':'#514064'}}>{n.l}</span>
               <div className="ndot" style={{width:active?22:0,background:dark?'linear-gradient(90deg,#A855F7,#FF8C5A)':'linear-gradient(90deg,#7B3FF2,#FF6B35)'}}/>
             </button>;})}
           </div>

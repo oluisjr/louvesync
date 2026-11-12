@@ -1,13 +1,13 @@
 .ui-scope {
-  --ui-text:#241c35; --ui-muted:#776785; --ui-accent:#7b3ff2; --ui-accent-soft:#f1eaff;
+  --ui-text:#241c35; --ui-muted:#665374; --ui-accent:#7130e5; --ui-accent-soft:#eee1ff;
   --ui-surface:rgba(255,255,255,.94); --ui-panel:#fcfaff; --ui-field:#f7f4fb; --ui-line:#eae3f1;
   --ui-row:#fff; --ui-shadow:0 5px 24px rgba(55,30,92,.045); --ui-success:#16836a;
   color:var(--ui-text); font-family:'Nunito',sans-serif; font-size:14px; line-height:1.5; color-scheme:light;
 }
 .ui-scope[data-theme="dark"] {
-  --ui-text:#f5f2ff; --ui-muted:#cac2de; --ui-accent:#d2b8ff; --ui-accent-soft:#49375e;
-  --ui-surface:#332d49; --ui-panel:#282239; --ui-field:#241f35; --ui-line:#78668f;
-  --ui-row:#3d3552; --ui-shadow:0 5px 24px #0002; --ui-success:#7ee5c4; color-scheme:dark;
+  --ui-text:#f5f2ff; --ui-muted:#ded0ed; --ui-accent:#ca9fff; --ui-accent-soft:#493066;
+  --ui-surface:#32234e; --ui-panel:#271d3c; --ui-field:#211733; --ui-line:#8064a3;
+  --ui-row:#3b2a58; --ui-shadow:0 5px 24px #14072540; --ui-success:#37e3a3; color-scheme:dark;
 }
 .ui-page { padding:22px 18px 0; min-width:0; }
 .ui-activity-monitor { margin-bottom:16px; }

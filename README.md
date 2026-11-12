@@ -31,7 +31,7 @@ Os testes de navegador simulam o banco e o transporte Realtime e exercitam duas 
 
 ## Interface e edição de eventos
 
-O modo escuro usa superfícies distintas para fundo, cartões e painéis, com bordas mais visíveis. Textos secundários, links e categorias recebem tons claros para melhorar a leitura. Eventos expirados preservam a legibilidade e continuam identificados pelo aviso Expirado.
+Os temas usam fundos coloridos e superfícies distintas para cartões e painéis, com bordas mais visíveis. O modo escuro reforça os tons de violeta e as cores das categorias, com textos claros para leitura. A navegação mantém o vidro translúcido, blur do conteúdo ao fundo, saturação e reflexos nas bordas nos dois temas, incluindo o filtro prefixado para Safari. Eventos expirados preservam a legibilidade e continuam identificados pelo aviso Expirado.
 
 No login, a etapa da senha usa um cartão compacto com avatar, nome e função na mesma linha. Quando a área disponível fica curta, a marca e o controle de tema cedem espaço aos campos. A rolagem local acompanha a abertura, o deslocamento e o fechamento do teclado, mantendo senha, erro e ação de entrada acessíveis. Enter e a ação Ir do teclado enviam o formulário; uma senha incorreta mantém o foco para tentar novamente.
 
