@@ -69,7 +69,7 @@ Os testes medem sinal no grafo Web Audio real do Chromium e simulam a exigência
 
 ## Android
 
-A marca usa variantes preta e branca no cabeçalho e no favicon de acordo com o tema. A versão colorida aparece na entrada e no carregamento; os ícones de instalação usam fitas claras sobre degradê. Fontes, exportações e instruções para reproduzir os recursos estão em [branding/README.md](branding/README.md). No iPhone, pode ser necessário adicionar novamente à Tela de Início para trocar o ícone instalado.
+A marca usa os arquivos originais enviados: bloco escuro no tema claro e bloco branco no tema escuro, mantendo as cores das letras. A variante de bloco em degradê aparece na entrada e na instalação. Fontes e conversão de tamanhos estão em [branding/README.md](branding/README.md). No iPhone, pode ser necessário adicionar novamente à Tela de Início para trocar o ícone instalado.
 
 O aplicativo Android usa `https://louvesync.vercel.app` e acompanha os deploys web automaticamente. A impressão usa o diálogo nativo do Android, incluindo Salvar como PDF; a gravação solicita permissão do microfone. O iOS continua web/PWA: Safari → Compartilhar → Adicionar à Tela de Início.
 

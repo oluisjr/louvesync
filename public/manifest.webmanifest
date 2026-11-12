@@ -1,29 +1,23 @@
 {
   "name": "LouveSync",
   "short_name": "LouveSync",
-  "description": "Aplicativo para gerenciar repert\u00f3rio e minist\u00e9rio de louvor.",
+  "description": "Aplicativo para gerenciar repertório e ministério de louvor.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F5F0FF",
   "theme_color": "#F5F0FF",
   "icons": [
     {
-      "src": "/brand/v1/icon-192.png",
+      "src": "/brand/v2/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/brand/v1/icon-512.png",
+      "src": "/brand/v2/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/brand/v1/icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ],
   "id": "/",

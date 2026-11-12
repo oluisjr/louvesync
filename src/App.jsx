@@ -1470,7 +1470,7 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
     <div className="login-content">
       {/* Header */}
       <div className="login-brand">
-        <img src="/brand/v1/mark-color.png" alt="LouveSync" width="100" height="100" />
+        <img src="/brand/v2/mark-color.png" alt="LouveSync" width="100" height="100" />
         {(deferredPrompt || (isIOS && !isStandalone)) && (
           <button onClick={handleInstallClick} style={{marginTop:16,padding:'8px 16px',borderRadius:'var(--r-full)',border:'none',background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:6}}><IcoSpark s={14}/> Instalar App</button>
         )}
@@ -3943,7 +3943,7 @@ export default function LouveSync() {
             {inCifra&&<button onClick={()=>{vib();backFromSong();}} style={{padding:'8px 16px',borderRadius:'var(--r-full)',border:'none',background:'rgba(123,63,242,.14)',color:'#7B3FF2',display:'flex',alignItems:'center',gap:6,fontWeight:800,fontSize:'var(--fs-sm)',cursor:'pointer',boxShadow:'0 2px 10px rgba(123,63,242,.15)'}}><IcoChevL s={16}/> Voltar</button>}
             {inCifra?<div style={{lineHeight:1.3,textAlign:'right'}}><div className="font-serif" style={{fontSize:16,fontWeight:900,color:tc}}>{String(selSong.title || 'Música Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:dark?'#94A3B8':'#475569'}}>{String(selSong.artist || 'Ministério')}</div></div>
             :<div style={{display:'flex',alignItems:'center',gap:10}}>
-              <img src={dark?'/brand/v1/mark-white.png':'/brand/v1/mark-black.png'} alt="LouveSync" width="36" height="36" style={{objectFit:'contain'}} />
+              <img src={dark?'/brand/v2/mark-white.png':'/brand/v2/mark-black.png'} alt="LouveSync" width="36" height="36" style={{objectFit:'contain',borderRadius:'22%'}} />
               <div>
                 <div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:tc,letterSpacing:'-.03em',lineHeight:1,backgroundImage:dark?'linear-gradient(135deg,#A855F7,#FF8C5A)':'linear-gradient(135deg,#7B3FF2,#FF6B35)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>Louve</div>
                 <div style={{fontSize:8,color:dark?'#7B5FA8':'#8B6BB0',fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',WebkitTextFillColor:'initial'}}>seu ministério em harmonia</div>

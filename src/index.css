@@ -5,7 +5,9 @@ html, body { overflow: hidden; background: var(--app-canvas, #F5F0FF); }
   --app-safe-top: env(safe-area-inset-top, 0px);
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-nav-height: 72px;
-  --app-nav-bottom: max(8px, var(--app-safe-bottom));
+  --app-bottom-obstruction: 0px;
+  --app-nav-bottom: max(8px, var(--app-safe-bottom), calc(var(--app-bottom-obstruction) + 8px));
+  --app-action-bottom: max(14px, var(--app-safe-bottom), calc(var(--app-bottom-obstruction) + 12px));
   --app-nav-clearance: calc(var(--app-nav-height) + var(--app-nav-bottom) + 12px);
 }
 @supports (height: 100dvh) { :root { --app-layout-height: 100dvh; } }
@@ -22,7 +24,7 @@ html, body { overflow: hidden; background: var(--app-canvas, #F5F0FF); }
 .ls.app-login { overflow-y: auto; padding: calc(24px + var(--app-safe-top)) 24px calc(24px + var(--app-safe-bottom)); }
 .login-content { position:relative; z-index:1; width:100%; max-width:420px; margin-block:auto; flex-shrink:0; animation:loginIn .5s cubic-bezier(.22,1,.36,1); }
 .login-brand { text-align:center; margin-bottom:32px; }
-.login-brand img { width:100px; height:100px; object-fit:contain; margin:0 auto 14px; display:block; filter:drop-shadow(0 8px 16px rgba(0,0,0,.1)); }
+.login-brand img { width:100px; height:100px; object-fit:contain; border-radius:22%; margin:0 auto 14px; display:block; filter:drop-shadow(0 8px 16px rgba(0,0,0,.1)); }
 .app-login[data-step="pin"] .login-brand { margin-bottom:20px; }
 .app-login[data-step="pin"] .login-brand img { width:56px; height:56px; margin-bottom:0; }
 .login-back { display:flex; align-items:center; gap:6px; background:transparent; border:0; font-size:var(--fs-sm); cursor:pointer; margin-bottom:16px; font-weight:600; min-height:32px; }

@@ -6,7 +6,7 @@ export function useAppDisplay(dark) {
     const theme = dark ? 'dark' : 'light';
     document.documentElement.dataset.theme = theme;
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0A0414' : '#F5F0FF');
-    document.getElementById('app-favicon')?.setAttribute('href', dark ? '/brand/v1/favicon-dark.png' : '/brand/v1/favicon-light.png');
+    document.getElementById('app-favicon')?.setAttribute('href', dark ? '/brand/v2/favicon-dark.png' : '/brand/v2/favicon-light.png');
     try { localStorage.setItem('ls_theme', theme); } catch { /* Storage can be unavailable in private browsing. */ }
   }, [dark]);
 
@@ -25,13 +25,19 @@ export function useAppDisplay(dark) {
       // Pinch zoom must remain under the browser's control.
       if (viewport && Math.abs(viewport.scale - 1) > 0.01) return;
       const height = layout.getBoundingClientRect().height;
+      const limit = Math.max(120, height * 0.15);
+      const gap = viewport?.height > 0 ? Math.max(0, height - viewport.height - (viewport.offsetTop || 0)) : 0;
+      // Some installed iOS windows clip a small strip of the layout viewport.
+      // Keep the full canvas, but put bottom controls above that strip. Large
+      // contractions belong to the keyboard and must not lift the navigation.
+      root.style.setProperty('--app-bottom-obstruction', `${root.dataset.displayMode === 'standalone' && gap <= limit ? Math.round(gap) : 0}px`);
       const target = document.activeElement;
       const editing = target?.isContentEditable || (!target?.readOnly && !target?.disabled && (
         target?.tagName === 'TEXTAREA' || (target?.tagName === 'INPUT' && ['text', 'search', 'email', 'tel', 'url', 'password', 'number'].includes(target.type))
       ));
       // iOS standalone may report a shorter visual viewport with no keyboard.
       // Only a substantial contraction during text entry should shrink the app.
-      if (viewport?.height > 0 && editing && height - viewport.height > Math.max(120, height * 0.15)) {
+      if (viewport?.height > 0 && editing && height - viewport.height > limit) {
         root.style.setProperty('--app-keyboard-height', `${Math.round(viewport.height)}px`);
         root.style.setProperty('--app-keyboard-top', `${Math.round(viewport.offsetTop || 0)}px`);
       } else {
@@ -63,6 +69,7 @@ export function useAppDisplay(dark) {
       layout.remove();
       root.style.removeProperty('--app-keyboard-height');
       root.style.removeProperty('--app-keyboard-top');
+      root.style.removeProperty('--app-bottom-obstruction');
       window.removeEventListener('resize', schedule);
       window.removeEventListener('orientationchange', schedule);
       window.removeEventListener('pageshow', schedule);

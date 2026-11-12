@@ -138,13 +138,16 @@ for(const theme of ['light','dark']){
       await expect.poll(async()=>Math.round((await root.boundingBox()).height)).toBe(844);
       const content=await main.boundingBox(),menu=await nav.boundingBox();
       expect(Math.round(content.y+content.height)).toBe(844);
-      expect(Math.abs(844-menu.y-menu.height-34)).toBeLessThan(1);
+      expect(Math.abs(844-menu.y-menu.height-55)).toBeLessThan(1);
+      expect(Math.round(menu.y+menu.height)).toBe(789);
       await page.getByRole('button',{name:'Novo',exact:true}).click();
       const layer=page.locator('.ui-dialog-layer');
       await expect.poll(async()=>Math.round((await layer.boundingBox()).height)).toBe(844);
       await expect(page.getByRole('dialog',{name:'Novo evento',exact:true})).toBeVisible();
       const footer=await layer.locator('footer').boundingBox();
       expect(Math.round(footer.y+footer.height)).toBe(844);
+      const save=await layer.getByRole('button',{name:'Criar Compromisso',exact:true}).boundingBox();
+      expect(save.y+save.height).toBeLessThanOrEqual(797-12);
       await page.keyboard.press('Escape');
       await page.getByRole('button',{name:'Músicas',exact:true}).click();
       const search=page.getByPlaceholder('Buscar música ou artista...');

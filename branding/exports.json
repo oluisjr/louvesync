@@ -1,163 +1,23 @@
 {
-  "source": "branding/source/mark-master.png",
-  "reference": "branding/source/icon-reference.jpg",
-  "roles": {
-    "light": "mark-black.png",
-    "dark": "mark-white.png",
-    "login": "mark-color.png",
-    "installation": "icon-512.png",
-    "maskable": "icon-maskable-512.png"
+  "sources": {
+    "black": [
+      "branding/source/icon-dark.jpg",
+      "788x788+233+225"
+    ],
+    "white": [
+      "branding/source/icon-light.jpg",
+      "744x744+255+237"
+    ],
+    "color": [
+      "branding/source/icon-reference.jpg",
+      "852x852+200+178"
+    ]
   },
-  "files": [
-    {
-      "file": "public/brand/v1/mark-color.png",
-      "width": 512,
-      "height": 512
-    },
-    {
-      "file": "public/brand/v1/mark-black.png",
-      "width": 512,
-      "height": 512
-    },
-    {
-      "file": "public/brand/v1/mark-white.png",
-      "width": 512,
-      "height": 512
-    },
-    {
-      "file": "public/brand/v1/icon-192.png",
-      "width": 192,
-      "height": 192
-    },
-    {
-      "file": "public/brand/v1/icon-512.png",
-      "width": 512,
-      "height": 512
-    },
-    {
-      "file": "public/brand/v1/icon-maskable-512.png",
-      "width": 512,
-      "height": 512
-    },
-    {
-      "file": "public/brand/v1/apple-touch-icon.png",
-      "width": 180,
-      "height": 180
-    },
-    {
-      "file": "public/brand/v1/favicon-light.png",
-      "width": 64,
-      "height": 64
-    },
-    {
-      "file": "public/brand/v1/favicon-dark.png",
-      "width": 64,
-      "height": 64
-    },
-    {
-      "file": "public/favicon.png",
-      "width": 64,
-      "height": 64
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
-      "width": 48,
-      "height": 48
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
-      "width": 48,
-      "height": 48
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png",
-      "width": 108,
-      "height": 108
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
-      "width": 72,
-      "height": 72
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
-      "width": 72,
-      "height": 72
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png",
-      "width": 162,
-      "height": 162
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
-      "width": 96,
-      "height": 96
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
-      "width": 96,
-      "height": 96
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png",
-      "width": 216,
-      "height": 216
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
-      "width": 144,
-      "height": 144
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
-      "width": 144,
-      "height": 144
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png",
-      "width": 324,
-      "height": 324
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
-      "width": 192,
-      "height": 192
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
-      "width": 192,
-      "height": 192
-    },
-    {
-      "file": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
-      "width": 432,
-      "height": 432
-    },
-    {
-      "file": "android/app/src/main/res/drawable-nodpi/louve_icon.png",
-      "width": 512,
-      "height": 512
-    },
-    {
-      "file": "android/app/src/main/res/drawable-night-nodpi/louve_icon.png",
-      "width": 512,
-      "height": 512
-    },
-    {
-      "file": "android/app/src/main/res/drawable-nodpi/louvesync_monochrome.png",
-      "width": 432,
-      "height": 432
-    },
-    {
-      "file": "branding/previews/light.png",
-      "width": 512,
-      "height": 512
-    },
-    {
-      "file": "branding/previews/dark.png",
-      "width": 512,
-      "height": 512
-    }
-  ]
+  "output": "public/brand/v2",
+  "operations": [
+    "crop outer margins",
+    "resize",
+    "encode PNG/ICO"
+  ],
+  "artwork": "Original rounded tiles and original letter colors; no recoloring or generated artwork."
 }

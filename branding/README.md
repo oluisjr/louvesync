@@ -1,17 +1,9 @@
-# Marca do LouveSync
+# Ícones do LouveSync
 
-As variantes usam o mesmo monograma de fitas enviado pelo usuário. O nome do aplicativo permanece LouveSync.
+Usam exclusivamente os arquivos originais enviados pelo usuário: bloco escuro no tema claro, bloco branco no tema escuro e bloco em degradê para entrada e instalação. As letras mantêm suas cores, suas dobras e o bloco arredondado.
 
-- **Preta:** cabeçalho e favicon do tema claro.
-- **Branca:** cabeçalho e favicon do tema escuro.
-- **Colorida e transparente:** entrada e carregamento do aplicativo.
-- **Fitas claras sobre degradê:** instalação PWA, Apple Touch Icon e launcher Android.
-- **Monocromática Android:** ícones temáticos do Android 13+, quando habilitados pelo usuário no launcher.
+Os JPGs completos estão em source/. O comando npm run assets:brand apenas recorta a margem externa de apresentação, redimensiona e converte para PNG/ICO; não redesenha, isola nem recolore a marca. O aplicativo usa public/brand/v2/. Os endereços v1 permanecem como compatibilidade com a arte corrigida. exports.json registra as fontes e os recortes.
 
-`source/icon-reference.jpg` preserva a referência principal enviada em 12/11/2026. `source/mark-master.png` é a extração da marca colorida sobre transparência, preparada com ImageGen a partir da referência sobre fundo azul-marinho. As exportações mantêm a silhueta e a proporção do monograma; as versões monocromáticas são derivadas do mesmo canal alfa. O ícone de instalação recebe um fundo em degradê de turquesa, azul e violeta, sem a moldura branca externa da imagem de referência.
+O favicon e o cabeçalho acompanham o tema do aplicativo. O ícone instalado usa a variante original em degradê. O manifesto mantém a identidade da instalação e publica os tamanhos 192 e 512 com purpose any, preservando o bloco fornecido em vez de redesenhá-lo para máscaras adaptativas.
 
-Para reproduzir os arquivos, instale ImageMagick 7 e execute `npm run assets:brand`. A aplicação e o build usam os arquivos exportados já incluídos no repositório; não precisam de ImageMagick nem de um serviço de geração. `exports.json` registra caminhos e dimensões.
-
-Os recursos web ficam em `public/brand/v1/` e entram no cache offline de cada build. O manifesto mantém `id`, `start_url` e `scope`, preservando a identidade da instalação. O favicon acompanha o tema do app, inclusive na primeira abertura com tema salvo. Os ícones de instalação são coloridos e não são trocados pelo controle de tema do app.
-
-No iPhone, uma instalação existente pode manter seu ícone antigo; remover e adicionar novamente à Tela de Início garante a substituição. Android instalado pelo Chrome atualiza conforme as regras do navegador. O APK precisa ser atualizado para a versão 1.0.3 ou posterior para receber os recursos nativos novos. A tela de abertura nativa usa a variante preta ou branca de acordo com o tema do sistema.
+No iPhone pode ser necessário adicionar novamente à Tela de Início para trocar o ícone. O Android nativo recebe os arquivos na versão 1.0.4; o launcher pode aplicar sua própria máscara do sistema. Não há versão monocromática para recolorir as letras.
