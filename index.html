@@ -7,8 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600;1,700&display=swap" rel="stylesheet" />
-    <link rel="icon" type="image/png" href="./logo_solo.png" />
-    <link rel="apple-touch-icon" href="./logo_solo.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link id="app-favicon" rel="icon" type="image/png" sizes="64x64" href="/brand/v1/favicon-light.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/brand/v1/apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
     <meta http-equiv="Pragma" content="no-cache" />
@@ -34,12 +35,13 @@
           document.querySelector('meta[name="theme-color"]').content = '#0A0414';
         }
       } catch { /* Use the default light theme when storage is unavailable. */ }
+      document.getElementById('app-favicon').href = document.documentElement.dataset.theme === 'dark' ? '/brand/v1/favicon-dark.png' : '/brand/v1/favicon-light.png';
     </script>
     <title>LouveSync · IMWAL</title>
     <meta name="description" content="Gestão de ministério de louvor — IMWAL" />
   </head>
   <body>
-    <div id="root"><p role="status" style="padding:24px;font-family:sans-serif">Abrindo LouveSync…</p></div>
+    <div id="root"><div style="padding:24px;display:flex;align-items:center;gap:12px"><img src="/brand/v1/mark-color.png" width="40" height="40" alt="" /><p role="status" style="font-family:sans-serif">Abrindo LouveSync…</p></div></div>
     <noscript>
       <strong>Este aplicativo requer JavaScript.</strong> Por favor, habilite o JavaScript para continuar.
     </noscript>

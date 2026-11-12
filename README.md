@@ -67,6 +67,8 @@ Os testes medem sinal no grafo Web Audio real do Chromium e simulam a exigência
 
 ## Android
 
+A marca usa variantes preta e branca no cabeçalho e no favicon de acordo com o tema. A versão colorida aparece na entrada e no carregamento; os ícones de instalação usam fitas claras sobre degradê. Fontes, exportações e instruções para reproduzir os recursos estão em [branding/README.md](branding/README.md). No iPhone, pode ser necessário adicionar novamente à Tela de Início para trocar o ícone instalado.
+
 O aplicativo Android usa `https://louvesync.vercel.app` e acompanha os deploys web automaticamente. A impressão usa o diálogo nativo do Android, incluindo Salvar como PDF; a gravação solicita permissão do microfone. O iOS continua web/PWA: Safari → Compartilhar → Adicionar à Tela de Início.
 
 O workflow **Android APK** do GitHub Actions gera um APK de teste instalável, disponível como artefato `louvesync-android-apk`. Também é possível gerar localmente com JDK 21 e Android SDK 35:

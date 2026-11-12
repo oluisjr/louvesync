@@ -8,6 +8,7 @@
     "build": "vite build && node scripts/finalize_build.js",
     "lint": "eslint .",
     "preview": "vite preview",
+    "assets:brand": "node scripts/export_brand_icons.js",
     "cleanup:duplicates": "node scripts/cleanup_duplicate_songs.js",
     "test": "node --test tests/*.test.js",
     "test:activity:sql": "node scripts/test_activity_sql.js",
