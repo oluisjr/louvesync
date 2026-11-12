@@ -31,6 +31,8 @@ Os testes de navegador simulam o banco e o transporte Realtime e exercitam duas 
 
 ## Interface e edição de eventos
 
+No login, a etapa da senha usa um cartão compacto com avatar, nome e função na mesma linha. Quando a área disponível fica curta, a marca e o controle de tema cedem espaço aos campos. A rolagem local acompanha a abertura, o deslocamento e o fechamento do teclado, mantendo senha, erro e ação de entrada acessíveis. Enter e a ação Ir do teclado enviam o formulário; uma senha incorreta mantém o foco para tentar novamente.
+
 O admin pode consultar membros on-line e visualizações de escalas/avisos após a instalação das tabelas de atividade: [instruções de ativação e limites do login atual](docs/admin-activity.md). O teste SQL requer Docker e usa um PostgreSQL descartável sem rede.
 
 O editor usa um painel com altura definida, fora dos contêineres da aplicação, e uma única área de rolagem. Cabeçalho, abas e ações ficam visíveis. As abas **Detalhes**, **Setlist** e **Equipe** preservam os dados enquanto o usuário navega; os pedidos e a Santa Ceia ficam próximos do setlist, antes do catálogo completo. O painel acompanha a altura disponível quando o teclado abre, contém o foco e bloqueia a interação com a tela ao fundo.

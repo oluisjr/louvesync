@@ -17,6 +17,7 @@ import { useMetronome } from './hooks/useMetronome.js';
 import { useAppDisplay } from './hooks/useAppDisplay.js';
 import { useNavigationClearance } from './hooks/useNavigationClearance.js';
 import { useActivity, useVisibleView } from './hooks/useActivity.js';
+import { useLoginViewport } from './hooks/useLoginViewport.js';
 import { ActivityMonitor, ObservedPost, ViewersButton } from './components/Activity.jsx';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
@@ -1426,6 +1427,8 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
 /* ─── LOGIN SCREEN ──────────────────────────────────────────── */
 const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
   const [step,setStep]=useState('select');
+  const { viewportRef, controlsRef } = useLoginViewport(step==='pin');
+  const pinRef = useRef(null);
   const [sel,setSel]=useState(null);
   const [pin,setPin]=useState('');
   const [err,setErr]=useState('');
@@ -1455,19 +1458,19 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
   function tryLogin(){
     if(!sel||!pin)return;
     const ok=onLogin(sel,pin);
-    if(!ok){setErr('PIN incorreto. Tente novamente.');setPin('');setShake(true);setTimeout(()=>setShake(false),500);}
+    if(!ok){setErr('PIN incorreto. Tente novamente.');setPin('');pinRef.current?.focus({preventScroll:true});setShake(true);setTimeout(()=>setShake(false),500);}
   }
 
-  return <div className={`ls app-login${dark?' dark':''}`} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:0}}>
+  return <div ref={viewportRef} data-step={step} className={`ls app-login${dark?' dark':''}`} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:0}}>
     <style>{CSS}</style>
     <div className={`bg ${dark?'bg-d':'bg-l'}`}>
       <div className="orb" style={{width:400,height:400,top:-120,left:-100,background:dark?'rgba(79,70,229,.14)':'rgba(79,70,229,.22)',animation:'oA 14s ease-in-out infinite'}}/>
       <div className="orb" style={{width:300,height:300,bottom:-80,right:-60,background:dark?'rgba(16,185,129,.1)':'rgba(16,185,129,.16)',animation:'oB 17s ease-in-out infinite'}}/>
     </div>
-    <div style={{position:'relative',zIndex:1,width:'100%',maxWidth:420,marginBlock:'auto',flexShrink:0,animation:'loginIn .5s cubic-bezier(.22,1,.36,1)'}}>
+    <div className="login-content">
       {/* Header */}
-      <div style={{textAlign:'center',marginBottom:32}}>
-        <img src="/brand/v1/mark-color.png" alt="LouveSync" width="100" height="100" style={{objectFit: 'contain', margin: '0 auto 14px', display: 'block', filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.1))'}} />
+      <div className="login-brand">
+        <img src="/brand/v1/mark-color.png" alt="LouveSync" width="100" height="100" />
         {(deferredPrompt || (isIOS && !isStandalone)) && (
           <button onClick={handleInstallClick} style={{marginTop:16,padding:'8px 16px',borderRadius:'var(--r-full)',border:'none',background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:6}}><IcoSpark s={14}/> Instalar App</button>
         )}
@@ -1485,23 +1488,26 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
           </button>)}
         </div>
       </> : <>
-        <button onClick={()=>setStep('select')} style={{display:'flex',alignItems:'center',gap:6,background:'transparent',border:'none',color:t2,fontSize:'var(--fs-sm)',cursor:'pointer',marginBottom:20,fontWeight:600}}><IcoChevL s={16}/>Voltar</button>
-        <div className="gL1" style={{borderRadius:'var(--r-xl)',padding:24,textAlign:'center'}}>
-          <Ava m={sel} size={56} ring/>
-          <div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:tc,marginTop:10}}>{sel.name}</div>
-          <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:20}}>{sel.instrument}</div>
-          <div style={{marginBottom:12,textAlign:'left'}}>
-            <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,marginBottom:8,textTransform:'uppercase',letterSpacing:'.08em'}}>Senha</div>
-            <div className="gIn" style={{animation:shake?'pinShake .4s ease':''}}>
-              <input className="fi" type="password" value={pin} onChange={e=>{setPin(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&tryLogin()} placeholder="Digite sua senha..." style={{color:tc,letterSpacing:'.2em',fontSize:'var(--fs-xl)'}} autoFocus/>
-            </div>
-            {err&&<div style={{marginTop:8,fontSize:'var(--fs-xs)',color:'#EF4444',fontWeight:700}}>{err}</div>}
+        <button type="button" className="login-back" onClick={()=>setStep('select')} style={{color:t2}}><IcoChevL s={16}/>Voltar</button>
+        <form className="gL1 login-panel" onSubmit={event=>{event.preventDefault();tryLogin();}}>
+          <div className="login-member">
+            <Ava m={sel} size={44} ring/>
+            <div className="login-member-copy"><div className="login-member-name" style={{color:tc}}>{sel.name}</div><div className="login-member-instrument" style={{color:t2}}>{sel.instrument}</div></div>
           </div>
-          <button className="bp" onClick={tryLogin} disabled={!pin.trim()}>Entrar</button>
-        </div>
+          <div ref={controlsRef}>
+          <div className="login-field">
+            <label htmlFor="login-pin" style={{color:t2}}>Senha</label>
+            <div className="gIn" style={{animation:shake?'pinShake .4s ease':''}}>
+              <input ref={pinRef} id="login-pin" className="fi" name="password" type="password" autoComplete="current-password" enterKeyHint="go" aria-invalid={!!err} aria-describedby={err?'login-error':undefined} value={pin} onChange={e=>{setPin(e.target.value);setErr('');}} placeholder="Digite sua senha..." style={{color:tc,letterSpacing:'.2em',fontSize:20}} autoFocus/>
+            </div>
+            {err&&<div id="login-error" role="alert" style={{marginTop:8,fontSize:'var(--fs-xs)',color:'#EF4444',fontWeight:700}}>{err}</div>}
+          </div>
+          <button className="bp" type="submit" disabled={!pin.trim()}>Entrar</button>
+          </div>
+        </form>
       </>}
 
-      <div style={{display:'flex',justifyContent:'center',marginTop:24}}>
+      <div className="login-theme">
         <button className={`tog${dark?' on':''}`} onClick={()=>setDark(p=>!p)} style={{background:dark?'#4F46E5':'#CBD5E1'}} aria-label="Modo escuro"/>
       </div>
     </div>

@@ -186,6 +186,44 @@ test('login remains scrollable and themed when the visible screen is short',asyn
   }finally{await app.close();}
 });
 
+for(const layout of [{theme:'light',width:390,height:844},{theme:'dark',width:320,height:740}]){
+  test(`password login keeps credentials and submit visible above a panned software keyboard in ${layout.theme} theme`,async({browser})=>{
+    const app=await fixture(browser);
+    app.state.members=app.state.members.map((person,index)=>({...person,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN',instrument:'Teclado / Vocal principal'}));
+    try{
+      const page=await app.open(admin,undefined,{device:{...devices['iPhone 13'],viewport:{width:layout.width,height:layout.height}},theme:layout.theme,standalone:true});
+      await page.addStyleTag({content:':root { --app-safe-top:47px; --app-safe-bottom:34px; } *,*::before,*::after { animation:none!important; transition:none!important; }'});
+      await page.getByRole('button',{name:'Sair',exact:true}).click();
+      await page.getByRole('button',{name:/Membro Teste/}).click();
+      const login=page.locator('.app-login'),password=page.getByPlaceholder('Digite sua senha...'),submit=page.getByRole('button',{name:'Entrar',exact:true});
+      await expect(password).toBeFocused();
+      const keyboard=async(height,top)=>{
+        await page.evaluate(({height,top})=>{
+          Object.defineProperties(window.visualViewport,{height:{configurable:true,value:height},offsetTop:{configurable:true,value:top}});
+          window.visualViewport.dispatchEvent(new Event('resize'));
+          window.visualViewport.dispatchEvent(new Event('scroll'));
+        },{height,top});
+        await expect.poll(async()=>Math.round((await login.boundingBox()).height)).toBe(height);
+        for(const control of [password,submit])await expect.poll(async()=>{
+          const frame=await login.boundingBox(),box=await control.boundingBox();
+          return box.y>=frame.y+8&&box.y+box.height<=frame.y+frame.height-8;
+        }).toBe(true);
+        await expect(password).toBeFocused();
+        expect(await page.evaluate(()=>window.scrollY)).toBe(0);
+      };
+      await keyboard(440,38);
+      await password.fill('WRONG');await password.press('Enter');
+      await expect(page.getByText('PIN incorreto. Tente novamente.',{exact:true})).toBeVisible();
+      await keyboard(310,76);
+      await page.screenshot({path:test.info().outputPath('login-keyboard-'+layout.theme+'.png')});
+      await password.fill('MEMBER_TEST_PIN');await submit.click();
+      await expect(page.locator('.app-header')).toBeVisible();
+      await expect.poll(async()=>Math.round((await page.locator('#root').boundingBox()).height)).toBe(layout.height);
+      expect(app.failures).toEqual([]);
+    }finally{await app.close();}
+  });
+}
+
 test('pages use one compact menu clearance and release it when opening a chart',async({browser})=>{
   const app=await fixture(browser);
   try{
