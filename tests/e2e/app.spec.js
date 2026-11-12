@@ -17,8 +17,8 @@ test('saved dark theme covers the document before application JavaScript loads',
     await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/,route=>route.abort());
     await page.goto('http://127.0.0.1:5174/');
     await expect(page.getByRole('status')).toHaveText('Abrindo LouveSync…');
-    for(const selector of ['html','body'])await expect(page.locator(selector)).toHaveCSS('background-color','rgb(10, 4, 20)');
-    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#0A0414');
+    for(const selector of ['html','body'])await expect(page.locator(selector)).toHaveCSS('background-color','rgb(29, 27, 45)');
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#1D1B2D');
   }finally{await context.close();}
 });
 
@@ -30,7 +30,7 @@ for(const theme of ['light','dark']){
       const page=await app.open(admin,undefined,{device:{...devices['iPhone 13'],viewport:{width:390,height:844}},theme,standalone:true});
       await page.addStyleTag({content:':root { --app-safe-top: 47px; --app-safe-bottom: 34px; }'});
       const root=page.locator('#root'),shell=page.locator('.app-shell'),header=page.locator('.app-header'),main=page.locator('[data-main-scroll]'),nav=page.locator('.app-nav .gNav');
-      const canvas=theme==='dark'?'rgb(10, 4, 20)':'rgb(245, 240, 255)';
+      const canvas=theme==='dark'?'rgb(29, 27, 45)':'rgb(245, 240, 255)';
       for(const selector of ['html','body','.app-header'])await expect(page.locator(selector)).toHaveCSS('background-color',canvas);
       await expect(header).toHaveCSS('backdrop-filter','none');
       await expect(header).toHaveCSS('padding-top','58px');
@@ -99,12 +99,12 @@ for(const theme of ['light','dark']){
       await page.getByRole('button',{name:'Tema',exact:true}).click();
       const changed=theme==='dark'?'light':'dark';
       await expect(page.locator('html')).toHaveAttribute('data-theme',changed);
-      await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content',changed==='dark'?'#0A0414':'#F5F0FF');
+      await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content',changed==='dark'?'#1D1B2D':'#F5F0FF');
       await expect.poll(()=>page.evaluate(()=>localStorage.getItem('ls_theme'))).toBe(changed);
       await page.reload();
       await expect(page.getByRole('button',{name:'Escala',exact:true})).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme',changed);
-      await expect(page.locator('body')).toHaveCSS('background-color',changed==='dark'?'rgb(10, 4, 20)':'rgb(245, 240, 255)');
+      await expect(page.locator('body')).toHaveCSS('background-color',changed==='dark'?'rgb(29, 27, 45)':'rgb(245, 240, 255)');
       expect(app.failures).toEqual([]);
     }finally{await app.close();}
   });

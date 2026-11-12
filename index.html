@@ -23,7 +23,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <style>
       :root { --app-canvas: #F5F0FF; color-scheme: light; background: var(--app-canvas); color: #0F172A; }
-      :root[data-theme="dark"] { --app-canvas: #0A0414; color-scheme: dark; color: #E2E8F0; }
+      :root[data-theme="dark"] { --app-canvas: #1D1B2D; color-scheme: dark; color: #E2E8F0; }
       body { margin: 0; background: var(--app-canvas); }
     </style>
     <script>
@@ -32,7 +32,7 @@
       try {
         if (localStorage.getItem('ls_theme') === 'dark') {
           document.documentElement.dataset.theme = 'dark';
-          document.querySelector('meta[name="theme-color"]').content = '#0A0414';
+          document.querySelector('meta[name="theme-color"]').content = '#1D1B2D';
         }
       } catch { /* Use the default light theme when storage is unavailable. */ }
       document.getElementById('app-favicon').href = document.documentElement.dataset.theme === 'dark' ? '/brand/v2/favicon-dark.png' : '/brand/v2/favicon-light.png';

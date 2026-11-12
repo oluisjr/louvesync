@@ -57,7 +57,7 @@ html,body,#root{-webkit-font-smoothing:antialiased;}
 .font-serif { font-family: 'Nunito', sans-serif; letter-spacing: -.02em; }
 .bg{position:fixed;inset:0;z-index:0;transition:background .7s;}
 .bg-l{background:linear-gradient(145deg,#F5F0FF 0%,#FFF7F3 50%,#F0F4FF 100%);}
-.bg-d{background:linear-gradient(160deg,#0A0414 0%,#12063A 30%,#1A0533 62%,#060114 100%);}
+.bg-d{background:linear-gradient(160deg,#1D1B2D 0%,#27233E 50%,#211D34 100%);}
 .orb{position:absolute;border-radius:50%;pointer-events:none;filter:blur(100px);will-change:transform;}
 @keyframes oA{0%,100%{transform:translate(0,0) scale(1)}40%{transform:translate(30px,-45px) scale(1.1)}70%{transform:translate(-15px,22px) scale(.93)}}
 @keyframes oB{0%,100%{transform:translate(0,0) scale(1)}35%{transform:translate(-28px,32px) scale(.9)}70%{transform:translate(22px,-18px) scale(1.08)}}
@@ -69,11 +69,11 @@ html,body,#root{-webkit-font-smoothing:antialiased;}
 .gNav{background:rgba(255,255,255,.82);backdrop-filter:blur(24px) saturate(220%);-webkit-backdrop-filter:blur(24px) saturate(220%);border-top:1px solid rgba(255,255,255,1);border-bottom:1px solid rgba(0,0,0,.02);border-left:1px solid rgba(255,255,255,.7);border-right:1px solid rgba(255,255,255,.7);box-shadow:inset 0 1px 1px rgba(255,255,255,.9), 0 8px 40px rgba(123,63,242,.12);}
 .gIn{background:rgba(255,255,255,.4);backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);border:1px solid rgba(255,255,255,1);border-radius:var(--r-lg);transition:border .2s,box-shadow .2s;box-shadow:inset 0 2px 4px rgba(0,0,0,.02), 0 2px 8px rgba(0,0,0,.01);}
 .gIn:focus-within{border-color:var(--c-i);box-shadow:inset 0 1px 2px rgba(0,0,0,.02), 0 0 0 3px rgba(123,63,242,.15), 0 4px 12px rgba(123,63,242,.1);}
-.dark .gL0{background:rgba(15,5,36,.3);backdrop-filter:blur(16px) saturate(150%);border:1px solid rgba(168,85,247,.08);box-shadow:inset 0 1px 1px rgba(255,255,255,.08), 0 4px 12px rgba(0,0,0,.4);}
-.dark .gL1{background:rgba(20,8,50,.45);backdrop-filter:blur(24px) saturate(150%);border:1px solid rgba(168,85,247,.1);box-shadow:inset 0 1px 1px rgba(255,255,255,.1), 0 8px 24px rgba(0,0,0,.5);}
-.dark .gL2{background:rgba(10,4,24,.65);backdrop-filter:blur(32px) saturate(150%);border-top:1px solid rgba(168,85,247,.12);border-left:1px solid rgba(168,85,247,.08);box-shadow:inset 0 1px 1px rgba(255,255,255,.12), 0 -12px 56px rgba(0,0,0,.6);}
-.dark .gNav{background:rgba(18,6,45,.5);backdrop-filter:blur(24px) saturate(150%);border-top:1px solid rgba(168,85,247,.15);border-bottom:1px solid rgba(0,0,0,.6);border-left:1px solid rgba(168,85,247,.07);border-right:1px solid rgba(168,85,247,.07);box-shadow:inset 0 1px 1px rgba(168,85,247,.12), 0 8px 40px rgba(0,0,0,.7);}
-.dark .gIn{background:rgba(255,255,255,.03);border-color:rgba(168,85,247,.12);box-shadow:inset 0 1px 2px rgba(0,0,0,.25);}
+.dark .gL0{background:#29263E;border:1px solid #605471;box-shadow:inset 0 1px 1px #ffffff0a,0 4px 12px #0002;}
+.dark .gL1{background:#302B47;border:1px solid #6B5B83;box-shadow:inset 0 1px 1px #ffffff0d,0 8px 24px #0003;}
+.dark .gL2{background:#39324F;border-top:1px solid #827094;border-left:1px solid #6B5B83;box-shadow:0 -12px 40px #0004;}
+.dark .gNav{background:#362F4D;border:1px solid #827094;box-shadow:inset 0 1px 1px #ffffff12,0 8px 24px #0004;}
+.dark .gIn{background:#3B3451;border-color:#88759C;box-shadow:inset 0 1px 2px #0002;}
 .dark .gIn:focus-within{border-color:var(--c-id);box-shadow:inset 0 1px 2px rgba(0,0,0,.2), 0 0 0 3px rgba(168,85,247,.18);}
 .aC-jubilo{border-left:3.5px solid #00C9A7;}.aC-adoracao{border-left:3.5px solid #7B3FF2;}
 .aC-hinario{border-left:3.5px solid #FF6B35;}.aC-oferta{border-left:3.5px solid #EC4899;}
@@ -97,7 +97,7 @@ html,body,#root{-webkit-font-smoothing:antialiased;}
 .bp{background:linear-gradient(135deg,#7B3FF2 0%,#5B21B6 100%);color:#fff;border:none;border-radius:var(--r-md);padding:14px 20px;font-family:'Nunito',sans-serif;font-weight:800;font-size:var(--fs-base);cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .25s;box-shadow:0 4px 20px rgba(123,63,242,.3);}
 .bp:hover{opacity:.92;box-shadow:0 8px 32px rgba(123,63,242,.45);transform:translateY(-1px);}.bp:active{transform:scale(.97) translateY(0);}.bp:disabled{opacity:.5;cursor:not-allowed;transform:none;}
 .bSec{border:1.5px solid rgba(123,63,242,.3);color:#7B3FF2;background:rgba(123,63,242,.07);border-radius:var(--r-sm);padding:11px 16px;font-family:'Nunito',sans-serif;font-weight:700;font-size:var(--fs-sm);cursor:pointer;width:100%;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
-.dark .bSec{color:#A855F7;border-color:rgba(168,85,247,.3);background:rgba(168,85,247,.07);}
+.dark .bSec{color:#D2B8FF;border-color:#88759C;background:#3A2F55;}
 .sc{border-radius:var(--r-xl);padding:16px;cursor:pointer;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .22s;margin-bottom:11px;}
 .sc:hover{transform:translateY(-3px);box-shadow:0 16px 36px rgba(123,63,242,.15);}.sc:active{transform:scale(.97);}
 .nb{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 14px;border:none;background:transparent;cursor:pointer;position:relative;transition:transform .15s;}
@@ -112,9 +112,9 @@ html,body,#root{-webkit-font-smoothing:antialiased;}
 .bO{background:rgba(236,72,153,.1);color:#DB2777;border:1px solid rgba(236,72,153,.22);}
 .bC{background:rgba(225,29,72,.1);color:#BE123C;border:1px solid rgba(225,29,72,.22);}
 .bCo{background:rgba(6,182,212,.1);color:#0891B2;border:1px solid rgba(6,182,212,.22);}
-.dark .bJ{background:rgba(0,201,167,.15);color:#00C9A7;}.dark .bA{background:rgba(168,85,247,.15);color:#A855F7;}
-.dark .bH{background:rgba(255,107,53,.15);color:#FF8C5A;}.dark .bO{background:rgba(236,72,153,.15);color:#F472B6;}
-.dark .bC{background:rgba(225,29,72,.15);color:#FB7185;}.dark .bCo{background:rgba(6,182,212,.15);color:#22D3EE;}
+.dark .bJ{background:rgba(0,201,167,.15);color:#5CE5C8;}.dark .bA{background:rgba(168,85,247,.15);color:#D2B8FF;}
+.dark .bH{background:rgba(255,107,53,.15);color:#FFB38B;}.dark .bO{background:rgba(236,72,153,.15);color:#FFA8D0;}
+.dark .bC{background:rgba(225,29,72,.15);color:#FFA0B2;}.dark .bCo{background:rgba(6,182,212,.15);color:#75D8EA;}
 .tog{width:52px;height:28px;border-radius:100px;border:none;cursor:pointer;position:relative;flex-shrink:0;transition:background .35s;}
 .tog::after{content:'';position:absolute;top:4px;left:4px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform .32s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 5px rgba(0,0,0,.18);}
 .tog.on::after{transform:translateX(24px);}
@@ -122,7 +122,7 @@ input, textarea, select, button { touch-action: manipulation; }
 select { -webkit-appearance: none; appearance: none; }
 @keyframes shareBtn{0%{transform:scale(1)}50%{transform:scale(.9)}100%{transform:scale(1)}}
 @keyframes rotatePhone{0%,100%{transform:rotate(0deg) scale(1)}45%,55%{transform:rotate(-90deg) scale(.85)}}
-.rotate-msg{position:absolute;inset:0;z-index:9999;background:#0A0414;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#E2E8F0;}
+.rotate-msg{position:absolute;inset:0;z-index:9999;background:#1D1B2D;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#E2E8F0;}
 .pbar{height:3px;border-radius:100px;background:rgba(123,63,242,.12);overflow:hidden;}
 .pbar-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,#7B3FF2,#A855F7);transition:width .5s ease;}
 .fi{width:100%;padding:12px 14px;background:transparent;border:none;outline:none;font-family:'Nunito',sans-serif;font-size:var(--fs-base);font-weight:500;}
@@ -130,8 +130,8 @@ textarea.fi{resize:none;}.ndot-ring{position:absolute;top:-1px;right:-1px;width:
 input,textarea,button{font-family:'Nunito',sans-serif;}
 /* ─── DARK MODE GLOBAL ────────────────────────── */
 .dark{color-scheme:dark;}
-.dark .fi{color:#CBD5E1;}
-.dark .fi::placeholder{color:rgba(148,163,184,.45);}
+.dark .fi{color:#F5F2FF;}
+.dark .fi::placeholder{color:#B9AFCD;opacity:1;}
 .dark .chord{color:#FF8C5A;}
 .dark .sc{background:linear-gradient(135deg,rgba(30,12,70,.92),rgba(18,6,45,.88));border:1px solid rgba(168,85,247,.15);box-shadow:0 2px 16px rgba(0,0,0,.5);}
 .dark .sc:hover{box-shadow:0 8px 28px rgba(0,0,0,.6),0 0 0 1px rgba(168,85,247,.22);}
@@ -235,6 +235,10 @@ function sortSongsByCategoryAndTitle(a,b){
 }
 
 
+function readableTextColor(color,dark){
+  const tints={'#4F46E5':'#CAB5FF','#7B3FF2':'#D2B8FF','#00C9A7':'#5CE5C8','#FF6B35':'#FFB38B','#EC4899':'#FFA8D0','#E11D48':'#FFA0B2','#06B6D4':'#75D8EA','#10B981':'#6EE7B7','#EF4444':'#FFA3AF','#F59E0B':'#FCD485','#94A3B8':'#C9C3DD'};
+  return dark&&typeof color==='string'?(tints[color.toUpperCase()]||color):color;
+}
 function vib(){if(navigator.vibrate)navigator.vibrate(10);}
 
 function useDraggableScroll(ref) {
@@ -395,9 +399,9 @@ const ConfirmDialog = ({dark, title, msg, onConfirm, onCancel, isAlert}) => (
   <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:20, backdropFilter:'blur(8px)'}}>
     <div className={`aUp ${dark?'gL2':'gL0'}`} style={{width:'100%', maxWidth:340, padding:24, borderRadius:'var(--r-xl)', background:dark?'rgba(15,23,42,.95)':'rgba(255,255,255,.95)'}}>
        <div className="font-serif" style={{fontSize:22, fontWeight:900, marginBottom:8, color:dark?'#F1F5F9':'#0F172A'}}>{title}</div>
-       <div style={{fontSize:'var(--fs-sm)', color:dark?'#94A3B8':'#475569', marginBottom:24, lineHeight:1.5}}>{msg}</div>
+       <div style={{fontSize:'var(--fs-sm)', color:dark?'#C9C3DD':'#475569', marginBottom:24, lineHeight:1.5}}>{msg}</div>
        <div style={{display:'flex', gap:10}}>
-         {!isAlert&&<button onClick={()=>{vib();if(onCancel)onCancel();}} style={{flex:1, padding:'10px', borderRadius:'var(--r-full)', border:'none', background:dark?'rgba(255,255,255,.1)':'rgba(0,0,0,.05)', color:dark?'#E2E8F0':'#0F172A', fontWeight:700, cursor:'pointer'}}>Cancelar</button>}
+         {!isAlert&&<button onClick={()=>{vib();if(onCancel)onCancel();}} style={{flex:1, padding:'10px', borderRadius:'var(--r-full)', border:'none', background:dark?'rgba(255,255,255,.1)':'rgba(0,0,0,.05)', color:dark?'#F5F2FF':'#0F172A', fontWeight:700, cursor:'pointer'}}>Cancelar</button>}
          <button onClick={()=>{vib();onConfirm();}} style={{flex:1, padding:'10px', borderRadius:'var(--r-full)', border:'none', background:'#4F46E5', color:'#fff', fontWeight:800, cursor:'pointer'}}>OK</button>
        </div>
     </div>
@@ -406,7 +410,7 @@ const ConfirmDialog = ({dark, title, msg, onConfirm, onCancel, isAlert}) => (
 
 /* ─── LYRIC VIEW ────────────────────────────────────────────── */
 const LyricView = memo(({text,baseKey='C',st=0,mode='chords',dark,fs=17,fontFam,chordColor})=>{
-  const color=dark?'#E2E8F0':'#1E293B';
+  const color=dark?'#F5F2FF':'#1E293B';
   return <div style={{fontFamily:fontFam||"'Nunito',sans-serif"}}>{renderChordText(text,baseKey,st).split('\n').map((line,index)=>{
     if(!line.trim())return <div key={index} style={{height:12}}/>;
     if(/^\[?(Verso|Coro|Refrão|Pré-Refrão|Pré-Coro|Ponte|Intro|Final|Outro|Bridge)(?:[\s:]*\d*)?\]?$/i.test(line.trim()))return <Sec key={index} t={line.replace(/[[\]]/g,'')}/>;
@@ -427,13 +431,13 @@ const Biblia = ({dark})=><Bible dark={dark} books={BIBLE_BOOKS} plans={BIBLE_PLA
 
 /* ─── CAROUSEL HELPER ───────────────────────────────────────── */
 const ContentCarousel = memo(({content, dark}) => {
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
 
   return <div style={{display:'flex', gap:14, overflowX:'auto', scrollSnapType:'x mandatory', paddingBottom:10, scrollbarWidth:'none'}} className="hide-scroll">
     {content.map((c, i) => (
       <div key={i} className={`${gc} aUp`} style={{...CS, flexShrink:0, width:'85%', scrollSnapAlign:'center', padding: c.type==='video'||c.type==='podcast'?12:20, minHeight: 280, display:'flex', flexDirection:'column'}}>
-        <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:10,background:'rgba(245,158,11,.1)',color:'#D97706',border:'1px solid rgba(245,158,11,.2)', alignSelf:'flex-start'}}>{c.theme || c.cat}</span>
+        <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:10,background:'rgba(245,158,11,.1)',color:"var(--app-warning, #D97706)",border:'1px solid rgba(245,158,11,.2)', alignSelf:'flex-start'}}>{c.theme || c.cat}</span>
         <div className="font-serif" style={{fontSize:18,fontWeight:900,color:tc,lineHeight:1.2,marginBottom:4}}>{c.title}</div>
 
         {c.type === 'text' && <>
@@ -459,7 +463,7 @@ const ContentCarousel = memo(({content, dark}) => {
 
 /* ─── DEVOCIONAL ────────────────────────────────────────────── */
 const Devocional = memo(({dark})=>{
-  const tc=dark?'#E2E8F0':'#0F172A';
+  const tc=dark?'#F5F2FF':'#0F172A';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
 
   const content = [
@@ -476,7 +480,7 @@ const Devocional = memo(({dark})=>{
     </div>
 
     <div className={`${gc} aUp`} style={{...CS, background:'linear-gradient(135deg,rgba(79,70,229,.1),rgba(236,72,153,.05))',border:'1px solid rgba(79,70,229,.15)'}}>
-      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'#4F46E5',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Cuidado Pastoral</div>
+      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'var(--app-link, #4F46E5)',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Cuidado Pastoral</div>
       <div style={{fontSize:'var(--fs-base)',fontWeight:600,color:tc,lineHeight:1.6}}>Recursos selecionados para a sua edificação espiritual antes de ministrar aos outros.</div>
     </div>
 
@@ -486,7 +490,7 @@ const Devocional = memo(({dark})=>{
 
 /* ─── TREINAMENTO ───────────────────────────────────────────── */
 const Treinamento = memo(({dark, profile})=>{
-  const tc=dark?'#E2E8F0':'#0F172A';
+  const tc=dark?'#F5F2FF':'#0F172A';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
 
   const isVocal = profile?.role === 'Vocal' || profile?.instrument?.toLowerCase().includes('vocal') || profile?.instrument?.toLowerCase().includes('voz');
@@ -511,7 +515,7 @@ const Treinamento = memo(({dark, profile})=>{
     </div>
 
     <div className={`${gc} aUp`} style={{...CS, background:'linear-gradient(135deg,rgba(16,185,129,.1),transparent)',border:'1px solid rgba(16,185,129,.15)'}}>
-      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'#059669',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Trilha: {isVocal ? 'Vocais' : 'Instrumentistas'}</div>
+      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:"var(--app-positive, #059669)",textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Trilha: {isVocal ? 'Vocais' : 'Instrumentistas'}</div>
       <div style={{fontSize:'var(--fs-base)',fontWeight:600,color:tc,lineHeight:1.6}}>Conteúdos multimídia focados na sua evolução como {profile?.instrument || 'ministro'}!</div>
     </div>
 
@@ -524,7 +528,7 @@ const Treinamento = memo(({dark, profile})=>{
 
 /* ─── AFINADOR CROMÁTICO ────────────────────────────────────── */
 const Afinador = memo(({dark})=>{
-  const  t2=dark?'#94A3B8':'#475569';
+  const  t2=dark?'#C9C3DD':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
   const [active, setActive] = useState(false);
   const [note, setNote] = useState(null);        // e.g. { name:'A', octave:4, cents:+12 }
@@ -657,7 +661,7 @@ const Afinador = memo(({dark})=>{
         </div>
       )}
     </div>
-    <button onClick={active?stop:start} style={{width:'100%',padding:'11px',borderRadius:'var(--r-md)',border:'none',background:active?'rgba(239,68,68,.1)':'rgba(16,185,129,.1)',color:active?'#EF4444':'#10B981',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+    <button onClick={active?stop:start} style={{width:'100%',padding:'11px',borderRadius:'var(--r-md)',border:'none',background:active?'rgba(239,68,68,.1)':'rgba(16,185,129,.1)',color:active?'var(--app-danger, #EF4444)':'#10B981',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
       {active ? '⏹ Parar Afinador' : '🎤 Iniciar Afinador'}
     </button>
     {active && <div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:8,textAlign:'center'}}>Usando microfone — mantenha o instrumento próximo</div>}
@@ -849,7 +853,7 @@ const AdminDashboard = memo(({pastEvents, members, songs = [], dark, tc, t2, gc,
     <div className={gc} style={CS}>
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
         <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>Relatório de Faltas por Membro (Top 8)</div>
-        <button onClick={exportAbsencesCSV} className="no-print" style={{padding:'4px 10px', borderRadius:100, border:'none', background:'rgba(239,68,68,0.12)', color:'#EF4444', fontSize:10, fontWeight:800, cursor:'pointer'}}>💾 CSV</button>
+        <button onClick={exportAbsencesCSV} className="no-print" style={{padding:'4px 10px', borderRadius:100, border:'none', background:'rgba(239,68,68,0.12)', color:'var(--app-danger, #EF4444)', fontSize:10, fontWeight:800, cursor:'pointer'}}>💾 CSV</button>
       </div>
       {memberStats.filter(m => m.scaled > 0).length === 0 ? (
         <div style={{fontSize:'var(--fs-xs)',color:t2,fontStyle:'italic',textAlign:'center',padding:10}}>Nenhum registro de falta encontrado...</div>
@@ -864,7 +868,7 @@ const AdminDashboard = memo(({pastEvents, members, songs = [], dark, tc, t2, gc,
             return <div key={idx} style={{display:'flex', flexDirection:'column', gap:4}}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                 <div style={{fontSize:'var(--fs-xs)', fontWeight:800, color:tc}}>{item.name} <span style={{fontSize:10, fontWeight:500, color:t2}}>({item.instrument})</span></div>
-                <div style={{fontSize:10, fontWeight:800, color:'#EF4444'}}>{item.absence} Faltas / {item.scaled} Escalas</div>
+                <div style={{fontSize:10, fontWeight:800, color:'var(--app-danger, #EF4444)'}}>{item.absence} Faltas / {item.scaled} Escalas</div>
               </div>
               <div style={{height:10, background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)', borderRadius:100, overflow:'hidden', display:'flex'}}>
                 {item.presence > 0 && <div style={{width: `${presenceRate}%`, background:'#10B981'}} title={`Presenças: ${item.presence}`} />}
@@ -886,7 +890,7 @@ const AdminDashboard = memo(({pastEvents, members, songs = [], dark, tc, t2, gc,
     <div className={gc} style={CS}>
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
         <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>Músicas Mais Tocadas (Top 10)</div>
-        <button onClick={exportSongsCSV} className="no-print" style={{padding:'4px 10px', borderRadius:100, border:'none', background:'rgba(79,70,229,0.12)', color:'#4F46E5', fontSize:10, fontWeight:800, cursor:'pointer'}}>💾 CSV</button>
+        <button onClick={exportSongsCSV} className="no-print" style={{padding:'4px 10px', borderRadius:100, border:'none', background:'rgba(79,70,229,0.12)', color:'var(--app-link, #4F46E5)', fontSize:10, fontWeight:800, cursor:'pointer'}}>💾 CSV</button>
       </div>
       {songStats.length === 0 ? (
         <div style={{fontSize:'var(--fs-xs)',color:t2,fontStyle:'italic',textAlign:'center',padding:10}}>Nenhuma música tocada recentemente...</div>
@@ -928,7 +932,7 @@ const AdminDashboard = memo(({pastEvents, members, songs = [], dark, tc, t2, gc,
               <div style={{flex:1, height:12, background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)', borderRadius:6, overflow:'hidden'}}>
                 <div style={{width:`${barW}%`, height:'100%', background:'linear-gradient(90deg,#4F46E5,#818CF8)', borderRadius:6}} />
               </div>
-              <div style={{width:25, fontSize:'var(--fs-xs)', fontWeight:800, color:'#4F46E5', textAlign:'right'}}>{item.count}x</div>
+              <div style={{width:25, fontSize:'var(--fs-xs)', fontWeight:800, color:'var(--app-link, #4F46E5)', textAlign:'right'}}>{item.count}x</div>
             </div>;
           })}
         </div>
@@ -941,7 +945,7 @@ const AdminDashboard = memo(({pastEvents, members, songs = [], dark, tc, t2, gc,
 const PatrimonioScreen = memo(({members, profile, dark}) => {
   const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
   const isAdm = !!profile?.is_admin;
 
@@ -1090,7 +1094,7 @@ const PatrimonioScreen = memo(({members, profile, dark}) => {
                 {custodian && <span style={{fontSize:10, color:t2, display:'flex', alignItems:'center', gap:4}}><Ava m={custodian} size={16} /> Custódia: {custodian.name.split(' ')[0]}</span>}
               </div>
             </div>
-            {isAdm && <button onClick={() => setEditItem({...eq})} style={{padding:'5px 10px', borderRadius:'var(--r-sm)', border:'none', background:'rgba(79,70,229,.1)', color:'#4F46E5', fontWeight:700, fontSize:'var(--fs-xs)', cursor:'pointer'}}>Editar</button>}
+            {isAdm && <button onClick={() => setEditItem({...eq})} style={{padding:'5px 10px', borderRadius:'var(--r-sm)', border:'none', background:'rgba(79,70,229,.1)', color:'var(--app-link, #4F46E5)', fontWeight:700, fontSize:'var(--fs-xs)', cursor:'pointer'}}>Editar</button>}
           </div>;
         })}
         {filtered.length === 0 && <EmptyState icon="🏛️" title="Nenhum equipamento cadastrado" />}
@@ -1121,7 +1125,7 @@ const PatrimonioScreen = memo(({members, profile, dark}) => {
           <button className="bp" onClick={handleSave} style={{flex:1, padding:10, fontSize:'var(--fs-sm)'}}>Salvar</button>
           <button onClick={()=>setEditItem(null)} style={{padding:10,borderRadius:'var(--r-md)',border:'none',background:'rgba(0,0,0,.1)',color:tc,fontWeight:700,cursor:'pointer', fontSize:'var(--fs-sm)'}}>Cancelar</button>
         </div>
-        {equipment.some(x=>x.id===editItem.id) && <button onClick={()=>handleDelete(editItem.id)} style={{width:'100%',padding:8,borderRadius:'var(--r-md)',border:'none',background:'transparent',color:'#EF4444',fontWeight:700,cursor:'pointer',marginTop:10, fontSize:'var(--fs-xs)'}}>Excluir Equipamento</button>}
+        {equipment.some(x=>x.id===editItem.id) && <button onClick={()=>handleDelete(editItem.id)} style={{width:'100%',padding:8,borderRadius:'var(--r-md)',border:'none',background:'transparent',color:'var(--app-danger, #EF4444)',fontWeight:700,cursor:'pointer',marginTop:10, fontSize:'var(--fs-xs)'}}>Excluir Equipamento</button>}
       </div>
     </div>}
   </div>;
@@ -1129,7 +1133,7 @@ const PatrimonioScreen = memo(({members, profile, dark}) => {
 
 /* ─── PAINEL ADMIN ──────────────────────────────────────────── */
 const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState, setMembers, activity})=>{
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
 
   const pendingDeletes = songs?.filter(s => s.delete_requested_by) || [];
@@ -1225,7 +1229,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     {/* Admin tabs */}
     <div style={{display:'flex',gap:6,marginBottom:16}} className="aUp">
       {[['geral','⚙️ Geral'],['dashboard','📊 Dashboard'],['patrimonio','🏛️ Patrimônio']].map(([k,l])=>
-        <button key={k} onClick={()=>setAdminTab(k)} style={{padding:'7px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:700,background:adminTab===k?'#4F46E5':'rgba(79,70,229,.08)',color:adminTab===k?'#fff':'#4F46E5'}}>{l}</button>
+        <button key={k} onClick={()=>setAdminTab(k)} style={{padding:'7px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:700,background:adminTab===k?'#4F46E5':'rgba(79,70,229,.08)',color:adminTab===k?'#fff':'var(--app-link, #4F46E5)'}}>{l}</button>
       )}
     </div>
 
@@ -1236,13 +1240,13 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
            <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,textTransform:'uppercase'}}>Engajamento Médio</div>
         </div>
         <div className={gc} style={{padding:16,borderRadius:'var(--r-lg)',textAlign:'center'}}>
-           <div style={{fontSize:28,fontWeight:900,color:'#4F46E5'}}>{pastEvents.length}</div>
+           <div style={{fontSize:28,fontWeight:900,color:'var(--app-link, #4F46E5)'}}>{pastEvents.length}</div>
            <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,textTransform:'uppercase'}}>Ministrações</div>
         </div>
       </div>
 
     {pendingDeletes.length > 0 && <div className={`${gc} aUp`} style={{...CS, border:'1px solid rgba(239,68,68,.2)'}}>
-       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'#EF4444',marginBottom:10,textTransform:'uppercase'}}>Solicitações de Exclusão (Músicas)</div>
+       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'var(--app-danger, #EF4444)',marginBottom:10,textTransform:'uppercase'}}>Solicitações de Exclusão (Músicas)</div>
        <div style={{display:'flex',flexDirection:'column',gap:10}}>
          {pendingDeletes.map(s => {
             const reqBy = members.find(m => m.id === s.delete_requested_by)?.name || 'Usuário';
@@ -1252,7 +1256,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
                   <div style={{fontSize:'var(--fs-xs)',color:t2}}>Pedida por: {reqBy}</div>
                </div>
                <div style={{display:'flex',gap:6}}>
-                  <button onClick={()=>handleRejectDelete(s.id)} style={{padding:'6px 12px',borderRadius:100,border:'1px solid rgba(239,68,68,.3)',background:'transparent',color:'#EF4444',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Recusar</button>
+                  <button onClick={()=>handleRejectDelete(s.id)} style={{padding:'6px 12px',borderRadius:100,border:'1px solid rgba(239,68,68,.3)',background:'transparent',color:'var(--app-danger, #EF4444)',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Recusar</button>
                   <button onClick={()=>handleApproveDelete(s.id)} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#EF4444',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Aprovar (Excluir)</button>
                </div>
             </div>
@@ -1261,7 +1265,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     </div>}
 
     {events?.filter(e => e.delete_requested_by).length > 0 && <div className={`${gc} aUp`} style={{...CS, border:'1px solid rgba(239,68,68,.2)'}}>
-       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'#EF4444',marginBottom:10,textTransform:'uppercase'}}>Solicitações de Exclusão (Eventos)</div>
+       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'var(--app-danger, #EF4444)',marginBottom:10,textTransform:'uppercase'}}>Solicitações de Exclusão (Eventos)</div>
        <div style={{display:'flex',flexDirection:'column',gap:10}}>
          {events.filter(e => e.delete_requested_by).map(ev => {
             const reqBy = members.find(m => m.id === ev.delete_requested_by)?.name || 'Usuário';
@@ -1274,7 +1278,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
                <div style={{display:'flex',gap:6}}>
                   <button onClick={()=>{
                      rejectDeleteEvent(ev.id).catch(console.error);
-                  }} style={{padding:'6px 12px',borderRadius:100,border:'1px solid rgba(239,68,68,.3)',background:'transparent',color:'#EF4444',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Recusar</button>
+                  }} style={{padding:'6px 12px',borderRadius:100,border:'1px solid rgba(239,68,68,.3)',background:'transparent',color:'var(--app-danger, #EF4444)',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Recusar</button>
                   <button onClick={()=>{
                      setConfirmState({
                        title: 'Aprovar Exclusão',
@@ -1303,7 +1307,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
                <Ava m={m} size={28}/>
                <span style={{fontSize:'var(--fs-sm)',fontWeight:700,color:tc}}>{m.name.split(' ')[0]}</span>
              </div>
-             <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:rate>70?'#10B981':rate>40?'#F59E0B':'#EF4444'}}>{rate}%</div>
+             <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:rate>70?'#10B981':rate>40?'#F59E0B':'var(--app-danger, #EF4444)'}}>{rate}%</div>
           </div>
        })}
     </div>
@@ -1322,7 +1326,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
                  <span style={{fontSize:'var(--fs-xs)',color:t2}}>{m.instrument} {m.is_admin ? '(Admin)' : ''}</span>
                </div>
              </div>
-             <button aria-label={'Editar '+m.name} onClick={()=>setEditMember({...m})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'rgba(79,70,229,.1)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Editar</button>
+             <button aria-label={'Editar '+m.name} onClick={()=>setEditMember({...m})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'rgba(79,70,229,.1)',color:'var(--app-link, #4F46E5)',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Editar</button>
          </div>
        ))}
     </div>
@@ -1339,7 +1343,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
                return createdMonth === currentMonth;
              }).length;
              return <div key={id} style={{background:`rgba(${id==='adoracao'?'79,70,229':id==='jubilo'?'16,185,129':id==='hinario'?'245,158,11':'236,72,153'},.1)`, border:`1px solid rgba(${id==='adoracao'?'79,70,229':id==='jubilo'?'16,185,129':id==='hinario'?'245,158,11':'236,72,153'},.2)`, borderRadius:'var(--r-md)', padding:'10px 14px', flex:'1 1 40%', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-                <span style={{fontSize:'var(--fs-xs)',fontWeight:700,color:c.color,textTransform:'uppercase'}}>{c.label}</span>
+                <span style={{fontSize:'var(--fs-xs)',fontWeight:700,color:readableTextColor(c.color,dark),textTransform:'uppercase'}}>{c.label}</span>
                 <span style={{fontSize:20,fontWeight:900,color:tc}}>{cnt}</span>
              </div>
           })}
@@ -1394,7 +1398,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
         />
         <div>
           <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:6,lineHeight:1.5}}>Mostre este QR Code para novos membros escanearem com a câmera do celular. Eles chegarão direto na tela de login do app.</div>
-          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#4F46E5',background:'rgba(79,70,229,.08)',padding:'5px 10px',borderRadius:'var(--r-sm)',wordBreak:'break-all'}}>{window.location.origin}</div>
+          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'var(--app-link, #4F46E5)',background:'rgba(79,70,229,.08)',padding:'5px 10px',borderRadius:'var(--r-sm)',wordBreak:'break-all'}}>{window.location.origin}</div>
         </div>
       </div>
     </div>
@@ -1434,8 +1438,8 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
   const [err,setErr]=useState('');
   const [shake,setShake]=useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const tc=dark?'#E2E8F0':'#0F172A';
-  const t2=dark?'#94A3B8':'#64748B';
+  const tc=dark?'#F5F2FF':'#0F172A';
+  const t2=dark?'#C9C3DD':'#64748B';
 
   useEffect(() => {
     const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
@@ -1472,7 +1476,7 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
       <div className="login-brand">
         <img src="/brand/v2/mark-color.png" alt="LouveSync" width="100" height="100" />
         {(deferredPrompt || (isIOS && !isStandalone)) && (
-          <button onClick={handleInstallClick} style={{marginTop:16,padding:'8px 16px',borderRadius:'var(--r-full)',border:'none',background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:6}}><IcoSpark s={14}/> Instalar App</button>
+          <button onClick={handleInstallClick} style={{marginTop:16,padding:'8px 16px',borderRadius:'var(--r-full)',border:'none',background:'rgba(79,70,229,.1)',color:'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:6}}><IcoSpark s={14}/> Instalar App</button>
         )}
       </div>
 
@@ -1484,7 +1488,7 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
             onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='';}}>
             <Ava m={m} size={44}/>
             <span style={{fontSize:'var(--fs-xs)',fontWeight:700,color:tc,textAlign:'center',lineHeight:1.3}}>{m.name}</span>
-            {m.is_admin&&<span style={{fontSize:8,background:'rgba(79,70,229,.12)',color:'#4F46E5',padding:'1px 6px',borderRadius:100,fontWeight:800}}>ADMIN</span>}
+            {m.is_admin&&<span style={{fontSize:8,background:'rgba(79,70,229,.12)',color:'var(--app-link, #4F46E5)',padding:'1px 6px',borderRadius:100,fontWeight:800}}>ADMIN</span>}
           </button>)}
         </div>
       </> : <>
@@ -1500,7 +1504,7 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
             <div className="gIn" style={{animation:shake?'pinShake .4s ease':''}}>
               <input ref={pinRef} id="login-pin" className="fi" name="password" type="password" autoComplete="current-password" enterKeyHint="go" aria-invalid={!!err} aria-describedby={err?'login-error':undefined} value={pin} onChange={e=>{setPin(e.target.value);setErr('');}} placeholder="Digite sua senha..." style={{color:tc,letterSpacing:'.2em',fontSize:20}} autoFocus/>
             </div>
-            {err&&<div id="login-error" role="alert" style={{marginTop:8,fontSize:'var(--fs-xs)',color:'#EF4444',fontWeight:700}}>{err}</div>}
+            {err&&<div id="login-error" role="alert" style={{marginTop:8,fontSize:'var(--fs-xs)',color:'var(--app-danger, #EF4444)',fontWeight:700}}>{err}</div>}
           </div>
           <button className="bp" type="submit" disabled={!pin.trim()}>Entrar</button>
           </div>
@@ -1516,7 +1520,7 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
 
 /* ─── HOME ──────────────────────────────────────────────────── */
 const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSetAddOpen,onConfirm,spawnConfetti,onCreateEvent})=>{
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
   const todayStr=today();
 
@@ -1585,7 +1589,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
     {/* Greeting */}
     <div className="aUp" style={{marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
       <div>
-        <div style={{fontSize:'var(--fs-xs)',color:'#4F46E5',fontWeight:800,marginBottom:4,letterSpacing:'.08em'}}>✦ BEM-VINDO DE VOLTA</div>
+        <div style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',fontWeight:800,marginBottom:4,letterSpacing:'.08em'}}>✦ BEM-VINDO DE VOLTA</div>
         <div className="font-serif" style={{fontSize:'var(--fs-2xl)',fontWeight:900,color:tc,letterSpacing:'-.03em',lineHeight:1.1}}>{profile?.name?.split(' ')[0]||'Usuário'}<br/><span style={{opacity:.55, fontWeight:400, fontSize:'var(--fs-lg)'}}>{profile?.role||'Membro'}</span></div>
       </div>
       <div style={{textAlign:'right',paddingTop:4}}>
@@ -1598,7 +1602,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
     <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:12}}>
       {[{v:songs.length,l:'Músicas',c:'#4F46E5'},{v:members.filter(m=>m.status==='ativo').length,l:'Membros',c:'#10B981'},{v:upcoming.filter(e=>e.type==='culto').length,l:'Cultos',c:'#F59E0B'},{v:events.reduce((acc,e)=>{const c=e.confirmations[profile?.id];return acc+(c===true?1:0);},0),l:'Confirm.',c:'#EC4899'}].map((s,i)=>
         <div key={s.l} className={`${gc} aUp`} style={{borderRadius:'var(--r-lg)',padding:'12px 6px',textAlign:'center',animationDelay:`${i*.05}s`}}>
-          <div style={{fontSize:18,fontWeight:900,color:s.c,lineHeight:1}}>{s.v}</div>
+          <div style={{fontSize:18,fontWeight:900,color:readableTextColor(s.c,dark),lineHeight:1}}>{s.v}</div>
           <div style={{fontSize:8,color:t2,fontWeight:700,marginTop:2}}>{s.l}</div>
         </div>)}
     </div>
@@ -1618,11 +1622,11 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
       const feat=songs.find(s=>s.featured_week);
       return <div className={`${gc} aUp`} style={{...CS,animationDelay:'.03s',background:'linear-gradient(135deg,rgba(79,70,229,.12),rgba(124,58,237,.06))',border:'1px solid rgba(79,70,229,.2)',position:'relative',overflow:'hidden'}} onClick={()=>onSelectSong(feat)}>
         <div style={{position:'absolute',top:-20,right:-20,fontSize:80,opacity:.06}}>🎵</div>
-        <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#4F46E5',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:6,display:'flex',alignItems:'center',gap:5}}>📌 Música da Semana</div>
+        <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'var(--app-link, #4F46E5)',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:6,display:'flex',alignItems:'center',gap:5}}>📌 Música da Semana</div>
         <div className="font-serif" style={{fontSize:20,fontWeight:900,color:tc,lineHeight:1.2}}>{feat.title}</div>
         <div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:3,marginBottom:10}}>{feat.artist} · Tom {feat.key}</div>
-        {feat.featured_note&&<div style={{fontSize:'var(--fs-xs)',color:'#4F46E5',background:'rgba(79,70,229,.08)',borderRadius:'var(--r-sm)',padding:'6px 10px',marginBottom:8,fontStyle:'italic'}}>"{feat.featured_note}"</div>}
-        <div style={{fontSize:'var(--fs-xs)',color:'#4F46E5',fontWeight:700}}>Toque para estudar →</div>
+        {feat.featured_note&&<div style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',background:'rgba(79,70,229,.08)',borderRadius:'var(--r-sm)',padding:'6px 10px',marginBottom:8,fontStyle:'italic'}}>"{feat.featured_note}"</div>}
+        <div style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',fontWeight:700}}>Toque para estudar →</div>
       </div>;
     })()}
 
@@ -1660,7 +1664,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
               else setSelDay(ds);
           }} style={{flexShrink:0,width:50,borderRadius:'var(--r-md)',padding:'9px 0',textAlign:'center',cursor:'pointer',background:isSel?'#4F46E5':ev?'rgba(79,70,229,.08)':'transparent',border:`1px solid ${ev&&!isSel?'rgba(79,70,229,.2)':'transparent'}`,transition:'all .2s',opacity:ev||isSel?1:.45}}>
             <div style={{fontSize:8,fontWeight:700,color:isSel?'rgba(255,255,255,.75)':t2,marginBottom:3}}>{dt.toLocaleDateString('pt-BR',{weekday:'short'}).slice(0,3).toUpperCase()}</div>
-            <div style={{fontSize:18,fontWeight:900,color:isSel?'#fff':ev?'#4F46E5':tc,lineHeight:1}}>{dt.getDate()}</div>
+            <div style={{fontSize:18,fontWeight:900,color:isSel?'#fff':ev?'var(--app-link, #4F46E5)':tc,lineHeight:1}}>{dt.getDate()}</div>
             {ev&&<div style={{width:5,height:5,borderRadius:'50%',margin:'5px auto 0',background:isSel?'rgba(255,255,255,.8)':ev.type==='culto'?'#4F46E5':'#10B981'}}/>}
           </div>);
         })}
@@ -1682,17 +1686,17 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
         <div style={{position:'absolute',top:0,right:0,width:100,height:100,background:'linear-gradient(135deg,rgba(79,70,229,.07),transparent)',borderRadius:'0 var(--r-xl) 0 100%'}}/>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
           <div>
-            <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:6,background:t==='culto'?'rgba(79,70,229,.1)':'rgba(16,185,129,.1)',color:t==='culto'?'#4F46E5':'#059669',border:`1px solid ${t==='culto'?'rgba(79,70,229,.2)':'rgba(16,185,129,.2)'}`}}>{badgeLabel.toUpperCase()}</span>
+            <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:6,background:t==='culto'?'rgba(79,70,229,.1)':'rgba(16,185,129,.1)',color:t==='culto'?'var(--app-link, #4F46E5)':"var(--app-positive, #059669)",border:`1px solid ${t==='culto'?'rgba(79,70,229,.2)':'rgba(16,185,129,.2)'}`}}>{badgeLabel.toUpperCase()}</span>
             <div style={{fontSize:17,fontWeight:900,color:tc,lineHeight:1.2}}>{evt.label}</div>
           </div>
           <div style={{textAlign:'right',flexShrink:0}}><div style={{fontSize:19,fontWeight:900,color:tc,lineHeight:1}}>{evt.time}</div><div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:2}}>{fDate(evt.date)}</div></div>
         </div>
-        {evt.theme&&<div style={{background:'rgba(79,70,229,.06)',borderRadius:'var(--r-sm)',padding:'8px 12px',marginBottom:12,fontSize:'var(--fs-sm)',color:'#4F46E5',fontWeight:700,border:'1px solid rgba(79,70,229,.14)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>  {evt.theme}</div>}
+        {evt.theme&&<div style={{background:'rgba(79,70,229,.06)',borderRadius:'var(--r-sm)',padding:'8px 12px',marginBottom:12,fontSize:'var(--fs-sm)',color:'var(--app-link, #4F46E5)',fontWeight:700,border:'1px solid rgba(79,70,229,.14)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>  {evt.theme}</div>}
 
         {showSetlist && <div style={{marginBottom:12}}>
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:7}}>Setlist</div>
           {nS.map((s,i)=><div key={s.id} onClick={()=>onSelectSong(s,evt)} className="touch-scale" style={{display:'flex',alignItems:'center',gap:9,padding:'8px 0',borderBottom:i<nS.length-1?`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`:''}}>
-            <span style={{width:22,height:22,borderRadius:7,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
+            <span style={{width:22,height:22,borderRadius:7,background:'rgba(79,70,229,.1)',color:'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
             <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc,lineHeight:1.2}}>{String(s.title || 'Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{String(s.artist || 'Ministério')}</div></div>
             <KeyChip k={performanceKey(s,evt)} size={10}/>
           </div>)}
@@ -1720,7 +1724,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.17s',marginBottom:20}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:6}}><IcoPeople s={12}/>Equipe Ativa</div>
-        <button onClick={()=>onNavTo('membros')} style={{fontSize:'var(--fs-xs)',color:'#4F46E5',fontWeight:700,border:'none',background:'transparent',cursor:'pointer'}}>Ver todos →</button>
+        <button onClick={()=>onNavTo('membros')} style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',fontWeight:700,border:'none',background:'transparent',cursor:'pointer'}}>Ver todos →</button>
       </div>
       <div style={{display:'flex',gap:14,overflowX:'auto',paddingBottom:2}}>
         {members.filter(m=>m.status==='ativo').slice(0,6).map(m=><div key={m.id} style={{flexShrink:0,textAlign:'center'}}>
@@ -1735,7 +1739,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
 
 /* ─── REPERTÓRIO ────────────────────────────────────────────── */
 const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,favorites,onToggleFav,onSelectSong,onSetAddOpen})=>{
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1';
   const allKeys=useMemo(()=>[...new Set(songs.map(s=>s.key))].filter(Boolean).sort(),[songs]);
   const filtered=useMemo(()=>{let s=catF==='fav'?songs.filter(x=>favorites?.includes(x.id)):catF==='all'?songs:songs.filter(x=>x.cat===catF);if(keyF)s=s.filter(x=>x.key===keyF);if(search.trim())s=s.filter(x=>x.title.toLowerCase().includes(search.toLowerCase())||(x.artist || '').toLowerCase().includes(search.toLowerCase()));return s;},[songs,catF,keyF,search,favorites]);
@@ -1752,8 +1756,8 @@ const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,
     </div>
     {/* Key filter */}
     <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:8,paddingBottom:2}} className="aUp">
-      <button onClick={()=>setKeyF('')} style={{flexShrink:0,padding:'5px 12px',borderRadius:100,border:'none',cursor:'pointer',background:!keyF?'rgba(245,158,11,.18)':'rgba(0,0,0,.05)',color:!keyF?'#D97706':'#475569',fontSize:'var(--fs-xs)',fontWeight:800,fontFamily:"'JetBrains Mono',monospace"}}>Todos os tons</button>
-      {allKeys.map(k=><button key={k} onClick={()=>setKeyF(k===keyF?'':k)} style={{flexShrink:0,padding:'5px 10px',borderRadius:100,border:'none',cursor:'pointer',background:keyF===k?'#F59E0B':'rgba(245,158,11,.06)',color:keyF===k?'#fff':'#D97706',fontSize:'var(--fs-xs)',fontWeight:800,fontFamily:"'JetBrains Mono',monospace",transition:'all .18s'}}>{k}</button>)}
+      <button onClick={()=>setKeyF('')} style={{flexShrink:0,padding:'5px 12px',borderRadius:100,border:'none',cursor:'pointer',background:!keyF?'rgba(245,158,11,.18)':'rgba(0,0,0,.05)',color:!keyF?"var(--app-warning, #D97706)":'#475569',fontSize:'var(--fs-xs)',fontWeight:800,fontFamily:"'JetBrains Mono',monospace"}}>Todos os tons</button>
+      {allKeys.map(k=><button key={k} onClick={()=>setKeyF(k===keyF?'':k)} style={{flexShrink:0,padding:'5px 10px',borderRadius:100,border:'none',cursor:'pointer',background:keyF===k?'#F59E0B':'rgba(245,158,11,.06)',color:keyF===k?'#fff':"var(--app-warning, #D97706)",fontSize:'var(--fs-xs)',fontWeight:800,fontFamily:"'JetBrains Mono',monospace",transition:'all .18s'}}>{k}</button>)}
     </div>
     <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:18,paddingBottom:2}} className="aUp">
       {[{id:'fav',label:'⭐ Fav',cnt:songs.filter(s=>favorites?.includes(s.id)).length},{id:'all',label:'Todos',cnt:songs.length},...Object.entries(CAT).map(([id,c])=>({id,label:c.label,cnt:songs.filter(s=>s.cat===id).length}))].map(c=>
@@ -1883,7 +1887,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metronome,setStageMod
       }), '*');
     }
   };
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='ui-card', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
   const curKey=getKey(sKey,tr);
 
@@ -1951,8 +1955,8 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metronome,setStageMod
     {embedUrl && !String(song.media_url||'').includes('spotify') && (
       <div style={{display:'flex', gap:8, marginBottom:12}} className="aUp">
         <button onClick={() => { vib(); sendYoutubeCommand('playVideo'); }} className="bSec" style={{flex:1, padding:8, background:'rgba(16,185,129,0.08)', color:'#10B981', borderColor:'rgba(16,185,129,0.2)'}}>▶ Iniciar</button>
-        <button onClick={() => { vib(); sendYoutubeCommand('pauseVideo'); }} className="bSec" style={{flex:1, padding:8, background:'rgba(239,68,68,0.08)', color:'#EF4444', borderColor:'rgba(239,68,68,0.2)'}}>⏸ Pausar</button>
-        <button onClick={() => { vib(); sendYoutubeCommand('seekTo', [0, true]); }} className="bSec" style={{flex:1, padding:8, background:'rgba(79,70,229,0.08)', color:'#4F46E5', borderColor:'rgba(79,70,229,0.2)'}}>🔄 Reiniciar</button>
+        <button onClick={() => { vib(); sendYoutubeCommand('pauseVideo'); }} className="bSec" style={{flex:1, padding:8, background:'rgba(239,68,68,0.08)', color:'var(--app-danger, #EF4444)', borderColor:'rgba(239,68,68,0.2)'}}>⏸ Pausar</button>
+        <button onClick={() => { vib(); sendYoutubeCommand('seekTo', [0, true]); }} className="bSec" style={{flex:1, padding:8, background:'rgba(79,70,229,0.08)', color:'var(--app-link, #4F46E5)', borderColor:'rgba(79,70,229,0.2)'}}>🔄 Reiniciar</button>
       </div>
     )}
 
@@ -1966,7 +1970,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metronome,setStageMod
     {event && <div className={`${gc} aUp`} style={{...CS,animationDelay:'.12s'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
         <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em'}}>Sequência p/ Evento</div>
-        {profile?.is_admin && seqStr !== (event.sequenceBySong?.[song.id] || '') && <button onClick={()=>onSetSequence(event.id, song.id, seqStr)} style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#4F46E5',background:'rgba(79,70,229,.15)',padding:'5px 12px',borderRadius:100,border:'none',cursor:'pointer'}}>Salvar</button>}
+        {profile?.is_admin && seqStr !== (event.sequenceBySong?.[song.id] || '') && <button onClick={()=>onSetSequence(event.id, song.id, seqStr)} style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'var(--app-link, #4F46E5)',background:'rgba(79,70,229,.15)',padding:'5px 12px',borderRadius:100,border:'none',cursor:'pointer'}}>Salvar</button>}
       </div>
       <div className="gIn"><input className="fi" data-update-blocking={seqStr!==(event?.sequenceBySong?.[song.id]||'')} readOnly={!profile?.is_admin} value={seqStr} onChange={e=>setSeqStr(e.target.value)} placeholder="Ex: Intro, V1, Coro (2x), Ponte..." style={{color:tc,fontSize:'var(--fs-sm)',fontWeight:600}}/></div>
     </div>}
@@ -1975,7 +1979,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metronome,setStageMod
     <div className={`${gc} aUp`} style={{...CS,animationDelay:'.14s'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase'}}>Letra</div>
-        <button onClick={()=>{setIsEditingLyrics(!isEditingLyrics); if(!isEditingLyrics) markDirty();}} style={{fontSize:'var(--fs-xs)',fontWeight:800,padding:'6px 12px',borderRadius:'var(--r-md)',border:`1.5px solid ${isEditingLyrics?'#A855F7':'rgba(79,70,229,.25)'}`,background:isEditingLyrics?'rgba(168,85,247,.15)':'rgba(79,70,229,.08)',color:isEditingLyrics?'#A855F7':'#4F46E5',cursor:'pointer',transition:'all .2s'}}>{isEditingLyrics?'Fechar Edição':'✎ Editar'}</button>
+        <button onClick={()=>{setIsEditingLyrics(!isEditingLyrics); if(!isEditingLyrics) markDirty();}} style={{fontSize:'var(--fs-xs)',fontWeight:800,padding:'6px 12px',borderRadius:'var(--r-md)',border:`1.5px solid ${isEditingLyrics?'#A855F7':'rgba(79,70,229,.25)'}`,background:isEditingLyrics?'rgba(168,85,247,.15)':'rgba(79,70,229,.08)',color:isEditingLyrics?'#A855F7':'var(--app-link, #4F46E5)',cursor:'pointer',transition:'all .2s'}}>{isEditingLyrics?'Fechar Edição':'✎ Editar'}</button>
       </div>
       {isEditingLyrics?(
         <>
@@ -1995,10 +1999,10 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metronome,setStageMod
     <button className="bp aUp" style={{marginBottom:8,animationDelay:'.18s'}} onClick={()=>{onSendAI(`Analise "${sTitle}" (tom ${curKey}, ${CAT[song.cat]?.label || song.cat || 'Sem Categoria'}, ${sBpm}bpm, compasso ${sTimeSignature}) e sugira 3 músicas complementares para setlist com justificativa de fluxo.`);onNavTo('ia');}}>
       <IcoSpark s={16}/>Analisar com Maestro
     </button>
-    <button onClick={()=>printCifra().catch(error=>alert(error.message))} style={{width:'100%',marginBottom:8,padding:'11px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.05)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+    <button onClick={()=>printCifra().catch(error=>alert(error.message))} style={{width:'100%',marginBottom:8,padding:'11px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.05)',color:'var(--app-link, #4F46E5)',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
       <IcoShare s={14}/>Imprimir / Salvar PDF
     </button>
-    {profile?.is_admin&&<button onClick={()=>onDeleteSong(song.id)} style={{width:'100%',marginBottom:16,padding:'11px',borderRadius:'var(--r-md)',border:'1px solid rgba(239,68,68,.22)',background:'rgba(239,68,68,.05)',color:'#DC2626',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoTrash s={14}/>Excluir música</button>}
+    {profile?.is_admin&&<button onClick={()=>onDeleteSong(song.id)} style={{width:'100%',marginBottom:16,padding:'11px',borderRadius:'var(--r-md)',border:'1px solid rgba(239,68,68,.22)',background:'rgba(239,68,68,.05)',color:"var(--app-negative, #DC2626)",fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoTrash s={14}/>Excluir música</button>}
     {/* ── Div oculta usada pelo @media print ── */}
     {typeof document !== 'undefined' && createPortal(<div id="print-cifra">
       <div className="print-title">{sTitle}</div>
@@ -2070,7 +2074,7 @@ const Stage = memo(({song,tr,mode,stageFs,setStageFs,dark,onClose,chordColor,set
 
 /* ─── ESCALA ────────────────────────────────────────────────── */
 const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,dark,events,songs,members,onConfirm,onEvSheet,spawnConfetti,onCreateEvent})=>{
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
   const todayStr=today();
 
@@ -2151,9 +2155,9 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
       <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoCal s={20}/>{showHistory?'Histórico':'Escala'}</div>
       <div style={{display:'flex',gap:6}}>
         {showHistory && pastEvents.length > 0 && (
-          <button onClick={exportCSV} style={{display:'flex',alignItems:'center',gap:5,padding:'7px 12px',borderRadius:100,border:'none',background:'rgba(16,185,129,.15)',color:'#059669',fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>📥 Exportar CSV</button>
+          <button onClick={exportCSV} style={{display:'flex',alignItems:'center',gap:5,padding:'7px 12px',borderRadius:100,border:'none',background:'rgba(16,185,129,.15)',color:"var(--app-positive, #059669)",fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>📥 Exportar CSV</button>
         )}
-        <button onClick={()=>setShowHistory(h=>!h)} style={{display:'flex',alignItems:'center',gap:5,padding:'7px 12px',borderRadius:100,border:'none',background:showHistory?'rgba(245,158,11,.15)':'rgba(79,70,229,.08)',color:showHistory?'#D97706':'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>{showHistory?'← Agenda':'📋 Histórico'}</button>
+        <button onClick={()=>setShowHistory(h=>!h)} style={{display:'flex',alignItems:'center',gap:5,padding:'7px 12px',borderRadius:100,border:'none',background:showHistory?'rgba(245,158,11,.15)':'rgba(79,70,229,.08)',color:showHistory?"var(--app-warning, #D97706)":'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>{showHistory?'← Agenda':'📋 Histórico'}</button>
         {profile?.is_admin&&!showHistory&&<button onClick={onCreateEvent} style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:100,border:'none',background:'#4F46E5',color:'#fff',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer',boxShadow:'0 4px 14px rgba(79,70,229,.35)'}}><IcoCalPlus s={14}/>Novo</button>}
       </div>
     </div>
@@ -2164,7 +2168,7 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:10}}>
         {[{l:'Confirmados',v:confirmed,c:'#10B981'},{l:'Recusados',v:events.reduce((a,e)=>a+((e.confirmations||{})[profile?.id]===false?1:0),0),c:'#EF4444'},{l:'Eventos',v:events.filter(e=>e.members.includes(profile?.id)).length,c:'#4F46E5'}].map(s=>
           <div key={s.l} style={{textAlign:'center',padding:'10px 6px',borderRadius:'var(--r-sm)',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
-            <div style={{fontSize:19,fontWeight:900,color:s.c,lineHeight:1}}>{s.v}</div>
+            <div style={{fontSize:19,fontWeight:900,color:readableTextColor(s.c,dark),lineHeight:1}}>{s.v}</div>
             <div style={{fontSize:8,color:t2,marginTop:3,fontWeight:700}}>{s.l}</div>
           </div>)}
       </div>
@@ -2176,7 +2180,7 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
          <div style={{fontSize:'var(--fs-sm)', fontWeight:800, color:tc, textTransform:'uppercase', letterSpacing:'.1em'}}>Agenda do Mês</div>
          {selWeekIdx !== Math.max(0, monthWeeks.findIndex(w=>w.some(d=>d.toLocaleDateString('sv-SE')===todayStr))) &&
-           <button onClick={()=>setSelWeekIdx(Math.max(0, monthWeeks.findIndex(w=>w.some(d=>d.toLocaleDateString('sv-SE')===todayStr))))} style={{fontSize:'var(--fs-xs)',color:'#4F46E5',border:'none',background:'transparent',cursor:'pointer',fontWeight:700}}>Ir para Hoje</button>}
+           <button onClick={()=>setSelWeekIdx(Math.max(0, monthWeeks.findIndex(w=>w.some(d=>d.toLocaleDateString('sv-SE')===todayStr))))} style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',border:'none',background:'transparent',cursor:'pointer',fontWeight:700}}>Ir para Hoje</button>}
       </div>
       <div ref={scrollRef} style={{display:'flex', overflowX:'auto', scrollSnapType:'x mandatory', scrollBehavior:'smooth', paddingBottom:5, scrollbarWidth:'none'}} className="hide-scroll"
            onScroll={e=>{
@@ -2194,7 +2198,7 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
               const hasEv = events.some(e=>e.date === ds);
               const isOtherMonth = day.getMonth() !== new Date().getMonth();
 
-              return <div key={ds} onClick={()=>setSelWeekIdx(wi)} style={{display:'flex', flexDirection:'column', alignItems:'center', gap:6, opacity: isOtherMonth?0.4:1, cursor:'pointer'}}>
+              return <div key={ds} onClick={()=>setSelWeekIdx(wi)} style={{display:'flex', flexDirection:'column', alignItems:'center', gap:6, opacity: isOtherMonth?(dark?0.75:0.4):1, cursor:'pointer'}}>
                 <div style={{fontSize:10, fontWeight:700, color:t2, textTransform:'uppercase'}}>{day.toLocaleDateString('pt-BR',{weekday:'short'}).slice(0,3)}</div>
                 <div style={{width:32, height:32, borderRadius:'50%', background:isToday?'linear-gradient(135deg,#4F46E5,#6D28D9)':hasEv?'rgba(79,70,229,.12)':'transparent', color:isToday?'#fff':tc, display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, fontWeight:800, boxShadow:isToday?'0 4px 12px rgba(79,70,229,.3)':''}}>
                   {day.getDate()}
@@ -2219,14 +2223,14 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
             <div>
               <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.08em',marginBottom:3}}>{ev.type?.toUpperCase()} · {fDate(ev.date)}</div>
               <div style={{fontSize:15,fontWeight:800,color:tc}}>{ev.label}</div>
-              {ev.theme&&<div style={{fontSize:'var(--fs-xs)',color:'#4F46E5',marginTop:2}}>📖 {ev.theme}</div>}
+              {ev.theme&&<div style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',marginTop:2}}>📖 {ev.theme}</div>}
             </div>
-            <div style={{padding:'4px 10px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:800,background:myConf===true?'rgba(16,185,129,.15)':myConf===false?'rgba(239,68,68,.12)':'rgba(148,163,184,.1)',color:myConf===true?'#10B981':myConf===false?'#EF4444':'#94A3B8'}}>
+            <div style={{padding:'4px 10px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:800,background:myConf===true?'rgba(16,185,129,.15)':myConf===false?'rgba(239,68,68,.12)':'rgba(148,163,184,.1)',color:myConf===true?'#10B981':myConf===false?'var(--app-danger, #EF4444)':'#94A3B8'}}>
               {myConf===true?'✓ Conf.':myConf===false?'✗ Rec.':'—'}
             </div>
           </div>
           {evS.length>0&&<div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:8}}>
-            {evS.map(s=><span key={s.id} style={{padding:'3px 9px',borderRadius:100,fontSize:11,fontWeight:700,background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}14`,color:(CAT[s.cat]||{color:'#94A3B8'}).color}}>{s.title}</span>)}
+            {evS.map(s=><span key={s.id} style={{padding:'3px 9px',borderRadius:100,fontSize:11,fontWeight:700,background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}14`,color:readableTextColor((CAT[s.cat]||{color:'#94A3B8'}).color,dark)}}>{s.title}</span>)}
           </div>}
           <div style={{display:'flex',gap:3}}>{evM.slice(0,6).map((m,i)=><div key={m.id} style={{marginLeft:i?-6:0}}><Ava m={m} size={22} ring/></div>)}</div>
         </div>;
@@ -2256,35 +2260,35 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
       const badgeLabel = t === 'culto' ? 'CULTO' : t === 'ensaio' ? 'ENSAIO' : t === 'ebd' ? 'EBD' : 'CONSAGRAÇÃO';
       const showSetlist = t !== 'ebd' && t !== 'consagracao';
 
-      return <div key={ev.id} className={`${gc} aUp touch-scale`} style={{...CS,animationDelay:`${ei*.06}s`,borderLeft:`3px solid ${t==='culto'?'#4F46E5':'#10B981'}`,opacity:isExpired?0.5:!isMyEvent&&!profile?.is_admin?0.7:1}} onClick={(e)=>{ if(e.target.tagName!=='BUTTON') onEvSheet(ev); }}>
+      return <div key={ev.id} className={`${gc} aUp touch-scale`} style={{...CS,animationDelay:`${ei*.06}s`,borderLeft:`3px solid ${t==='culto'?'#4F46E5':'#10B981'}`,opacity:dark?1:isExpired?0.5:!isMyEvent&&!profile?.is_admin?0.7:1}} onClick={(e)=>{ if(e.target.tagName!=='BUTTON') onEvSheet(ev); }}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
           <div>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
-              <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,background:t==='culto'?'rgba(79,70,229,.1)':'rgba(16,185,129,.1)',color:t==='culto'?'#4F46E5':'#059669',border:`1px solid ${t==='culto'?'rgba(79,70,229,.2)':'rgba(16,185,129,.2)'}`}}>{badgeLabel.toUpperCase()}</span>
-              {isExpired && <span style={{fontSize:'10px',fontWeight:800,color:'#EF4444',background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4}}>EXPIRADO</span>}
+              <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,background:t==='culto'?'rgba(79,70,229,.1)':'rgba(16,185,129,.1)',color:t==='culto'?'var(--app-link, #4F46E5)':"var(--app-positive, #059669)",border:`1px solid ${t==='culto'?'rgba(79,70,229,.2)':'rgba(16,185,129,.2)'}`}}>{badgeLabel.toUpperCase()}</span>
+              {isExpired && <span style={{fontSize:'10px',fontWeight:800,color:'var(--app-danger, #EF4444)',background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4}}>EXPIRADO</span>}
               {isHappening && <span style={{fontSize:'10px',fontWeight:800,color:'#F59E0B',background:'rgba(245,158,11,.1)',padding:'2px 6px',borderRadius:4}}>ACONTECENDO</span>}
             </div>
             <div style={{fontSize:15,fontWeight:900,color:tc}}>{ev.label}</div>
             <div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:1}}>{fDate(ev.date)} · {ev.time}</div>
           </div>
           {isMyEvent&&!isExpired&&!isHappening&&<div style={{display:'flex',flexDirection:'column',gap:5,alignItems:'flex-end',flexShrink:0}}>
-            {myConf !== true && <button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{padding:'6px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(16,185,129,.1)',color:'#059669',transition:'all .2s',display:'flex',alignItems:'center',gap:5}}><IcoCheck s={12}/>Confirmar</button>}
+            {myConf !== true && <button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{padding:'6px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(16,185,129,.1)',color:"var(--app-positive, #059669)",transition:'all .2s',display:'flex',alignItems:'center',gap:5}}><IcoCheck s={12}/>Confirmar</button>}
             {myConf === true && <div style={{padding:'6px 14px',borderRadius:100,fontSize:'var(--fs-sm)',fontWeight:800,background:'#10B981',color:'#fff',display:'flex',alignItems:'center',gap:5}}><IcoCheck s={12}/>Confirmado</div>}
 
-            {myConf !== false && <button onClick={()=>onConfirm(ev.id,false)} style={{padding:'6px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.08)',color:'#DC2626',transition:'all .2s',display:'flex',alignItems:'center',gap:5}}><IcoX s={12}/>Recusar</button>}
+            {myConf !== false && <button onClick={()=>onConfirm(ev.id,false)} style={{padding:'6px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.08)',color:"var(--app-negative, #DC2626)",transition:'all .2s',display:'flex',alignItems:'center',gap:5}}><IcoX s={12}/>Recusar</button>}
             {myConf === false && <div style={{padding:'6px 14px',borderRadius:100,fontSize:'var(--fs-sm)',fontWeight:800,background:'#EF4444',color:'#fff',display:'flex',alignItems:'center',gap:5}}><IcoX s={12}/>Recusado</div>}
           </div>}
           {isMyEvent && isLocked && myConf === false && !isHappening && !isExpired && (
-             <div style={{fontSize:'10px',fontWeight:800,color:'#EF4444',textAlign:'right'}}>Auto-recusa<br/>(Prazo esgotado)</div>
+             <div style={{fontSize:'10px',fontWeight:800,color:'var(--app-danger, #EF4444)',textAlign:'right'}}>Auto-recusa<br/>(Prazo esgotado)</div>
           )}
         </div>
-        {ev.theme&&<div style={{background:'rgba(79,70,229,.06)',borderRadius:'var(--r-sm)',padding:'7px 12px',marginBottom:10,fontSize:'var(--fs-sm)',color:'#4F46E5',fontWeight:700,border:'1px solid rgba(79,70,229,.14)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
+        {ev.theme&&<div style={{background:'rgba(79,70,229,.06)',borderRadius:'var(--r-sm)',padding:'7px 12px',marginBottom:10,fontSize:'var(--fs-sm)',color:'var(--app-link, #4F46E5)',fontWeight:700,border:'1px solid rgba(79,70,229,.14)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
 
         {showSetlist && <div style={{marginBottom:10}}>
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Músicas</div>
           {evS.length===0?<div style={{fontSize:'var(--fs-xs)',color:t2,opacity:.6}}>Nenhuma música definida</div>:
           <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-            {evS.map(s=><span key={s.id} style={{padding:'4px 11px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer',background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}14`,color:(CAT[s.cat]||{color:'#94A3B8'}).color,border:`1px solid ${(CAT[s.cat]||{color:'#94A3B8'}).color}28`}}>{s.title}</span>)}
+            {evS.map(s=><span key={s.id} style={{padding:'4px 11px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer',background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}14`,color:readableTextColor((CAT[s.cat]||{color:'#94A3B8'}).color,dark),border:`1px solid ${(CAT[s.cat]||{color:'#94A3B8'}).color}28`}}>{s.title}</span>)}
           </div>}
         </div>}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
@@ -2298,7 +2302,7 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
                <span style={{fontSize:'var(--fs-xs)',color:t2,fontStyle:'italic'}}>Nenhum escalado</span>
             )}
           </div>
-          <button onClick={()=>onEvSheet(ev)} style={{fontSize:'var(--fs-xs)',color:'#4F46E5',border:'none',background:'transparent',cursor:'pointer',fontWeight:700}}>Ver detalhes →</button>
+          <button onClick={()=>onEvSheet(ev)} style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',border:'none',background:'transparent',cursor:'pointer',fontWeight:700}}>Ver detalhes →</button>
         </div>
       </div>;
     })}
@@ -2308,7 +2312,7 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
 
 /* ─── MEMBROS ─── */
 const Membros = memo(({profile,dark,members,events,selRole,setSelRole})=>{
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
   const roles=[...new Set(members.map(m=>m.instrument))].filter(Boolean);
   const filtered=selRole==='Todos'?members:members.filter(m=>m.instrument===selRole);
@@ -2334,13 +2338,13 @@ const Membros = memo(({profile,dark,members,events,selRole,setSelRole})=>{
               <div style={{fontSize:'var(--fs-base)',fontWeight:800,color:tc,lineHeight:1.4}}>
                 {m.name} <br/> <span style={{fontWeight:400, fontSize:'var(--fs-sm)'}}>{m.instrument}</span>
               </div>
-              {m.is_admin&&<span style={{fontSize:8,background:'rgba(79,70,229,.12)',color:'#4F46E5',padding:'1px 6px',borderRadius:100,fontWeight:800,alignSelf:'flex-start'}}>ADMIN</span>}
+              {m.is_admin&&<span style={{fontSize:8,background:'rgba(79,70,229,.12)',color:'var(--app-link, #4F46E5)',padding:'1px 6px',borderRadius:100,fontWeight:800,alignSelf:'flex-start'}}>ADMIN</span>}
               {m.status==='licença'&&<span style={{fontSize:'var(--fs-xs)',color:'#94A3B8',background:'rgba(148,163,184,.1)',padding:'1px 8px',borderRadius:100,fontWeight:700,alignSelf:'flex-start'}}>Em licença</span>}
             </div>
           </div>
           {profile?.is_admin&&<div style={{display:'flex',gap:8,flexShrink:0}}>
             <div style={{textAlign:'center'}}>
-              <div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:'#4F46E5',lineHeight:1}}>{m.confirmRate||cCount*10||'—'}{m.confirmRate?'%':''}</div>
+              <div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:'var(--app-link, #4F46E5)',lineHeight:1}}>{m.confirmRate||cCount*10||'—'}{m.confirmRate?'%':''}</div>
               <div style={{fontSize:8,color:t2,fontWeight:700}}>PRES.</div>
             </div>
             <div style={{textAlign:'center'}}>
@@ -2358,7 +2362,7 @@ const Membros = memo(({profile,dark,members,events,selRole,setSelRole})=>{
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
         {[{l:'Membros Ativos',v:members.filter(m=>m.status==='ativo').length,c:'#10B981'},{l:'Instrumentos',v:[...new Set(members.map(m=>m.instrument))].filter(Boolean).length,c:'#F59E0B'},{l:'Total Eventos',v:events.length,c:'#4F46E5'}].map(s=>
           <div key={s.l} style={{textAlign:'center',padding:'11px 6px',borderRadius:'var(--r-sm)',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
-            <div style={{fontSize:19,fontWeight:900,color:s.c,lineHeight:1}}>{s.v}</div>
+            <div style={{fontSize:19,fontWeight:900,color:readableTextColor(s.c,dark),lineHeight:1}}>{s.v}</div>
             <div style={{fontSize:8,color:t2,marginTop:3,fontWeight:700}}>{s.l}</div>
           </div>)}
       </div>
@@ -2368,7 +2372,7 @@ const Membros = memo(({profile,dark,members,events,selRole,setSelRole})=>{
 
 /* ─── MAESTRO (IA) ──────────────────────────────────────────── */
 const Maestro = memo(({dark,aiMsgs,aiIn,setAiIn,aiLoad,aiCount,onSendAI})=>{
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1';
   const aiEnd=useRef(null);
   const MAX_MSGS=10;
@@ -2387,20 +2391,20 @@ const Maestro = memo(({dark,aiMsgs,aiIn,setAiIn,aiLoad,aiCount,onSendAI})=>{
     <div style={{marginBottom:12}} className="aUp">
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2}}>
         <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoSpark s={20}/>Maestro</div>
-        <div style={{fontSize:'var(--fs-xs)',color:aiCount>=MAX_MSGS?'#EF4444':t2,fontWeight:700}}>{aiCount}/{MAX_MSGS} mensagens</div>
+        <div style={{fontSize:'var(--fs-xs)',color:aiCount>=MAX_MSGS?'var(--app-danger, #EF4444)':t2,fontWeight:700}}>{aiCount}/{MAX_MSGS} mensagens</div>
       </div>
       <div style={{fontSize:'var(--fs-sm)',color:t2}}>Assistente IA do ministério IMWAL</div>
     </div>
     <div style={{display:'flex',gap:7,overflowX:'auto',marginBottom:12,paddingBottom:2,flexShrink:0}} className="aUp">
-      {qp.map(q=><button key={q.l} onClick={()=>onSendAI(q.p)} disabled={aiCount>=MAX_MSGS} style={{flexShrink:0,padding:'7px 12px',borderRadius:100,border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.07)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:700,cursor:aiCount>=MAX_MSGS?'not-allowed':'pointer',whiteSpace:'nowrap',opacity:aiCount>=MAX_MSGS?.5:1}}>{q.l}</button>)}
+      {qp.map(q=><button key={q.l} onClick={()=>onSendAI(q.p)} disabled={aiCount>=MAX_MSGS} style={{flexShrink:0,padding:'7px 12px',borderRadius:100,border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.07)',color:'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',fontWeight:700,cursor:aiCount>=MAX_MSGS?'not-allowed':'pointer',whiteSpace:'nowrap',opacity:aiCount>=MAX_MSGS?.5:1}}>{q.l}</button>)}
     </div>
-    {aiCount>=MAX_MSGS&&<div style={{marginBottom:10,padding:'10px 14px',borderRadius:'var(--r-md)',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.2)',fontSize:'var(--fs-sm)',color:'#DC2626',fontWeight:700}}>Limite de {MAX_MSGS} mensagens por sessão atingido. Recarregue a página para uma nova sessão.</div>}
+    {aiCount>=MAX_MSGS&&<div style={{marginBottom:10,padding:'10px 14px',borderRadius:'var(--r-md)',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.2)',fontSize:'var(--fs-sm)',color:"var(--app-negative, #DC2626)",fontWeight:700}}>Limite de {MAX_MSGS} mensagens por sessão atingido. Recarregue a página para uma nova sessão.</div>}
     <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:11,paddingBottom:8,minHeight:0}}>
       {aiMsgs.map((msg,i)=><div key={i} style={{display:'flex',justifyContent:msg.r==='u'?'flex-end':'flex-start',animation:'slideUp .3s ease both',animationDelay:`${Math.min(i,.2)*.04}s`}}>
         {msg.r==='a'&&<div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,#4F46E5,#7C3AED)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:8,alignSelf:'flex-end',boxShadow:'0 4px 12px rgba(79,70,229,.32)'}}><IcoSpark s={14}/></div>}
-        <div style={{maxWidth:'80%',padding:'12px 15px',borderRadius:msg.r==='u'?'20px 20px 5px 20px':'5px 20px 20px 20px',background:msg.r==='u'?'linear-gradient(135deg,#4F46E5,#6D28D9)':msg.err?(dark?'rgba(239,68,68,.15)':'rgba(239,68,68,.08)'):dark?'rgba(20,28,52,.9)':'rgba(255,255,255,.9)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',border:msg.r==='u'?'none':`1px solid ${msg.err?'rgba(239,68,68,.25)':dark?'rgba(255,255,255,.09)':'rgba(0,0,0,.07)'}`,color:msg.r==='u'?'#fff':msg.err?'#DC2626':tc,fontSize:'var(--fs-sm)',lineHeight:1.7,whiteSpace:'pre-wrap',wordBreak:'break-word',boxShadow:msg.r==='u'?'0 4px 16px rgba(79,70,229,.3)':'0 2px 10px rgba(0,0,0,.06)'}}>
+        <div style={{maxWidth:'80%',padding:'12px 15px',borderRadius:msg.r==='u'?'20px 20px 5px 20px':'5px 20px 20px 20px',background:msg.r==='u'?'linear-gradient(135deg,#4F46E5,#6D28D9)':msg.err?(dark?'rgba(239,68,68,.15)':'rgba(239,68,68,.08)'):dark?'rgba(20,28,52,.9)':'rgba(255,255,255,.9)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',border:msg.r==='u'?'none':`1px solid ${msg.err?'rgba(239,68,68,.25)':dark?'rgba(255,255,255,.09)':'rgba(0,0,0,.07)'}`,color:msg.r==='u'?'#fff':msg.err?"var(--app-negative, #DC2626)":tc,fontSize:'var(--fs-sm)',lineHeight:1.7,whiteSpace:'pre-wrap',wordBreak:'break-word',boxShadow:msg.r==='u'?'0 4px 16px rgba(79,70,229,.3)':'0 2px 10px rgba(0,0,0,.06)'}}>
           {msg.c}
-          {msg.err&&<button onClick={()=>onSendAI(aiMsgs[aiMsgs.length-2]?.c||'')} style={{display:'block',marginTop:8,fontSize:'var(--fs-xs)',color:'#DC2626',border:'1px solid rgba(239,68,68,.3)',background:'transparent',borderRadius:100,padding:'4px 12px',cursor:'pointer',fontWeight:700}}>Tentar novamente</button>}
+          {msg.err&&<button onClick={()=>onSendAI(aiMsgs[aiMsgs.length-2]?.c||'')} style={{display:'block',marginTop:8,fontSize:'var(--fs-xs)',color:"var(--app-negative, #DC2626)",border:'1px solid rgba(239,68,68,.3)',background:'transparent',borderRadius:100,padding:'4px 12px',cursor:'pointer',fontWeight:700}}>Tentar novamente</button>}
         </div>
       </div>)}
       {aiLoad&&<div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
@@ -2413,7 +2417,7 @@ const Maestro = memo(({dark,aiMsgs,aiIn,setAiIn,aiLoad,aiCount,onSendAI})=>{
     </div>
     <div className="gIn" style={{display:'flex',gap:8,alignItems:'flex-end',marginTop:8,flexShrink:0,marginBottom:8,padding:'10px 10px 10px 16px'}}>
       <textarea data-update-blocking={!!aiIn.trim()} value={aiIn} onChange={e=>setAiIn(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSendAI();}}} placeholder="Pergunte sobre setlists, adoração, ministério..." rows={1} disabled={aiCount>=MAX_MSGS} style={{flex:1,background:'transparent',border:'none',resize:'none',fontSize:'var(--fs-sm)',color:tc,lineHeight:1.6,maxHeight:100,padding:0}}/>
-      <button onClick={()=>onSendAI()} disabled={aiLoad||!aiIn.trim()||aiCount>=MAX_MSGS} style={{width:38,height:38,borderRadius:'var(--r-sm)',border:'none',flexShrink:0,cursor:aiIn.trim()&&aiCount<MAX_MSGS?'pointer':'not-allowed',background:aiIn.trim()&&aiCount<MAX_MSGS?'linear-gradient(135deg,#4F46E5,#6D28D9)':'rgba(79,70,229,.1)',color:aiIn.trim()&&aiCount<MAX_MSGS?'#fff':'#4F46E5',fontSize:17,transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <button onClick={()=>onSendAI()} disabled={aiLoad||!aiIn.trim()||aiCount>=MAX_MSGS} style={{width:38,height:38,borderRadius:'var(--r-sm)',border:'none',flexShrink:0,cursor:aiIn.trim()&&aiCount<MAX_MSGS?'pointer':'not-allowed',background:aiIn.trim()&&aiCount<MAX_MSGS?'linear-gradient(135deg,#4F46E5,#6D28D9)':'rgba(79,70,229,.1)',color:aiIn.trim()&&aiCount<MAX_MSGS?'#fff':'var(--app-link, #4F46E5)',fontSize:17,transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center'}}>
         {aiLoad?<Loader/>:<IcoArrowUp s={16}/>}
       </button>
     </div>
@@ -2422,7 +2426,7 @@ const Maestro = memo(({dark,aiMsgs,aiIn,setAiIn,aiLoad,aiCount,onSendAI})=>{
 
 /* ─── ADD SONG OVERLAY ──────────────────────────────────────── */
 const AddSong = memo(({dark,onSave,onClose,initialData})=>{
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1';
   const [step,setStep]=useState(initialData ? 3 : 1);
   const [form,setForm]=useState(initialData ? {...initialData} : {title:'',artist:'',cat:'adoracao',key:'C',bpm:'80',timeSignature:'4/4',lyrics:'',tags:'',rawLyrics:'',sequence:'',media_url:''});
@@ -2580,12 +2584,12 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
             <div>
               <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Compasso</div>
-              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{TIME_SIGS.map(ts=><button key={ts} onClick={()=>setForm(f=>({...f,timeSignature:ts}))} style={{padding:'5px 8px',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:800,fontFamily:"'JetBrains Mono',monospace",background:form.timeSignature===ts?'#10B981':'rgba(16,185,129,.08)',color:form.timeSignature===ts?'#fff':'#059669',transition:'all .15s'}}>{ts}</button>)}</div>
+              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{TIME_SIGS.map(ts=><button key={ts} onClick={()=>setForm(f=>({...f,timeSignature:ts}))} style={{padding:'5px 8px',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:800,fontFamily:"'JetBrains Mono',monospace",background:form.timeSignature===ts?'#10B981':'rgba(16,185,129,.08)',color:form.timeSignature===ts?'#fff':"var(--app-positive, #059669)",transition:'all .15s'}}>{ts}</button>)}</div>
             </div>
             <div>
               <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Tom Original</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:6}}>
-                {KEYS.map(k=><button key={k} onClick={()=>setForm(f=>({...f,key:k}))} style={{padding:'8px 6px',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace",background:form.key===k?'#7B3FF2':'rgba(79,70,229,.08)',color:form.key===k?'#fff':'#4F46E5',transition:'all .15s'}}>{k}</button>)}
+                {KEYS.map(k=><button key={k} onClick={()=>setForm(f=>({...f,key:k}))} style={{padding:'8px 6px',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace",background:form.key===k?'#7B3FF2':'rgba(79,70,229,.08)',color:form.key===k?'#fff':'var(--app-link, #4F46E5)',transition:'all .15s'}}>{k}</button>)}
               </div>
             </div>
           </div>
@@ -2593,7 +2597,7 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
             <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,marginBottom:4}}>BPM</div>
             <div className="gIn" style={{display:'flex',alignItems:'center'}}>
               <input className="fi" type="number" value={form.bpm} onChange={e=>setForm(f=>({...f,bpm:e.target.value}))} style={{color:tc,flex:1}} placeholder="80"/>
-              <button onClick={tapTempo} title="Tap Tempo" style={{flexShrink:0,margin:'4px',padding:'6px 10px',borderRadius:'var(--r-sm)',border:'none',cursor:'pointer',background:'rgba(245,158,11,.14)',color:'#D97706',fontSize:'var(--fs-xs)',fontWeight:800,display:'flex',alignItems:'center',gap:4}}><IcoTap s={12}/>TAP</button>
+              <button onClick={tapTempo} title="Tap Tempo" style={{flexShrink:0,margin:'4px',padding:'6px 10px',borderRadius:'var(--r-sm)',border:'none',cursor:'pointer',background:'rgba(245,158,11,.14)',color:"var(--app-warning, #D97706)",fontSize:'var(--fs-xs)',fontWeight:800,display:'flex',alignItems:'center',gap:4}}><IcoTap s={12}/>TAP</button>
             </div>
             <div style={{fontSize:8,color:t2,marginTop:3,textAlign:'right'}}>Toque o ritmo para calcular</div>
           </div>
@@ -2931,7 +2935,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
   const [shareStatus,setShareStatus]=useState('');
   const [shareText,setShareText]=useState('');
   if(!ev)return null;
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const noteItems = (ev.items||[]).filter(it=>it.type !== 'song');
   const songItems = (ev.songs||[]).map((songId, idx) => ({
     id: `song_${songId}_${idx}`,
@@ -2956,7 +2960,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           <div><div className="font-serif" style={{fontSize:24,fontWeight:900,color:tc}}>{ev.label}</div><div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:3}}>{fDate(ev.date)} · {ev.time}</div></div>
           <button onClick={onClose} style={{width:34,height:34,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.07)',color:t2,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={14}/></button>
         </div>
-        {ev.theme&&<div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-sm)',padding:'9px 14px',marginBottom:14,fontSize:'var(--fs-sm)',color:'#4F46E5',fontWeight:700,border:'1px solid rgba(79,70,229,.15)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
+        {ev.theme&&<div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-sm)',padding:'9px 14px',marginBottom:14,fontSize:'var(--fs-sm)',color:'var(--app-link, #4F46E5)',fontWeight:700,border:'1px solid rgba(79,70,229,.15)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
         {profile?.is_admin&&<ViewersButton activity={activity} targetType="event" targetId={ev.id} title={ev.label} context={`${new Date(ev.date+'T12:00:00').toLocaleDateString('pt-BR')} · ${String(ev.time||'').slice(0,5)}`} members={members} audience={ev.members} dark={dark}/>}
         {/* Share setlist */}
         {ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0&&<button disabled={sharing} onClick={async()=>{
@@ -2967,10 +2971,10 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
             if(copied)setShareStatus('Setlist copiado com as categorias e os vocais do evento.');
             else {setShareText(txt);setShareStatus('A cópia automática não foi permitida. Selecione e copie o texto abaixo.');}
           } finally {setSharing(false);}
-        }} id="shareBtn" style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.06)',color:'#4F46E5',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoShare s={14}/>Copiar setlist para WhatsApp</button>}
+        }} id="shareBtn" style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.06)',color:'var(--app-link, #4F46E5)',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoShare s={14}/>Copiar setlist para WhatsApp</button>}
         {shareStatus&&<p role="status" style={{fontSize:12,color:t2,marginBottom:12}}>{shareStatus}</p>}
         {shareText&&<label style={{display:'block',fontSize:12,color:tc,marginBottom:12}}>Setlist para WhatsApp<textarea readOnly aria-label="Setlist para WhatsApp" value={shareText} onFocus={e=>e.target.select()} rows={9} style={{display:'block',width:'100%',padding:12,marginTop:6,borderRadius:12,border:'1px solid rgba(123,63,242,.3)',background:dark?'#160c26':'#fff',color:tc,fontSize:16,lineHeight:1.5}}/></label>}
-        {ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0&&<button disabled={exporting} onClick={async()=>{setExporting(true);setExportError('');try{await downloadSetlistExcel(ev,songs,members);}catch(error){setExportError(error.message||'Não foi possível salvar a planilha. Tente novamente.');}finally{setExporting(false);}}} style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(16,185,129,.2)',background:'rgba(16,185,129,.06)',color:dark?'#65D5B6':'#059669',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>{exporting?'Preparando planilha…':'📥 Exportar para Excel'}</button>}
+        {ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0&&<button disabled={exporting} onClick={async()=>{setExporting(true);setExportError('');try{await downloadSetlistExcel(ev,songs,members);}catch(error){setExportError(error.message||'Não foi possível salvar a planilha. Tente novamente.');}finally{setExporting(false);}}} style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(16,185,129,.2)',background:'rgba(16,185,129,.06)',color:dark?'#65D5B6':"var(--app-positive, #059669)",fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>{exporting?'Preparando planilha…':'📥 Exportar para Excel'}</button>}
         {exportError&&<p role="alert" style={{fontSize:12,color:dark?'#FCA5A5':'#B91C1C',marginBottom:12}}>{exportError}</p>}
         {/* Link público do setlist (operador de datashow) */}
         {(profile?.is_admin || profile?.role === 'Operador de Datashow' || profile?.instrument === 'Operador de Datashow') && ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0 && <button
@@ -2979,27 +2983,27 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
             navigator.clipboard.writeText(url).catch(()=>{});
             alert('✅ Link copiado! Cole no navegador do telão para exibir o setlist sem login.');
           }}
-          style={{width:'100%',marginBottom:6,padding:'9px',borderRadius:'var(--r-md)',border:'1px solid rgba(16,185,129,.2)',background:'rgba(16,185,129,.06)',color:'#059669',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}
+          style={{width:'100%',marginBottom:6,padding:'9px',borderRadius:'var(--r-md)',border:'1px solid rgba(16,185,129,.2)',background:'rgba(16,185,129,.06)',color:"var(--app-positive, #059669)",fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}
         ><IcoShare s={14}/>Link Setlist (Telão / Datashow)</button>}
         {(isMyEvent||profile?.is_admin)&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
-          {isMyEvent&&<button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===true?'#10B981':'rgba(16,185,129,.1)',color:myConf===true?'#fff':'#059669',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoCheck/>Confirmar</button>}
-          {isMyEvent&&<button onClick={()=>onConfirm(ev.id,false)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===false?'#EF4444':'rgba(239,68,68,.08)',color:myConf===false?'#fff':'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX/>Recusar</button>}
-          {profile?.is_admin&&<button onClick={()=>onEditEv&&onEditEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(245,158,11,.15)',color:'#D97706',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoEdit s={14}/>Editar</button>}
-          {profile?.is_admin&&<button onClick={()=>onReqDelEv&&onReqDelEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.15)',color:'#DC2626',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX s={14}/>Excluir</button>}
+          {isMyEvent&&<button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===true?'#10B981':'rgba(16,185,129,.1)',color:myConf===true?'#fff':"var(--app-positive, #059669)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoCheck/>Confirmar</button>}
+          {isMyEvent&&<button onClick={()=>onConfirm(ev.id,false)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===false?'#EF4444':'rgba(239,68,68,.08)',color:myConf===false?'#fff':"var(--app-negative, #DC2626)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX/>Recusar</button>}
+          {profile?.is_admin&&<button onClick={()=>onEditEv&&onEditEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(245,158,11,.15)',color:"var(--app-warning, #D97706)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoEdit s={14}/>Editar</button>}
+          {profile?.is_admin&&<button onClick={()=>onReqDelEv&&onReqDelEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.15)',color:"var(--app-negative, #DC2626)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX s={14}/>Excluir</button>}
         </div>}
         {ev.type !== 'ebd' && ev.type !== 'consagracao' && <>
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Setlist</div>
           {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map((it,i)=>{
-            if(it.type==='note' || it.type==='text') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:'#D97706', borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
+            if(it.type==='note' || it.type==='text') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:"var(--app-warning, #D97706)", borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
             const s = it.song;
             const activeKey = performanceKey(s,ev);
             return <div key={it.id} style={{display:'flex',flexDirection:'column',gap:5,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
               <div style={{display:'flex',alignItems:'center',gap:11}}>
-                <span onClick={()=>onSelectSong(s, ev, activeKey)} style={{cursor:'pointer',width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'#4F46E5',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
+                <span onClick={()=>onSelectSong(s, ev, activeKey)} style={{cursor:'pointer',width:26,height:26,borderRadius:8,background:'rgba(79,70,229,.1)',color:'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
                 <div onClick={()=>onSelectSong(s, ev, activeKey)} style={{flex:1,cursor:'pointer'}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{String(s.title || 'Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{String(s.artist || 'Ministério')}</div></div>
                 <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
                   <KeyChip k={activeKey} size={10}/>
-                  {profile?.is_admin&&<button onClick={()=>setExpandSong(expandSong===s.id?null:s.id)} style={{background:'none',border:'none',color:'#4F46E5',fontSize:'var(--fs-xs)',cursor:'pointer',fontWeight:700}}>Ajustar</button>}
+                  {profile?.is_admin&&<button onClick={()=>setExpandSong(expandSong===s.id?null:s.id)} style={{background:'none',border:'none',color:'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',cursor:'pointer',fontWeight:700}}>Ajustar</button>}
                 </div>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4,paddingTop:8,borderTop:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
@@ -3035,7 +3039,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           {evM.map(m=>{const conf=(ev.confirmations||{})[m.id];return <div key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:'var(--r-md)',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
             <Ava m={m} size={32} ring/>
             <div style={{flex:1}}><div style={{fontSize:'var(--fs-sm)',fontWeight:700,color:tc}}>{m.name}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{m.instrument}</div></div>
-            <span style={{fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 9px',borderRadius:100,background:conf===true?'rgba(16,185,129,.12)':conf===false?'rgba(239,68,68,.1)':'rgba(0,0,0,.05)',color:conf===true?'#059669':conf===false?'#DC2626':t2}}>{conf===true?'Confirmado':conf===false?'Recusou':'Pendente'}</span>
+            <span style={{fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 9px',borderRadius:100,background:conf===true?'rgba(16,185,129,.12)':conf===false?'rgba(239,68,68,.1)':'rgba(0,0,0,.05)',color:conf===true?"var(--app-positive, #059669)":conf===false?"var(--app-negative, #DC2626)":t2}}>{conf===true?'Confirmado':conf===false?'Recusou':'Pendente'}</span>
           </div>;})}
         </div>
       </div>
@@ -3045,7 +3049,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
 
 /* ─── NOTIFS SHEET ──────────────────────────────────────────── */
 const NotifsSheet = memo(({dark,notifs,onClose,onMarkRead,onMarkAllRead,onAction})=>{
-  const tc=dark?'#E2E8F0':'#0F172A', t2=dark?'#94A3B8':'#475569';
+  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   return <>
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:99,animation:'fadeIn .2s'}} onClick={onClose}/>
     <div className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'78dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .4s cubic-bezier(.22,1,.36,1)'}}>
@@ -3054,7 +3058,7 @@ const NotifsSheet = memo(({dark,notifs,onClose,onMarkRead,onMarkAllRead,onAction
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
           <div style={{fontSize:18,fontWeight:900,color:tc,display:'flex',alignItems:'center',gap:8}}><IcoBell s={18}/>Notificações</div>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={onMarkAllRead} style={{fontSize:'var(--fs-xs)',fontWeight:700,color:'#4F46E5',border:'none',background:'transparent',cursor:'pointer'}}>Marcar todas lidas</button>
+            <button onClick={onMarkAllRead} style={{fontSize:'var(--fs-xs)',fontWeight:700,color:'var(--app-link, #4F46E5)',border:'none',background:'transparent',cursor:'pointer'}}>Marcar todas lidas</button>
             <button onClick={onClose} style={{width:30,height:30,borderRadius:8,border:'none',background:'rgba(0,0,0,.07)',color:t2,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={12}/></button>
           </div>
         </div>
@@ -3064,7 +3068,7 @@ const NotifsSheet = memo(({dark,notifs,onClose,onMarkRead,onMarkAllRead,onAction
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:'var(--fs-sm)',fontWeight:n.read?600:800,color:tc,lineHeight:1.4}}>{n.text}</div>
             <div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:3}}>{n.time}</div>
-            {n.cta&&<button onClick={e=>{e.stopPropagation();onAction(n);}} style={{marginTop:6,fontSize:'var(--fs-xs)',color:'#4F46E5',border:'1px solid rgba(79,70,229,.25)',background:'rgba(79,70,229,.06)',borderRadius:100,padding:'3px 12px',cursor:'pointer',fontWeight:700}}>{n.cta}</button>}
+            {n.cta&&<button onClick={e=>{e.stopPropagation();onAction(n);}} style={{marginTop:6,fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',border:'1px solid rgba(79,70,229,.25)',background:'rgba(79,70,229,.06)',borderRadius:100,padding:'3px 12px',cursor:'pointer',fontWeight:700}}>{n.cta}</button>}
           </div>
           {!n.read&&<div style={{width:8,height:8,borderRadius:'50%',background:'#4F46E5',flexShrink:0,marginTop:4}}/>}
         </div>)}
@@ -3077,7 +3081,7 @@ const NotifsSheet = memo(({dark,notifs,onClose,onMarkRead,onMarkAllRead,onAction
 
 /* ─── MURAL DE COMUNICADOS ─── */
 const Mural = memo(({profile, dark, members, activity}) => {
-  const tc = dark ? '#E2E8F0' : '#0F172A', t2 = dark ? '#94A3B8' : '#475569';
+  const tc = dark ? '#F5F2FF' : '#0F172A', t2 = dark ? '#C9C3DD' : '#475569';
   const gc = 'gL1', CS = {borderRadius:'var(--r-xl)', padding:20, marginBottom:16};
 
   const [posts, setPosts] = useState([]);
@@ -3324,7 +3328,7 @@ if (!navigator.onLine) {
               {/* Comments Section */}
               <hr style={{margin:'10px 0', opacity:0.1}} />
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                <button onClick={() => setExpandedComments(p => ({ ...p, [post.id]: !p[post.id] }))} style={{background:'transparent', border:'none', color:'#4F46E5', fontSize:'var(--fs-xs)', fontWeight:800, cursor:'pointer'}}>
+                <button onClick={() => setExpandedComments(p => ({ ...p, [post.id]: !p[post.id] }))} style={{background:'transparent', border:'none', color:'var(--app-link, #4F46E5)', fontSize:'var(--fs-xs)', fontWeight:800, cursor:'pointer'}}>
                   💬 {postComments.length} comentário{postComments.length !== 1 ? 's' : ''} {expandedComments[post.id] ? '▲' : '▼'}
                 </button>
               </div>
@@ -3916,7 +3920,7 @@ export default function LouveSync() {
      }
      return profile.permissions.includes(t.id);
   });
-  const tc=dark?'#E2E8F0':'#0F172A';
+  const tc=dark?'#F5F2FF':'#0F172A';
 
   return <ErrorBoundary>
   <div className={`ls${dark?' dark':''}`}>
@@ -3941,7 +3945,7 @@ export default function LouveSync() {
         <div className="app-header" style={{padding:'11px 16px', paddingTop:'calc(var(--app-safe-top) + 11px)', display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${dark?'rgba(168,85,247,.1)':'rgba(123,63,242,.06)'}`,position:'sticky',top:0,zIndex:30,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             {inCifra&&<button onClick={()=>{vib();backFromSong();}} style={{padding:'8px 16px',borderRadius:'var(--r-full)',border:'none',background:'rgba(123,63,242,.14)',color:'#7B3FF2',display:'flex',alignItems:'center',gap:6,fontWeight:800,fontSize:'var(--fs-sm)',cursor:'pointer',boxShadow:'0 2px 10px rgba(123,63,242,.15)'}}><IcoChevL s={16}/> Voltar</button>}
-            {inCifra?<div style={{lineHeight:1.3,textAlign:'right'}}><div className="font-serif" style={{fontSize:16,fontWeight:900,color:tc}}>{String(selSong.title || 'Música Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:dark?'#94A3B8':'#475569'}}>{String(selSong.artist || 'Ministério')}</div></div>
+            {inCifra?<div style={{lineHeight:1.3,textAlign:'right'}}><div className="font-serif" style={{fontSize:16,fontWeight:900,color:tc}}>{String(selSong.title || 'Música Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:dark?'#C9C3DD':'#475569'}}>{String(selSong.artist || 'Ministério')}</div></div>
             :<div style={{display:'flex',alignItems:'center',gap:10}}>
               <img src={dark?'/brand/v2/mark-white.png':'/brand/v2/mark-black.png'} alt="LouveSync" width="36" height="36" style={{objectFit:'contain',borderRadius:'22%'}} />
               <div>
@@ -3958,7 +3962,7 @@ export default function LouveSync() {
             {!inCifra&&<button title="Atualizar App" onClick={handleAppUpdate} style={{position:'relative',width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(16,185,129,.12)',color:'#10B981',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             </button>}
-            {!inCifra&&<button title="Sair" onClick={handleLogout} style={{width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.05)',color:dark?'#94A3B8':'#475569',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><IcoLogout s={15}/></button>}
+            {!inCifra&&<button title="Sair" onClick={handleLogout} style={{width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.05)',color:dark?'#C9C3DD':'#475569',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><IcoLogout s={15}/></button>}
             <button className={`tog${dark?' on':''}`} onClick={()=>setDark(p=>!p)} style={{background:dark?'#7B3FF2':'#CBD5E1'}} aria-label="Tema"/>
           </div>
         </div>
@@ -3987,8 +3991,8 @@ export default function LouveSync() {
         {!inCifra&&<div className="app-nav">
           <div ref={navigationRef} className="gNav hide-scroll" style={{borderRadius:100,padding:'6px 10px',display:'flex',gap:2,pointerEvents:'all',overflowX:'auto',maxWidth:'90%',WebkitOverflowScrolling:'touch'}}>
             {TABS.map(n=>{const active=tab===n.id;return <button key={n.id} className={`nb${active?' on':''}`} onClick={()=>navTo(n.id)}>
-              <span className="ni" style={{color:active?(dark?'#A855F7':'#7B3FF2'):dark?'#94A3B8':'#64748B'}}>{n.ico}</span>
-              <span className="nl" style={{color:active?(dark?'#A855F7':'#7B3FF2'):dark?'#94A3B8':'#64748B'}}>{n.l}</span>
+              <span className="ni" style={{color:active?(dark?'#D2B8FF':'#7B3FF2'):dark?'#C9C3DD':'#64748B'}}>{n.ico}</span>
+              <span className="nl" style={{color:active?(dark?'#D2B8FF':'#7B3FF2'):dark?'#C9C3DD':'#64748B'}}>{n.l}</span>
               <div className="ndot" style={{width:active?22:0,background:dark?'linear-gradient(90deg,#A855F7,#FF8C5A)':'linear-gradient(90deg,#7B3FF2,#FF6B35)'}}/>
             </button>;})}
           </div>

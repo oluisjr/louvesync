@@ -5,9 +5,9 @@
   color:var(--ui-text); font-family:'Nunito',sans-serif; font-size:14px; line-height:1.5; color-scheme:light;
 }
 .ui-scope[data-theme="dark"] {
-  --ui-text:#eee7fb; --ui-muted:#a99bbc; --ui-accent:#c09bff; --ui-accent-soft:#33204f;
-  --ui-surface:#1b102e; --ui-panel:#160c26; --ui-field:#241637; --ui-line:#362447;
-  --ui-row:#211432; --ui-shadow:0 5px 24px #0002; --ui-success:#65d5b6; color-scheme:dark;
+  --ui-text:#f5f2ff; --ui-muted:#cac2de; --ui-accent:#d2b8ff; --ui-accent-soft:#49375e;
+  --ui-surface:#332d49; --ui-panel:#282239; --ui-field:#241f35; --ui-line:#78668f;
+  --ui-row:#3d3552; --ui-shadow:0 5px 24px #0002; --ui-success:#7ee5c4; color-scheme:dark;
 }
 .ui-page { padding:22px 18px 0; min-width:0; }
 .ui-activity-monitor { margin-bottom:16px; }

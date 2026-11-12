@@ -31,6 +31,8 @@ Os testes de navegador simulam o banco e o transporte Realtime e exercitam duas 
 
 ## Interface e edição de eventos
 
+O modo escuro usa superfícies distintas para fundo, cartões e painéis, com bordas mais visíveis. Textos secundários, links e categorias recebem tons claros para melhorar a leitura. Eventos expirados preservam a legibilidade e continuam identificados pelo aviso Expirado.
+
 No login, a etapa da senha usa um cartão compacto com avatar, nome e função na mesma linha. Quando a área disponível fica curta, a marca e o controle de tema cedem espaço aos campos. A rolagem local acompanha a abertura, o deslocamento e o fechamento do teclado, mantendo senha, erro e ação de entrada acessíveis. Enter e a ação Ir do teclado enviam o formulário; uma senha incorreta mantém o foco para tentar novamente.
 
 O admin pode consultar membros on-line e visualizações de escalas/avisos após a instalação das tabelas de atividade: [instruções de ativação e limites do login atual](docs/admin-activity.md). O teste SQL requer Docker e usa um PostgreSQL descartável sem rede.

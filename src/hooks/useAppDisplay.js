@@ -5,7 +5,7 @@ export function useAppDisplay(dark) {
   useLayoutEffect(() => {
     const theme = dark ? 'dark' : 'light';
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0A0414' : '#F5F0FF');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#1D1B2D' : '#F5F0FF');
     document.getElementById('app-favicon')?.setAttribute('href', dark ? '/brand/v2/favicon-dark.png' : '/brand/v2/favicon-light.png');
     try { localStorage.setItem('ls_theme', theme); } catch { /* Storage can be unavailable in private browsing. */ }
   }, [dark]);
