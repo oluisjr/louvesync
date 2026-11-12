@@ -58,22 +58,24 @@ export function useActivity(profile, members) {
 }
 
 export function useActivityQuery(credentials, action, targetType, targetId) {
-  const [state, setState] = useState({ loading: true, data: null, error: '' });
   const memberId = credentials?.memberId, pin = credentials?.pin;
+  const scope = useMemo(() => ({ memberId, pin, action, targetType, targetId }), [memberId, pin, action, targetType, targetId]);
+  const [state, setState] = useState({ scope: null, loading: true, data: null, error: '' });
   const [retry, setRetry] = useState(0);
   useEffect(() => {
+    const { memberId, pin, action, targetType, targetId } = scope;
     if (!memberId || !pin) return;
     let disposed = false, running = false, pending = false;
     const controller = new AbortController();
-    setState({ loading: true, data: null, error: '' });
+    setState({ scope, loading: true, data: null, error: '' });
     const load = async () => {
       if (disposed || document.visibilityState !== 'visible') return;
       if (running) { pending = true; return; }
       running = true;
       try {
         const data = await activityRequest({ memberId, pin }, { action, ...(targetType ? { targetType, targetId } : {}) }, { signal: controller.signal });
-        if (!disposed) setState({ loading: false, data, error: '' });
-      } catch (error) { if (!disposed) setState(previous => ({ ...previous, loading: false, error: error.message })); }
+        if (!disposed) setState({ scope, loading: false, data, error: '' });
+      } catch (error) { if (!disposed) setState(previous => ({ scope, data: previous.scope === scope ? previous.data : null, loading: false, error: error.message })); }
       finally { running = false; if (pending && !disposed) { pending = false; void load(); } }
     };
     void load();
@@ -83,9 +85,13 @@ export function useActivityQuery(credentials, action, targetType, targetId) {
     window.addEventListener('online', load);
     document.addEventListener('visibilitychange', load);
     return () => { disposed = true; controller.abort(); off(); clearInterval(timer); window.removeEventListener('louvesync:activity', load); window.removeEventListener('online', load); document.removeEventListener('visibilitychange', load); };
-  }, [memberId, pin, action, targetType, targetId, retry]);
+  }, [scope, retry]);
   const unavailable = !memberId || !pin;
-  return { ...state, ...(unavailable ? { loading: false, data: null, error: 'Não foi possível validar esta sessão. Entre novamente no app.' } : {}), refresh: () => setRetry(value => value + 1) };
+  // Effects run after a render: clearing state in the effect alone can show
+  // the previous event's readers under the new event's heading. Gate all data
+  // synchronously by the full query identity, including the signed-in member.
+  const current = state.scope === scope ? state : { loading: true, data: null, error: '' };
+  return { loading: current.loading, data: current.data, error: current.error, ...(unavailable ? { loading: false, data: null, error: 'Não foi possível validar esta sessão. Entre novamente no app.' } : {}), refresh: () => setRetry(value => value + 1) };
 }
 
 // A mural card is viewed only after a meaningful portion stays visible for 1 s.

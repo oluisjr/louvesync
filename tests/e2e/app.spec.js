@@ -418,6 +418,64 @@ test('event view receipts persist with first/last times and are restricted to ad
   }finally{await app.close();}
 });
 
+test('a report never shows the previous event count while the next event is loading',async({page})=>{
+  let release;
+  const gate=new Promise(resolve=>{release=resolve;});
+  await page.route('**/src/main.jsx',route=>route.fulfill({contentType:'text/javascript',body:"import '/tests/e2e/fixtures/activity-scope.jsx';"}));
+  await page.route('**/api/activity',async route=>{
+    const {targetId}=route.request().postDataJSON();
+    if(targetId==='event-2')await gate;
+    await route.fulfill({json:{viewers:[{memberId:member.id,name:member.name,viewCount:targetId==='event-1'?9:1}],serverTime:'2026-10-24T15:00:00Z'}});
+  });
+  await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/,route=>route.abort());
+  try{
+    await page.goto('/');
+    await expect(page.getByRole('status')).toHaveText('9');
+    await page.getByRole('button',{name:'Abrir outro evento'}).click();
+    await expect(page.getByRole('heading')).toHaveText('event-2');
+    await expect(page.getByRole('status')).toHaveText('Consultando');
+    release();
+    await expect(page.getByRole('status')).toHaveText('1');
+    const stale=await page.evaluate(()=>window.activityScopeRenders.filter(render=>render.targetId==='event-2'&&render.count===9));
+    expect(stale).toEqual([]);
+  }finally{release();}
+});
+
+test('events with the same name keep independent readers, counts and observation times',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.members=app.state.members.map((person,index)=>({...person,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
+  app.state.events[0].date='2026-10-24';
+  app.state.events.push({...structuredClone(app.state.events[0]),id:'event-2',date:'2026-10-25'});
+  try{
+    const reader=await app.open(member,undefined,{activity:true});
+    await reader.getByRole('button',{name:'Escala',exact:true}).click();
+    const openEvent=async(page,index)=>page.getByRole('button',{name:'Ver detalhes →',exact:true}).nth(index).click();
+    const closeEvent=async page=>page.locator('.gL2').getByRole('button').first().click();
+    const receipts=id=>[...app.state.activityViews.values()].filter(view=>view.memberId===member.id&&view.targetType==='event'&&view.targetId===id);
+    await openEvent(reader,0);await expect.poll(()=>receipts('event-1').length).toBe(1);await closeEvent(reader);
+    await reader.clock.setFixedTime(new Date('2026-10-24T12:05:00-03:00'));
+    await openEvent(reader,0);await expect.poll(()=>receipts('event-1').length).toBe(2);await closeEvent(reader);
+    expect(receipts('event-2')).toHaveLength(0);
+    await reader.clock.setFixedTime(new Date('2026-10-24T12:10:00-03:00'));
+    await openEvent(reader,1);await expect.poll(()=>receipts('event-2').length).toBe(1);await closeEvent(reader);
+    const page=await app.open(admin,undefined,{activity:true});
+    await page.getByRole('button',{name:'Escala',exact:true}).click();
+    for(const index of [0,1,0]){
+      await openEvent(page,index);
+      await page.getByRole('button',{name:'Ver visualizações de Culto de Teste',exact:true}).click();
+      const dialog=page.getByRole('dialog',{name:'Visualizações da escala',exact:true});
+      await expect(dialog.locator('header')).toContainText(index===0?'24/10/2026 · 18:00':'25/10/2026 · 18:00');
+      const row=dialog.locator('.ui-activity-readers .ui-activity-person').filter({hasText:'Membro Teste'});
+      await expect(row).toContainText(index===0?'12:05':'12:10');
+      if(index===0)await expect(row).toContainText('2 visualizações desta escala');
+      else await expect(row).not.toContainText('visualizações');
+      await dialog.getByRole('button',{name:'Fechar',exact:true}).click();await closeEvent(page);
+    }
+    expect(receipts('event-1')).toHaveLength(2);expect(receipts('event-2')).toHaveLength(1);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
 test('mural records only visible notices, queues offline observation times and keeps history after reopening',async({browser})=>{
   const app=await fixture(browser);
   app.state.members=app.state.members.map((member,index)=>({...member,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));

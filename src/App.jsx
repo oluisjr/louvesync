@@ -2951,7 +2951,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           <button onClick={onClose} style={{width:34,height:34,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.07)',color:t2,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={14}/></button>
         </div>
         {ev.theme&&<div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-sm)',padding:'9px 14px',marginBottom:14,fontSize:'var(--fs-sm)',color:'#4F46E5',fontWeight:700,border:'1px solid rgba(79,70,229,.15)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
-        {profile?.is_admin&&<ViewersButton activity={activity} targetType="event" targetId={ev.id} title={ev.label} members={members} audience={ev.members} dark={dark}/>}
+        {profile?.is_admin&&<ViewersButton activity={activity} targetType="event" targetId={ev.id} title={ev.label} context={`${new Date(ev.date+'T12:00:00').toLocaleDateString('pt-BR')} · ${String(ev.time||'').slice(0,5)}`} members={members} audience={ev.members} dark={dark}/>}
         {/* Share setlist */}
         {ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0&&<button disabled={sharing} onClick={async()=>{
           setSharing(true);setShareText('');setShareStatus('');
@@ -3992,7 +3992,7 @@ export default function LouveSync() {
       {/* OVERLAYS */}
       {addOpen&&<AddSong dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
       {profile?.is_admin&&createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
-      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{if(!profile?.is_admin)return;setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
+      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{if(!profile?.is_admin)return;setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotifsSheet dark={dark} notifs={notifs} onClose={()=>setNotifsOpen(false)} onMarkRead={id=>setNotifs(ns=>ns.map(n=>n.id===id?{...n,read:true}:n))} onMarkAllRead={()=>setNotifs(ns=>ns.map(n=>({...n,read:true})))} onAction={n=>{if(n.ctaAction==='addSong'){setAddOpen(true);setNotifsOpen(false);}else if(n.ctaTab){navTo(n.ctaTab);setNotifsOpen(false);}}}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
 

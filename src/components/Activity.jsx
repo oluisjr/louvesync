@@ -29,19 +29,19 @@ export function ActivityMonitor({ activity, members, dark }) {
   </div>;
 }
 
-function ViewersDialog({ activity, targetType, targetId, title, members, audience, dark, onClose }) {
+function ViewersDialog({ activity, targetType, targetId, title, context, members, audience, dark, onClose }) {
   const query = useActivityQuery(activity.credentials, 'viewers', targetType, targetId);
   const viewers = query.data?.viewers || [];
   const seen = new Set(viewers.map(view => view.memberId));
   const waiting = members.filter(member => (audience ? audience.includes(member.id) : member.status === 'ativo') && !seen.has(member.id));
-  return <Dialog compact dark={dark} icon="eye" title={targetType === 'event' ? 'Visualizações da escala' : 'Visualizações do aviso'} description={title} closeLabel="Fechar visualizações" onClose={onClose} footer={<button className="ui-button ui-button-primary ui-button-wide" onClick={onClose}>Fechar</button>}>
+  return <Dialog compact dark={dark} icon="eye" title={targetType === 'event' ? 'Visualizações da escala' : 'Visualizações do aviso'} description={context ? <>{title}<br/>{context}</> : title} closeLabel="Fechar visualizações" onClose={onClose} footer={<button className="ui-button ui-button-primary ui-button-wide" onClick={onClose}>Fechar</button>}>
     <QueryState query={query}/>
     {query.data && <>
       <div className="ui-activity-summary"><span className="ui-badge">{viewers.length} {viewers.length === 1 ? 'pessoa visualizou' : 'pessoas visualizaram'}</span><button className="ui-button ui-button-quiet ui-button-small" onClick={query.refresh}>Atualizar</button></div>
       {!viewers.length && !query.error && <p className="ui-helper">Ainda não há visualizações registradas para este conteúdo.</p>}
       <div className="ui-activity-readers">{viewers.map(view => <Person key={view.memberId} member={members.find(member => member.id === view.memberId)} name={view.name}>
         <small>{view.viewCount > 1 ? 'Última visualização' : 'Visualizou em'}: <time dateTime={view.lastViewedAt}>{dateText(view.lastViewedAt)}</time></small>
-        {view.viewCount > 1 && <small>Primeira: <time dateTime={view.firstViewedAt}>{dateText(view.firstViewedAt)}</time> · {view.viewCount} visualizações</small>}
+        {view.viewCount > 1 && <small>Primeira: <time dateTime={view.firstViewedAt}>{dateText(view.firstViewedAt)}</time> · {view.viewCount} visualizações {targetType === 'event' ? 'desta escala' : 'deste aviso'}</small>}
       </Person>)}</div>
       {!!waiting.length && <details className="ui-activity-waiting"><summary>Sem registro de visualização ({waiting.length})</summary>{waiting.map(member => <Person key={member.id} member={member}><small>Sem registro</small></Person>)}</details>}
       <p className="ui-helper ui-activity-footnote">Os registros começam com a ativação deste recurso. Acessos offline aparecem após a sincronização. Visualizar não confirma presença nem garante a leitura completa.</p>
@@ -49,11 +49,12 @@ function ViewersDialog({ activity, targetType, targetId, title, members, audienc
   </Dialog>;
 }
 
-export function ViewersButton({ activity, targetType, targetId, title, members, audience, dark }) {
-  const [open, setOpen] = useState(false);
+export function ViewersButton({ activity, targetType, targetId, title, context, members, audience, dark }) {
+  const target = JSON.stringify([targetType, targetId]);
+  const [openTarget, setOpenTarget] = useState(null);
   return <div className="ui-scope ui-viewers-control" data-theme={dark ? 'dark' : 'light'}>
-    <button className="ui-button ui-button-soft ui-button-small" aria-label={`Ver visualizações de ${title}`} onClick={() => setOpen(true)}><Icon name="eye" size={16}/>Quem visualizou</button>
-    {open && <ViewersDialog activity={activity} targetType={targetType} targetId={targetId} title={title} members={members} audience={audience} dark={dark} onClose={() => setOpen(false)}/>}
+    <button className="ui-button ui-button-soft ui-button-small" aria-label={`Ver visualizações de ${title}`} onClick={() => setOpenTarget(target)}><Icon name="eye" size={16}/>Quem visualizou</button>
+    {openTarget === target && <ViewersDialog key={target} activity={activity} targetType={targetType} targetId={targetId} title={title} context={context} members={members} audience={audience} dark={dark} onClose={() => setOpenTarget(null)}/>}
   </div>;
 }
 

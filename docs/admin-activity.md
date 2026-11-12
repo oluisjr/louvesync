@@ -2,6 +2,8 @@
 
 O admin encontra **Membros on-line** na aba Admin. Nos detalhes de cada escala e em cada aviso do mural, **Quem visualizou** abre a lista com nome, primeira/última visualização e quantidade de acessos. A lista **Sem registro de visualização** indica ausência de um registro, não uma confirmação de que a pessoa nunca viu o conteúdo.
 
+Cada relatório pertence ao ID daquele evento ou aviso. Eventos com o mesmo nome têm históricos independentes; a data e o horário do evento aparecem no painel para distinguir escalas recorrentes. O total de pessoas conta cada membro uma vez naquele conteúdo; a quantidade de visualizações na linha do membro conta suas aberturas daquele mesmo conteúdo. Ao trocar de evento, o painel aguarda a nova consulta sem reaproveitar nomes, contagens ou horários do relatório anterior. Essa correção é da aplicação e não requer executar novamente o SQL.
+
 ## Ativação no Supabase
 
 A implementação precisa de duas tabelas novas e uma função RPC. O arquivo é separado da aplicação e não é executado pelo build ou pelo deploy da Vercel:

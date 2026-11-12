@@ -2,13 +2,16 @@
 create role anon;
 create role authenticated;
 create table public.members(id uuid primary key, name text, pin text, is_admin boolean);
-create table public.events(id uuid primary key);
+create table public.events(id uuid primary key, label text, date date);
 create table public.announcements(id text primary key);
 insert into public.members values
  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Admin fixture', 'ADMIN_TEST_PIN', true),
  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Member fixture', 'MEMBER_TEST_PIN', false);
-insert into public.events values ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
-insert into public.announcements values ('post_fixture');
+insert into public.events values
+ ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'Culto de Domingo', '2026-11-08'),
+ ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'Culto de Domingo', '2026-11-15'),
+ ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'Culto de Domingo', '2026-11-22');
+insert into public.announcements values ('post_fixture'), ('ffffffff-ffff-4fff-8fff-ffffffffffff');
 \i /app/supabase/migrations/20261108_admin_activity.sql
 \i /app/supabase/migrations/20261108_admin_activity.sql
 
@@ -64,6 +67,16 @@ begin
   if (result->'viewers'->0->>'lastViewedAt')::timestamptz <> '2026-11-08T15:00:00Z'::timestamptz then raise exception 'Last view was lost'; end if;
   result := public.louvesync_activity(admin_auth || '{"action":"viewers","targetType":"announcement","targetId":"post_fixture"}');
   if (result->'viewers'->0->>'viewCount')::int <> 1 then raise exception 'Announcement receipt was lost'; end if;
+  -- Same label and member, different event: counts and dates must be independent.
+  perform public.louvesync_activity(member_auth || view1 || '{"targetId":"ffffffff-ffff-4fff-8fff-ffffffffffff","viewId":"66666666-6666-4666-8666-666666666666","viewedAt":"2026-11-09T10:00:00Z"}');
+  perform public.louvesync_activity(member_auth || view1 || '{"targetType":"announcement","targetId":"ffffffff-ffff-4fff-8fff-ffffffffffff","viewId":"77777777-7777-4777-8777-777777777777"}');
+  result := public.louvesync_activity(admin_auth || '{"action":"viewers","targetType":"event","targetId":"ffffffff-ffff-4fff-8fff-ffffffffffff"}');
+  if jsonb_array_length(result->'viewers') <> 1 or (result->'viewers'->0->>'viewCount')::int <> 1 then raise exception 'Different events or content types were combined'; end if;
+  if (result->'viewers'->0->>'firstViewedAt')::timestamptz <> '2026-11-09T10:00:00Z'::timestamptz or result->'viewers'->0->>'firstViewedAt' <> result->'viewers'->0->>'lastViewedAt' then raise exception 'Another event changed the view timestamps'; end if;
+  result := public.louvesync_activity(admin_auth || '{"action":"viewers","targetType":"event","targetId":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"}');
+  if (result->'viewers'->0->>'viewCount')::int <> 2 then raise exception 'Second event inflated the first event count'; end if;
+  result := public.louvesync_activity(admin_auth || '{"action":"viewers","targetType":"event","targetId":"dddddddd-dddd-4ddd-8ddd-dddddddddddd"}');
+  if jsonb_array_length(result->'viewers') <> 0 then raise exception 'Unopened event inherited views'; end if;
 end;
 $$;
 reset role;
