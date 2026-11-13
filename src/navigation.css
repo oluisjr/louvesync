@@ -1,0 +1,83 @@
+.app-nav .app-navigation.gNav {
+  --navigation-ink:#514064;
+  --navigation-accent:#7130e5;
+  --navigation-underline:linear-gradient(90deg,#7b3ff2,#ff6b35);
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  align-items:center;
+  width:calc(100% - 32px);
+  max-width:468px;
+  min-height:72px;
+  padding:5px 8px;
+  border-radius:100px;
+  pointer-events:auto;
+  overflow:hidden;
+  background:linear-gradient(135deg,#ffffffb0,#f7ebff66 50%,#ffffff94);
+  border:1px solid #ffffffc2;
+  box-shadow:inset 0 2px 2px #ffffffd9,inset 0 -1px 2px #ffffff80,0 8px 32px #5420ac26;
+  backdrop-filter:blur(18px) saturate(200%) contrast(108%);
+  -webkit-backdrop-filter:blur(18px) saturate(200%) contrast(108%);
+}
+.app-nav .app-navigation[data-home-theme="true"][data-theme="light"] {
+  --navigation-ink:#425a6c;
+  --navigation-accent:#0089b3;
+  --navigation-underline:linear-gradient(90deg,#059fc0,#7ab7c5);
+  background:linear-gradient(135deg,#ffffffb8,#edfaff73 50%,#ffffffa3);
+  border-color:#ffffffd9;
+  box-shadow:inset 0 2px 2px #ffffffe6,inset 0 -1px 2px #ffffff80,0 8px 30px #3d869e24;
+}
+.app-nav .app-navigation[data-theme="dark"] {
+  --navigation-ink:#e9dcf9;
+  --navigation-accent:#d5a8ff;
+  --navigation-underline:linear-gradient(90deg,#c893ff,#ffb38b);
+  background:linear-gradient(135deg,#643b9899,#2917426b 50%,#49287194);
+  border-color:#d8b4ff66;
+  box-shadow:inset 0 2px 2px #eddbff4d,inset 0 -1px 2px #bb82ff33,0 8px 32px #14072559;
+}
+.app-nav .app-navigation .app-navigation-item {
+  min-width:0;
+  min-height:60px;
+  padding:7px 2px 8px;
+  gap:4px;
+  justify-content:center;
+  color:var(--navigation-ink);
+}
+.app-navigation .app-navigation-item .ni { display:grid; place-items:center; min-height:24px; }
+.app-navigation .app-navigation-item .ni,.app-navigation .app-navigation-item .nl { color:inherit; }
+.app-navigation .app-navigation-item.on { color:var(--navigation-accent); }
+.app-nav .app-navigation .app-navigation-item.on :is(.ni,.nl) { color:inherit; }
+.app-navigation .app-navigation-item.on .ni { transform:scale(1.06); }
+.app-navigation .app-navigation-item .nl { font-size:10px; line-height:1.4; white-space:nowrap; }
+.app-navigation .app-navigation-item .ndot { width:0; background:var(--navigation-underline); }
+.app-navigation .app-navigation-item.on .ndot { width:22px; }
+.app-navigation .app-navigation-item:focus-visible { outline:2px solid var(--navigation-accent); outline-offset:-3px; border-radius:18px; }
+.app-navigation .app-navigation-item:disabled { opacity:.35; }
+.app-navigation .app-navigation-church { padding:3px; }
+.app-navigation-emblem {
+  display:grid;
+  place-items:center;
+  width:52px;
+  height:52px;
+  max-width:100%;
+  border-radius:50%;
+  border:1px solid #99d9edb3;
+  background:linear-gradient(145deg,#fffffff2,#edf8ffe6);
+  box-shadow:inset 0 1px 2px #fff,0 2px 5px #3b72971a;
+}
+.app-navigation-emblem img { display:block; width:38px; height:38px; max-width:78%; object-fit:contain; }
+.app-navigation-church.on .app-navigation-emblem { border-color:var(--navigation-accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--navigation-accent) 22%,transparent),inset 0 1px 2px #fff; }
+.app-navigation[data-theme="dark"] .app-navigation-emblem { background:linear-gradient(145deg,#fffffff5,#e9d6fff2); border-color:#ddc1f7b3; }
+.app-more-menu { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.app-more-destination { text-align:left; justify-content:flex-start; min-height:58px; padding:12px; gap:9px; }
+.app-more-destination > span:first-child { display:grid; place-items:center; color:var(--ui-accent); }
+.app-more-destination > span:nth-child(2) { min-width:0; overflow-wrap:anywhere; }
+.app-more-destination[aria-current="page"] { border-color:var(--ui-accent); background:var(--ui-accent-soft); }
+.app-more-chevron { margin-left:auto; flex:0 0 auto; color:var(--ui-muted); font-size:22px; }
+@media (max-width:359px) {
+  .app-nav .app-navigation.gNav { padding-inline:5px; }
+  .app-navigation .app-navigation-item .nl { font-size:9px; }
+  .app-navigation-emblem { width:48px; height:48px; }
+  .app-more-menu { gap:8px; }
+  .app-more-destination { padding:10px; font-size:12px; gap:6px; }
+}
+@media (prefers-reduced-motion:reduce) { .app-navigation .nb,.app-navigation .ni,.app-navigation .ndot { transition:none; } }

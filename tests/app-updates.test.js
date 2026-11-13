@@ -26,6 +26,8 @@ test('reload-loop protection is per actual source and target build and expires',
 async function fixture({ worker = 'worker-a', icon = 'icon-a' } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'louvesync-build-'));
   await mkdir(join(directory, 'assets'));
+  await mkdir(join(directory, 'images/home'), { recursive: true });
+  await writeFile(join(directory, 'images/home/worship-landscape.webp'), 'home-art');
   await writeFile(join(directory, 'index.html'), '<html><head><meta name="louvesync-build" content="__LOUVESYNC_BUILD__"></head></html>');
   await writeFile(join(directory, 'assets/main-hash.js'), 'const app = "same JS";');
   await writeFile(join(directory, 'assets/print-hash.js'), 'const print = "lazy chunk";');
@@ -45,6 +47,7 @@ test('build output stamps identical HTML/worker/manifest identities and precache
     assert.ok(html.includes(`content="${version}"`)); assert.ok(worker.includes(`version='${version}'`));
     assert.equal(manifest.version, version); assert.equal(manifest.commit, 'fixture-commit');
     assert.ok(worker.includes('/assets/print-hash.js')); assert.ok(!worker.includes('__PRECACHE_MANIFEST__'));
+    assert.ok(worker.includes('/images/home/worship-landscape.webp'));
   } finally { await rm(directory, { recursive: true }); }
 });
 test('identical inputs reproduce the same build; worker-only and public-image edits change it', async () => {

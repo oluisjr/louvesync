@@ -8,6 +8,17 @@ const member = { ...admin, id: 'user-member', name: 'Membro Teste', is_admin: fa
 const songs = ['adoracao', 'ceia', 'jubilo'].map((cat, index) => ({ id: `song-${index}`, title: `Teste ${cat}`, artist: 'Fixture', cat, key: 'C', lyrics: '[C]Letra para [G]teste', bpm: 80, tags: [], time_signature: '4/4', vocal_keys: {} }));
 const initialEvents = [{ id: 'event-1', date: '2026-10-25', time: '18:00:00', label: 'Culto de Teste', type: 'culto', event_songs: songs.map((song, index) => ({ id: index + 1, song_id: song.id, order_index: index + 1, item_type: 'song' })), event_members: [{ member_id: admin.id, confirmed: null }, { member_id: member.id, confirmed: null }] }];
 
+async function navigate(page, name) {
+  if (['Início','Escala','Mural','Bíblia'].includes(name)) {
+    await page.getByRole('button',{name,exact:true}).click();
+    return;
+  }
+  await page.getByRole('button',{name:'Mais',exact:true}).click();
+  const menu=page.getByRole('dialog',{name:'Mais',exact:true});
+  await menu.getByRole('button',{name,exact:true}).click();
+  await expect(menu).toHaveCount(0);
+}
+
 test('saved dark theme covers the document before application JavaScript loads',async({browser})=>{
   const context=await browser.newContext();
   try{
@@ -30,7 +41,7 @@ for(const theme of ['light','dark']){
       const page=await app.open(admin,undefined,{device:{...devices['iPhone 13'],viewport:{width:390,height:844}},theme,standalone:true});
       await page.addStyleTag({content:':root { --app-safe-top: 47px; --app-safe-bottom: 34px; }'});
       const root=page.locator('#root'),shell=page.locator('.app-shell'),header=page.locator('.app-header'),main=page.locator('[data-main-scroll]'),nav=page.locator('.app-nav .gNav');
-      const canvas=theme==='dark'?'rgb(29, 27, 45)':'rgb(245, 240, 255)';
+      const canvas=theme==='dark'?'rgb(29, 27, 45)':'rgb(234, 248, 250)';
       for(const selector of ['html','body','.app-header'])await expect(page.locator(selector)).toHaveCSS('background-color',canvas);
       await expect(header).toHaveCSS('backdrop-filter','none');
       await expect(header).toHaveCSS('padding-top','58px');
@@ -104,7 +115,7 @@ for(const theme of ['light','dark']){
       await page.reload();
       await expect(page.getByRole('button',{name:'Escala',exact:true})).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme',changed);
-      await expect(page.locator('body')).toHaveCSS('background-color',changed==='dark'?'rgb(29, 27, 45)':'rgb(245, 240, 255)');
+      await expect(page.locator('body')).toHaveCSS('background-color',changed==='dark'?'rgb(29, 27, 45)':'rgb(234, 248, 250)');
       expect(app.failures).toEqual([]);
     }finally{await app.close();}
   });
@@ -149,7 +160,7 @@ for(const theme of ['light','dark']){
       const save=await layer.getByRole('button',{name:'Criar Compromisso',exact:true}).boundingBox();
       expect(save.y+save.height).toBeLessThanOrEqual(797-12);
       await page.keyboard.press('Escape');
-      await page.getByRole('button',{name:'Músicas',exact:true}).click();
+      await navigate(page,'Músicas');
       const search=page.getByPlaceholder('Buscar música ou artista...');
       await search.focus();
       // A focused field with no software keyboard must not shrink the installed app either.
@@ -248,17 +259,17 @@ test('pages use one compact menu clearance and release it when opening a chart',
       const bounds=await main.boundingBox();expect(Math.round(bounds.y+bounds.height)).toBe(700);
     };
     for(const tab of ['Ensaio','Bíblia','Admin']){
-      await page.getByRole('button',{name:tab,exact:true}).click();
+      await navigate(page,tab);
       await checkEnd(main.locator('.ui-page > .ui-card, .app-page > .gL1').last());
     }
-    await page.getByRole('button',{name:'Ensaio',exact:true}).click();
+    await navigate(page,'Ensaio');
     const last=main.locator('.ui-page > .ui-card').last();
     const height=(await nav.boundingBox()).height;
     await nav.locator('button').evaluateAll(buttons=>buttons.forEach(button=>{button.style.paddingBottom='28px';}));
     await expect.poll(async()=>(await nav.boundingBox()).height).toBeGreaterThan(height);
     await checkEnd(last);
     await page.screenshot({path:test.info().outputPath('compact-footer.png'),scale:'css'});
-    await page.getByRole('button',{name:'Músicas',exact:true}).click();
+    await navigate(page,'Músicas');
     await page.getByText('Teste adoracao',{exact:true}).click();
     await expect(page.locator('.app-nav')).toHaveCount(0);
     await main.evaluate(element=>{element.scrollTop=element.scrollHeight;});
@@ -417,12 +428,93 @@ async function fixture(browser) {
   return { open, failures, state, async close(){for(const context of contexts)await context.close();} };
 }
 
+test('five fixed destinations keep secondary screens reachable and respect member permissions',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open(admin,undefined,{device:{viewport:{width:320,height:740}}});
+    const nav=page.getByRole('navigation',{name:'Navegação principal'});
+    expect(await nav.getByRole('button').evaluateAll(buttons=>buttons.map(button=>button.getAttribute('aria-label')))).toEqual(['Início','Escala','Mural','Bíblia','Mais']);
+    expect(await nav.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+    await expect.poll(()=>nav.getByRole('button',{name:'Mural',exact:true}).locator('img').evaluate(image=>image.complete&&image.naturalWidth>0)).toBe(true);
+    await nav.getByRole('button',{name:'Mais',exact:true}).click();
+    const menu=page.getByRole('dialog',{name:'Mais',exact:true});
+    await expect(menu).toBeVisible();
+    expect(await page.locator('#root').evaluate(root=>root.inert)).toBe(true);
+    for(const label of ['Músicas','Patrimônio','Ensaio','Treinar','Admin'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    await expect(nav.getByRole('button',{name:'Mais',exact:true})).toBeFocused();
+    await navigate(page,'Músicas');
+    await expect(nav.getByRole('button',{name:'Mais',exact:true})).toHaveAttribute('aria-current','page');
+    await page.getByText('Teste adoracao',{exact:true}).click();
+    await expect(page.locator('.app-nav')).toHaveCount(0);
+    await page.getByRole('button',{name:'Voltar',exact:true}).click();
+    await expect(page.getByPlaceholder('Buscar música ou artista...')).toBeVisible();
+    await expect(nav.getByRole('button',{name:'Mais',exact:true})).toHaveAttribute('aria-current','page');
+    await nav.getByRole('button',{name:'Mural',exact:true}).click();
+    await expect(page.locator('[data-main-scroll]').getByText('Mural de Comunicados',{exact:false})).toBeVisible();
+    await expect(nav.getByRole('button',{name:'Mural',exact:true})).toHaveAttribute('aria-current','page');
+
+    const restricted=await app.open({...member,permissions:['home','biblia','repertorio','admin','membros']});
+    const limitedNav=restricted.getByRole('navigation',{name:'Navegação principal'});
+    await expect(limitedNav.getByRole('button')).toHaveCount(5);
+    await expect(limitedNav.getByRole('button',{name:'Escala',exact:true})).toBeDisabled();
+    await expect(limitedNav.getByRole('button',{name:'Mural',exact:true})).toBeDisabled();
+    await limitedNav.getByRole('button',{name:'Mais',exact:true}).click();
+    const limitedMenu=restricted.getByRole('dialog',{name:'Mais',exact:true});
+    await expect(limitedMenu.getByRole('button',{name:'Músicas',exact:true})).toBeVisible();
+    for(const label of ['Admin','Membros','Patrimônio','Treinar'])await expect(limitedMenu.getByRole('button',{name:label,exact:true})).toHaveCount(0);
+    await limitedMenu.getByRole('button',{name:'Fechar',exact:true}).click();
+    await expect(limitedMenu).toHaveCount(0);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+for(const theme of ['light','dark']){
+  test(`Home preserves live stats, study and pending confirmations while its theme stays scoped in ${theme} mode`,async({browser})=>{
+    const app=await fixture(browser);
+    app.state.songs[1]={...app.state.songs[1],featured_week:true,featured_note:'Pratique a transição'};
+    delete app.state.events[0].event_members[0].confirmed;
+    try{
+      const options={theme,device:{...devices['iPhone 13'],viewport:{width:390,height:844}},standalone:true};
+      const first=await app.open(admin,undefined,options),observer=await app.open(admin,undefined,options);
+      await first.addStyleTag({content:':root { --app-safe-top:47px; --app-safe-bottom:34px; } *,*::before,*::after { animation:none!important; transition:none!important; }'});
+      const home=first.locator('.home-page'),stats=home.locator('.home-stats');
+      await expect(home).toBeVisible();
+      await expect(first.locator('html')).toHaveAttribute('data-home-theme','true');
+      for(const [label,value] of [['Músicas','3'],['Membros','2'],['Cultos','1'],['Confirm.','0']])await expect(stats.locator(':scope > div').filter({hasText:label})).toContainText(value);
+      await expect(home.locator('.home-reminder')).toContainText('Lembrete para Vocais');
+      await expect(home.locator('.home-featured')).toContainText('Pratique a transição');
+      await expect(home.locator('.home-pending').getByRole('button',{name:'Confirmar',exact:true})).toBeVisible();
+      await first.screenshot({path:test.info().outputPath('home-'+theme+'.png'),scale:'css'});
+      await home.getByRole('button',{name:'Estudar Teste ceia',exact:true}).click();
+      await expect(first.locator('.app-header')).toContainText('Teste ceia');
+      await expect(first.locator('.app-nav')).toHaveCount(0);
+      await first.getByRole('button',{name:'Voltar',exact:true}).click();
+      await expect(home).toBeVisible();
+      await expect(first.getByRole('navigation',{name:'Navegação principal'}).getByRole('button',{name:'Início',exact:true})).toHaveAttribute('aria-current','page');
+      await home.locator('.home-pending').getByRole('button',{name:'Confirmar',exact:true}).click();
+      await expect.poll(()=>app.state.events[0].event_members[0].confirmed).toBe(true);
+      for(const page of [first,observer]){
+        await expect(page.locator('.home-pending')).toContainText('Você já está ciente de todos os próximos eventos');
+        await expect(page.locator('.home-stats > div').filter({hasText:'Confirm.'})).toContainText('1');
+      }
+      await first.getByRole('button',{name:'Escala',exact:true}).click();
+      await expect(first.locator('.home-page')).toHaveCount(0);
+      await expect(first.locator('html')).not.toHaveAttribute('data-home-theme','true');
+      await expect(first.locator('body')).toHaveCSS('background-color',theme==='dark'?'rgb(29, 27, 45)':'rgb(245, 240, 255)');
+      await expect(first.locator('.app-header')).toHaveCSS('background-color',theme==='dark'?'rgb(29, 27, 45)':'rgb(245, 240, 255)');
+      expect(app.failures).toEqual([]);
+    }finally{await app.close();}
+  });
+}
+
 test('admin sees online members across devices, foreground changes, disconnections and logout',async({browser})=>{
   const app=await fixture(browser);
   app.state.members=app.state.members.map((member,index)=>({...member,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
   try{
     const first=await app.open(admin,undefined,{activity:true}),second=await app.open(member,undefined,{activity:true});
-    await first.getByRole('button',{name:'Admin',exact:true}).click();
+    await navigate(first,'Admin');
     const list=first.locator('.ui-activity-list');
     await expect(list.getByText('Membro Teste',{exact:true})).toBeVisible();
     const third=await app.open(member,undefined,{activity:true});
@@ -566,7 +658,7 @@ test('missing monitoring setup reports unavailable data instead of declaring eve
   app.state.activityFailure='O monitoramento precisa ser ativado no banco.';
   try{
     const page=await app.open(admin,undefined,{activity:true});
-    await page.getByRole('button',{name:'Admin',exact:true}).click();
+    await navigate(page,'Admin');
     await expect(page.locator('.ui-activity-monitor')).toContainText(app.state.activityFailure);
     await expect(page.locator('.ui-activity-monitor')).not.toContainText('0 on-line');
     await page.getByRole('button',{name:'Escala',exact:true}).click();await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
@@ -639,7 +731,7 @@ test('today calendar navigation completes and ordinary members cannot create or 
 test('manual chord editing accepts spaces, vocal transposition renders and PDF contains the transposed text',async({browser})=>{
   const app=await fixture(browser);
   try{
-    const page=await app.open();await page.getByRole('button',{name:'Músicas',exact:true}).click();
+    const page=await app.open();await navigate(page,'Músicas');
     await page.getByText('Teste adoracao',{exact:true}).click();await page.getByRole('button',{name:'✎ Editar',exact:true}).click();
     const editor=page.locator('textarea');await editor.fill('[C]AB');await editor.press('End');await editor.press('Space');await editor.press('C');
     await expect(editor).toHaveValue('[C]AB C');await page.getByRole('button',{name:'✓ Salvar Letra',exact:true}).click();
@@ -655,7 +747,7 @@ test('manual chord editing accepts spaces, vocal transposition renders and PDF c
 test('new-song manual path works immediately and Santa Ceia includes every category',async({browser})=>{
   const app=await fixture(browser);
   try{
-    const page=await app.open();await page.getByRole('button',{name:'Músicas',exact:true}).click();await page.getByRole('button',{name:'Adicionar',exact:true}).click();
+    const page=await app.open();await navigate(page,'Músicas');await page.getByRole('button',{name:'Adicionar',exact:true}).click();
     await page.getByRole('button',{name:'⌨️ Digitar cifra manualmente',exact:true}).click();await expect(page.locator('textarea')).toBeVisible();
     await page.reload();await page.getByRole('button',{name:'Escala',exact:true}).click();await page.getByRole('button',{name:'Novo',exact:true}).click();
     await page.getByRole('tab',{name:'Setlist',exact:true}).click();
@@ -686,13 +778,13 @@ test('two devices share rehearsal song, arrangement, running timer and stage ale
   const app=await fixture(browser);
   try{
     const first=await app.open(admin),second=await app.open(member);
-    for(const page of [first,second])await page.getByRole('button',{name:'Ensaio',exact:true}).click();
+    for(const page of [first,second])await navigate(page,'Ensaio');
     await first.getByRole('button',{name:'Teste ceia',exact:true}).click();
     await expect(second.getByRole('heading',{name:'Tocando agora: Teste ceia',exact:true})).toBeVisible();
     await first.getByRole('button',{name:'Worship',exact:true}).click();await expect(second.getByRole('button',{name:'Worship',exact:true})).toHaveAttribute('aria-pressed','true');
     await first.getByRole('button',{name:'Iniciar cronômetro',exact:true}).click();await expect(second.getByRole('button',{name:'Pausar',exact:true})).toBeVisible();
     const late=await app.open(member,'2026-10-24T12:00:12-03:00');
-    await late.getByRole('button',{name:'Ensaio',exact:true}).click();
+    await navigate(late,'Ensaio');
     await expect(late.locator('output')).toHaveText('00:12');
 
     await second.getByRole('button',{name:'🔊 Mais Volume!',exact:true}).click();await expect(first.getByText('Alerta de Palco: Membro Teste',{exact:true})).toBeVisible();
@@ -704,7 +796,7 @@ test('starting the actual app without Supabase preserves cached offline songs',a
   try{
     await context.addInitScript(({profile,songs})=>{localStorage.setItem('ls_profile',JSON.stringify(profile));localStorage.removeItem('ls_last_activity');localStorage.setItem('ls_songs',JSON.stringify(songs));},{profile:member,songs});
     const page=await context.newPage();await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/,route=>route.abort());await page.goto('http://127.0.0.1:5174/');
-    await page.getByRole('button',{name:'Músicas',exact:true}).click();await expect(page.getByText('Teste ceia',{exact:true})).toBeVisible();
+    await navigate(page,'Músicas');await expect(page.getByText('Teste ceia',{exact:true})).toBeVisible();
     expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ls_songs')).length)).toBe(3);
   }finally{await context.close();}
 });
@@ -1027,7 +1119,7 @@ test('PDF degrees follow assigned ministers in B and A across devices, stage, re
     await second.getByRole('button',{name:'Descartar',exact:true}).click();
 
     await first.reload();
-    await first.getByRole('button',{name:'Ensaio',exact:true}).click();
+    await navigate(first,'Ensaio');
     await first.getByRole('button',{name:'Tua Unção',exact:true}).click();
     await expect(first.locator('.ui-rehearsal-lyrics b').first()).toHaveText('C#m');
     await expect(first.locator('.ui-rehearsal-lyrics')).toContainText('E/G#');
@@ -1090,7 +1182,7 @@ for(const theme of ['light','dark']){
     try{
       const page=await app.open(admin,undefined,{device:{...devices['iPhone 13'],viewport:{width:390,height:844}},theme,standalone:true,visualViewportHeight:797});
       await page.addStyleTag({content:':root { --app-safe-top:47px; --app-safe-bottom:34px; } *,*::before,*::after { animation:none!important; transition:none!important; }'});
-      await page.getByRole('button',{name:'Patrimônio',exact:true}).click();
+      await navigate(page,'Patrimônio');
       await page.getByRole('button',{name:'Adicionar equipamento',exact:true}).click();
       const dialog=page.getByRole('dialog',{name:'Novo equipamento',exact:true}),content=dialog.locator('.ui-dialog-content');
       await expect(dialog.getByLabel('Nome do equipamento',{exact:true})).toBeInViewport({ratio:1});
@@ -1124,7 +1216,7 @@ for(const theme of ['light','dark']){
       await page.evaluate(()=>{delete window.visualViewport.height;delete window.visualViewport.offsetTop;window.visualViewport.dispatchEvent(new Event('resize'));});
       expect(app.state.equipmentRequests).toHaveLength(2);
       expect(Object.keys(app.state.equipmentRequests[1]).sort()).toEqual(['brand','custodian_id','id','name','serial_number','status']);
-      await page.reload();await page.getByRole('button',{name:'Patrimônio',exact:true}).click();
+      await page.reload();await navigate(page,'Patrimônio');
       const row=page.locator('.gL1').filter({hasText:'Microfone cadastrado'});
       await row.getByRole('button',{name:'Editar',exact:true}).click();
       const edit=page.getByRole('dialog',{name:'Editar equipamento',exact:true});
@@ -1143,7 +1235,7 @@ for(const viewport of [{name:'mobile',width:320,height:740},{name:'desktop-dark'
       const page=await app.open();
       await page.setViewportSize({width:viewport.width,height:viewport.height});
       if(viewport.name==='desktop-dark')await page.getByRole('button',{name:'Tema',exact:true}).click();
-      await page.getByRole('button',{name:'Admin',exact:true}).click();
+      await navigate(page,'Admin');
       const open=page.getByRole('button',{name:'Adicionar membro',exact:true});
       await open.click();
       const dialog=page.getByRole('dialog',{name:'Novo membro',exact:true});

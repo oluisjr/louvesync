@@ -13,6 +13,8 @@ import { performanceKey, renderChordText } from './lib/chords.js';
 import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
 import EquipmentEditor from './components/EquipmentEditor.jsx';
+import AppNavigation from './components/AppNavigation.jsx';
+import './home.css';
 import MetronomeControls from './components/MetronomeControls.jsx';
 import { useMetronome } from './hooks/useMetronome.js';
 import { useAppDisplay } from './hooks/useAppDisplay.js';
@@ -1485,7 +1487,7 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
 
 /* ─── HOME ──────────────────────────────────────────────────── */
 const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSetAddOpen,onConfirm,spawnConfetti,onCreateEvent})=>{
-  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
+  const tc='var(--home-text)', t2='var(--home-muted)';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
   const todayStr=today();
 
@@ -1550,7 +1552,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
     vocalCats.push('oferta', 'santa ceia');
   }
 
-  return <div className="app-page">
+  return <div className="app-page home-page">
     {/* Greeting */}
     <div className="aUp" style={{marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
       <div>
@@ -1564,7 +1566,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
     </div>
 
     {/* Stats */}
-    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:12}}>
+    <div className="home-stats" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:12}}>
       {[{v:songs.length,l:'Músicas',c:'#4F46E5'},{v:members.filter(m=>m.status==='ativo').length,l:'Membros',c:'#10B981'},{v:upcoming.filter(e=>e.type==='culto').length,l:'Cultos',c:'#F59E0B'},{v:events.reduce((acc,e)=>{const c=e.confirmations[profile?.id];return acc+(c===true?1:0);},0),l:'Confirm.',c:'#EC4899'}].map((s,i)=>
         <div key={s.l} className={`${gc} aUp`} style={{borderRadius:'var(--r-lg)',padding:'12px 6px',textAlign:'center',animationDelay:`${i*.05}s`}}>
           <div style={{fontSize:18,fontWeight:900,color:readableTextColor(s.c,dark),lineHeight:1}}>{s.v}</div>
@@ -1574,7 +1576,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
 
     {/* Vocal Alert */}
     {isVocal && (
-      <div className="aUp" style={{marginBottom:16,background:'rgba(245,158,11,.15)',borderLeft:'4px solid #F59E0B',padding:12,borderRadius:'var(--r-md)',animationDelay:'.2s'}}>
+      <div className="aUp home-illustrated home-reminder" style={{marginBottom:16,borderLeft:'4px solid #F59E0B',padding:12,borderRadius:'var(--r-md)',animationDelay:'.2s'}}>
         <div style={{fontSize:'var(--fs-sm)',color:tc,fontWeight:700,marginBottom:4}}>🎤 Lembrete para Vocais</div>
         <div style={{fontSize:'var(--fs-xs)',color:t2}}>
           Atenção! Você é responsável por alimentar o nosso repertório com novas músicas das seguintes categorias: <strong>{vocalCats.join(', ')}</strong>.
@@ -1585,18 +1587,17 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
     {/* 🎵 Música da Semana */}
     {songs.find(s=>s.featured_week)&&(()=>{
       const feat=songs.find(s=>s.featured_week);
-      return <div className={`${gc} aUp`} style={{...CS,animationDelay:'.03s',background:'linear-gradient(135deg,rgba(79,70,229,.12),rgba(124,58,237,.06))',border:'1px solid rgba(79,70,229,.2)',position:'relative',overflow:'hidden'}} onClick={()=>onSelectSong(feat)}>
-        <div style={{position:'absolute',top:-20,right:-20,fontSize:80,opacity:.06}}>🎵</div>
+      return <button type="button" aria-label={'Estudar '+feat.title} className={`${gc} aUp home-illustrated home-featured`} style={{...CS,animationDelay:'.03s'}} onClick={()=>onSelectSong(feat)}>
         <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'var(--app-link, #4F46E5)',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:6,display:'flex',alignItems:'center',gap:5}}>📌 Música da Semana</div>
         <div className="font-serif" style={{fontSize:20,fontWeight:900,color:tc,lineHeight:1.2}}>{feat.title}</div>
         <div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:3,marginBottom:10}}>{feat.artist} · Tom {feat.key}</div>
-        {feat.featured_note&&<div style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',background:'rgba(79,70,229,.08)',borderRadius:'var(--r-sm)',padding:'6px 10px',marginBottom:8,fontStyle:'italic'}}>"{feat.featured_note}"</div>}
+        {feat.featured_note&&<div className="home-featured-note" style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',borderRadius:'var(--r-sm)',padding:'6px 10px',marginBottom:8,fontStyle:'italic'}}>"{feat.featured_note}"</div>}
         <div style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',fontWeight:700}}>Toque para estudar →</div>
-      </div>;
+      </button>;
     })()}
 
     {/* Confirmações Pendentes */}
-    <div className={`${gc} aUp`} style={{...CS,animationDelay:'.08s',border:'1px solid rgba(245,158,11,.2)',background:dark?'rgba(245,158,11,.04)':'rgba(245,158,11,.03)'}}>
+    <div className={`${gc} aUp home-illustrated home-pending`} style={{...CS,animationDelay:'.08s'}}>
         <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#F59E0B',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:6}}><IcoBell s={12}/> Confirmações Pendentes (Próx. 3 dias)</div>
         {nxtPending ? (
             <div>
@@ -3391,7 +3392,6 @@ export default function LouveSync() {
     try { return localStorage.getItem('ls_theme')==='dark'; }
     catch { return document.documentElement.dataset.theme==='dark'; }
   });
-  useAppDisplay(dark);
   const navigationRef=useNavigationClearance();
   const [tab,setTab]=useState('home');
   const [selectedSong,setSelSong]=useState(null);
@@ -3562,6 +3562,8 @@ export default function LouveSync() {
   const [keyF,setKeyF]=useState('');
   // inCifra: qualquer tab pode abrir a cifra de uma música
   const inCifra = !!selSong;
+  const homeTheme = !!profile && tab==='home' && !inCifra;
+  useAppDisplay(dark,homeTheme);
   const unread=notifs.filter(n=>!n.read).length;
 
   /* ── Load auth members ── */
@@ -3891,7 +3893,7 @@ export default function LouveSync() {
   const tc=dark?'#F5F2FF':'#0F172A';
 
   return <ErrorBoundary>
-  <div className={`ls${dark?' dark':''}`}>
+  <div className={`ls${dark?' dark':''}${homeTheme?' home-theme':''}`}>
     <style>{CSS}</style>
     {/* Confetti */}
     {confetti.map(c=><div key={c.id} className="conf-p" style={{left:`${c.x}vw`,top:'-20px',width:c.size,height:c.size,background:c.color,borderRadius:c.size>10?'50%':'2px',animationDelay:`${c.dl}s`,transform:`rotate(${c.rot}deg)`}}/>)}
@@ -3956,15 +3958,7 @@ export default function LouveSync() {
         </div>
 
         {/* BOTTOM NAV — hidden in Cifra */}
-        {!inCifra&&<div className="app-nav">
-          <div ref={navigationRef} className="gNav hide-scroll" style={{borderRadius:100,padding:'6px 10px',display:'flex',gap:2,pointerEvents:'all',overflowX:'auto',maxWidth:'90%',WebkitOverflowScrolling:'touch'}}>
-            {TABS.map(n=>{const active=tab===n.id;return <button key={n.id} className={`nb${active?' on':''}`} onClick={()=>navTo(n.id)}>
-              <span className="ni" style={{color:active?(dark?'#D5A8FF':'#7130E5'):dark?'#E9DCF9':'#514064'}}>{n.ico}</span>
-              <span className="nl" style={{color:active?(dark?'#D5A8FF':'#7130E5'):dark?'#E9DCF9':'#514064'}}>{n.l}</span>
-              <div className="ndot" style={{width:active?22:0,background:dark?'linear-gradient(90deg,#A855F7,#FF8C5A)':'linear-gradient(90deg,#7B3FF2,#FF6B35)'}}/>
-            </button>;})}
-          </div>
-        </div>}
+        {!inCifra&&<AppNavigation ref={navigationRef} tabs={TABS} currentTab={tab} onNavigate={navTo} dark={dark} homeTheme={homeTheme}/>}
       </>}
 
       {/* OVERLAYS */}

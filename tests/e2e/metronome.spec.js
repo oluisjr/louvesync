@@ -59,8 +59,8 @@ async function open(browser, mode = 'gesture') {
   await page.route('**/version.json',route=>route.fulfill({json:{version:'test'}}));
   await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/,route=>route.abort());
   await page.goto('http://127.0.0.1:5174/');
-  await expect(page.getByRole('button',{name:'Músicas',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Músicas',exact:true}).click();
+  await page.getByRole('button',{name:'Mais',exact:true}).click();
+  await page.getByRole('dialog',{name:'Mais',exact:true}).getByRole('button',{name:'Músicas',exact:true}).click();
   await page.getByText('Cifra do metrônomo',{exact:true}).click();
   return {page,errors,close:()=>context.close()};
 }

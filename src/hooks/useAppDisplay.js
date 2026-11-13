@@ -1,14 +1,15 @@
 import { useLayoutEffect } from 'react';
 
 // Keep the document canvas (including iOS safe areas) in the same theme as React.
-export function useAppDisplay(dark) {
+export function useAppDisplay(dark, homeTheme = false) {
   useLayoutEffect(() => {
     const theme = dark ? 'dark' : 'light';
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#1D1B2D' : '#F5F0FF');
+    document.documentElement.dataset.homeTheme = String(homeTheme);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#1D1B2D' : homeTheme ? '#EAF8FA' : '#F5F0FF');
     document.getElementById('app-favicon')?.setAttribute('href', dark ? '/brand/v2/favicon-dark.png' : '/brand/v2/favicon-light.png');
     try { localStorage.setItem('ls_theme', theme); } catch { /* Storage can be unavailable in private browsing. */ }
-  }, [dark]);
+  }, [dark, homeTheme]);
 
   useLayoutEffect(() => {
     const root = document.documentElement;

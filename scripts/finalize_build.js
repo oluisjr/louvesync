@@ -21,7 +21,7 @@ export async function finalizeBuild(directory = 'dist', commit = process.env.VER
   const version = hash.digest('hex').slice(0, 20);
   const html = (await readFile(join(directory, 'index.html'), 'utf8')).replace('__LOUVESYNC_BUILD__', version);
   if (!html.includes(`name="louvesync-build" content="${version}"`)) throw new Error('Build metadata missing from index.html');
-  const precache = [...new Set(['/index.html', '/manifest.webmanifest', '/logo_solo.png', '/pwa-192x192.png', '/pwa-512x512.png', ...files.filter(file => (file.startsWith('assets/') && /\.(js|css)$/.test(file)) || (file.startsWith('brand/') && /\.(png|svg|ico)$/.test(file))).map(file => '/' + file)])];
+  const precache = [...new Set(['/index.html', '/manifest.webmanifest', '/logo_solo.png', '/pwa-192x192.png', '/pwa-512x512.png', ...files.filter(file => (file.startsWith('assets/') && /\.(js|css)$/.test(file)) || (file.startsWith('brand/') && /\.(png|svg|ico)$/.test(file)) || (file.startsWith('images/home/') && /\.(webp|png)$/.test(file))).map(file => '/' + file)])];
   const worker = (await readFile(join(directory, 'sw.js'), 'utf8')).replace('__BUILD_VERSION__', version).replace('__PRECACHE_MANIFEST__', JSON.stringify(precache));
   await writeFile(join(directory, 'index.html'), html);
   await writeFile(join(directory, 'sw.js'), worker);

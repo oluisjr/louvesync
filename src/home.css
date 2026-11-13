@@ -1,0 +1,51 @@
+:root[data-home-theme="true"]:not([data-theme="dark"]) { --app-canvas:#eaf8fa; }
+.ls.home-theme:not(.dark) { --app-link:#007fa2; }
+.ls.home-theme:not(.dark) > .bg { background:radial-gradient(ellipse at 90% 38%,#cdf3f48c,transparent 65%),linear-gradient(145deg,#e6f7f5,#e8f3fd 70%,#e0f3fa); }
+.ls.home-theme:not(.dark) > .bg .orb { display:none; }
+.home-page {
+  --home-text:#172b3a;
+  --home-muted:#465e70;
+  --home-card:rgba(255,255,255,.68);
+  --home-line:rgba(255,255,255,.92);
+  --home-scrim-start:rgba(234,250,251,.96);
+  --home-scrim-end:rgba(234,250,251,.35);
+  --home-art-bible:url('/images/home/devotional-ribbons.webp');
+}
+.dark .home-page {
+  --home-text:#f5f2ff;
+  --home-muted:#ded0ed;
+  --home-card:rgba(52,36,79,.82);
+  --home-line:#8960ae;
+  --home-scrim-start:rgba(52,36,79,.97);
+  --home-scrim-end:rgba(52,36,79,.15);
+  --home-art-bible:url('/images/home/devotional-ribbons-dark.webp');
+}
+.ls .home-page .gL1 { background:var(--home-card); border:1px solid var(--home-line); box-shadow:inset 0 1px 1px #ffffff40,0 7px 22px #3d869e12; }
+.ls.dark .home-page .gL1 { box-shadow:inset 0 1px 1px #d0a4ff1a,0 7px 22px #14072533; }
+.ls .home-page .home-illustrated {
+  position:relative;
+  overflow:hidden;
+  background-color:var(--home-card);
+  background-image:linear-gradient(90deg,var(--home-scrim-start) 0%,var(--home-scrim-start) 32%,var(--home-scrim-end) 100%),var(--home-art-bible);
+  background-size:cover;
+  background-position:right center;
+  border:1px solid var(--home-line);
+}
+.ls .home-page .home-featured {
+  display:block;
+  width:100%;
+  text-align:left;
+  font-family:inherit;
+  cursor:pointer;
+  background-image:linear-gradient(90deg,rgba(232,248,251,.98) 0%,rgba(232,248,251,.92) 35%,rgba(232,248,251,.3) 76%,rgba(232,248,251,.08) 100%),url('/images/home/worship-landscape.webp');
+  border-color:#a6dbe9;
+}
+.ls.dark .home-page .home-featured {
+  background-image:linear-gradient(90deg,#34244ff7 0%,#34244fd9 35%,#34244f40 76%,#34244f14 100%),url('/images/home/worship-landscape-dark.webp');
+  border-color:#a578d0;
+}
+.home-featured:focus-visible { outline:3px solid var(--app-link); outline-offset:3px; }
+.home-featured-note { background:rgba(155,217,232,.27); }
+.dark .home-featured-note { background:rgba(167,116,223,.2); }
+.ls .home-page .home-pending { border-color:rgba(211,157,63,.3); }
+@media (prefers-reduced-motion:reduce) { .home-page .aUp { animation:none; } }
