@@ -1,4 +1,5 @@
 import { activityFailure } from './activity-errors.js';
+import { normalizeSupabaseUrl } from './supabase-url.js';
 
 const prefix = 'ls_content_view_v1:';
 
@@ -40,7 +41,7 @@ export async function activityRequest(credentials, payload, options = {}) {
       try {
         // Match the connection already used by members/events in this app.
         // Authorization and per-content aggregation stay in the existing RPC.
-        return await send(connection.url.replace(/\/+$/, '') + '/rest/v1/rpc/louvesync_activity', { apikey: connection.anonKey, Authorization: `Bearer ${connection.anonKey}` }, true);
+        return await send(normalizeSupabaseUrl(connection.url) + '/rest/v1/rpc/louvesync_activity', { apikey: connection.anonKey, Authorization: `Bearer ${connection.anonKey}`, 'Content-Profile': 'public' }, true);
       } catch (error) {
         if (controller.signal.aborted || error.status < 500) throw error;
         directError = error;

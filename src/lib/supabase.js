@@ -2,6 +2,7 @@ import { updateEventItems, upsertEventRecord } from './event-storage.js';
 import { createClient } from '@supabase/supabase-js';
 import { decodeSequence, encodeSequence } from './domain.js';
 import { deleteAdminContent } from './admin-delete-client.js';
+import { normalizeSupabaseUrl } from './supabase-url.js';
 
 const url  = import.meta.env.VITE_SUPABASE_URL;
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -14,10 +15,7 @@ let client = null;
 let publicConfig = null;
 if (url && anon) {
   try {
-    let cleanUrl = String(url).trim();
-    if (!cleanUrl.startsWith('http')) {
-      cleanUrl = 'https://' + cleanUrl;
-    }
+    const cleanUrl = normalizeSupabaseUrl(url);
     client = createClient(cleanUrl, String(anon).trim());
     publicConfig = Object.freeze({ url: cleanUrl.replace(/\/+$/, ''), anonKey: String(anon).trim() });
   } catch (err) {

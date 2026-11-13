@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { normalizeSupabaseUrl } from '../src/lib/supabase-url.js';
 
 const identifier = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
 export function adminDeletionPayload(body) {
@@ -22,7 +23,7 @@ export function createAdminDeleteHandler(clientFactory = createClient) {
     const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
     if (!url || !key) return res.status(503).json({ code:'ADMIN_DELETE_UNAVAILABLE', error:'A exclusão protegida ainda não está configurada no servidor.' });
     try {
-      const client = clientFactory(url.trim(), key.trim(), { auth:{persistSession:false,autoRefreshToken:false} });
+      const client = clientFactory(normalizeSupabaseUrl(url), key.trim(), { auth:{persistSession:false,autoRefreshToken:false} });
       const { data, error } = await client.rpc('louvesync_admin_delete', { p_payload:payload }).abortSignal(AbortSignal.timeout(10000));
       if (error) {
         if (error.code === '28000') return res.status(401).json({ error:'Sessão inválida. Entre novamente no app.' });

@@ -299,7 +299,7 @@ async function fixture(browser) {
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block', ...options.device }); contexts.push(context);
     await context.addInitScript(profile => { try { localStorage.setItem('ls_profile', JSON.stringify(profile)); localStorage.removeItem('ls_last_activity'); } catch { /* Sandboxed media frames have no storage access. */ } }, profile);
     if(options.theme)await context.addInitScript(theme=>{try{if(!localStorage.getItem('ls_theme'))localStorage.setItem('ls_theme',theme);}catch{/* Sandboxed media frames have no storage access. */}},options.theme);
-    if(options.directActivity)await context.addInitScript(()=>{window.__testActivityConnection={url:'https://activity-fixture.supabase.co',anonKey:'fixture-public-key'};});
+    if(options.directActivity)await context.addInitScript(url=>{window.__testActivityConnection={url,anonKey:'fixture-public-key'};},typeof options.directActivity==='string'?options.directActivity:'https://activity-fixture.supabase.co');
     if(options.visualViewportHeight)await context.addInitScript(height=>Object.defineProperty(window.visualViewport,'height',{configurable:true,value:height}),options.visualViewportHeight);
     if(options.standalone)await context.addInitScript(()=>{
       Object.defineProperty(navigator,'standalone',{value:true});
@@ -666,7 +666,7 @@ test('mural records only visible notices, queues offline observation times and k
   }finally{await app.close();}
 });
 
-test('monitoring uses the app Supabase connection when the Vercel activity API is misconfigured',async({browser})=>{
+for(const suffix of ['', '/rest/v1/'])test(`monitoring uses the app Supabase connection when the Vercel activity API is misconfigured (${suffix?'Data API URL':'project URL'})`,async({browser})=>{
   const app=await fixture(browser);
   app.state.members=app.state.members.map((person,index)=>({...person,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
   app.state.events[0].date='2026-10-24';
@@ -674,8 +674,8 @@ test('monitoring uses the app Supabase connection when the Vercel activity API i
   app.state.posts=[{id:'post-1',title:'Aviso da equipe',content:'Cheguem antes do culto.',created_at:'2026-10-24T10:00:00Z',created_by:admin.id}];
   app.state.activityFailure='O monitoramento ainda não está configurado no servidor.';
   try{
-    const viewer=await app.open(admin,undefined,{activity:true,directActivity:true});
-    const reader=await app.open(member,undefined,{activity:true,directActivity:true});
+    const viewer=await app.open(admin,undefined,{activity:true,directActivity:'https://activity-fixture.supabase.co'+suffix});
+    const reader=await app.open(member,undefined,{activity:true,directActivity:'https://activity-fixture.supabase.co'+suffix});
     await navigate(viewer,'Admin');
     await expect(viewer.locator('.ui-activity-list').getByText('Membro Teste',{exact:true})).toBeVisible();
     await reader.evaluate(({memberId})=>{

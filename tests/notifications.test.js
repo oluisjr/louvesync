@@ -28,6 +28,16 @@ test('inbox API delegates identity to persisted PIN authorization and reports mi
  const response=await request(missing,{...credentials,action:'list'});
  assert.equal(response.statusCode,503);assert.equal(response.body.setupRequired,true);
 });
+test('notification inbox and push worker normalize a copied Data API URL before connecting',async()=>{
+ const calls=[];
+ const handler=createNotificationsHandler({env:{...env,SUPABASE_URL:env.SUPABASE_URL+'/rest/v1/'},wait:async()=>{},clientFactory:(url,key)=>{
+  calls.push({url,key});return client({data:{ok:true,deliveries:[]},error:null});
+ }});
+ const result=await request(handler,{...credentials,action:'dispatch'});
+ assert.equal(result.statusCode,200);
+ assert.deepEqual(calls,[{url:env.SUPABASE_URL,key:env.SUPABASE_ANON_KEY},{url:env.SUPABASE_URL,key:env.SUPABASE_SERVICE_ROLE_KEY}]);
+ assert.ok(!JSON.stringify(result.body).includes(env.SUPABASE_SERVICE_ROLE_KEY));
+});
 test('push configuration returns only public material and never claims disabled delivery succeeded',async()=>{
  const handler=createNotificationsHandler({env,clientFactory:()=>client({data:{ok:true}})});
  const config=await request(handler,{...credentials,action:'config'});

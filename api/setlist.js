@@ -1,9 +1,10 @@
 import { escapeHtml, decodeSequence } from '../src/lib/domain.js';
 // api/setlist.js — endpoint público para exibir setlist sem login (telão, operador de datashow)
 import { createClient } from '@supabase/supabase-js';
+import { normalizeSupabaseUrl } from '../src/lib/supabase-url.js';
 
 const supabase = process.env.VITE_SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY) ? createClient(
-  process.env.VITE_SUPABASE_URL,
+  normalizeSupabaseUrl(process.env.VITE_SUPABASE_URL),
   process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 ) : null;
 

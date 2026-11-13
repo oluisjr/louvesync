@@ -1,4 +1,8 @@
 export function activityFailure(error, upstreamStatus) {
+  if (error?.code === 'PGRST125') return { status: 503, body: {
+    code: 'ACTIVITY_URL_INVALID',
+    error: 'O endereço da API do Supabase é inválido (PGRST125). Confira se a URL configurada na Vercel é a URL base do projeto e faça Redeploy.',
+  } };
   if (['PGRST202', '42P01', '42883'].includes(error?.code)) return { status: 503, body: { code: 'ACTIVITY_SETUP_REQUIRED', error: 'O monitoramento precisa ser ativado no banco.' } };
   if (error?.code === '28000') return { status: 401, body: { error: 'Sessão inválida. Entre novamente no app.' } };
   if (error?.code === '42501') return { status: 403, body: { error: 'Acesso exclusivo do administrador.' } };

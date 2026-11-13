@@ -2,9 +2,10 @@ import { sourceUrl, validateRedirect } from '../server/source-url.js';
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { createClient } from '@supabase/supabase-js';
+import { normalizeSupabaseUrl } from '../src/lib/supabase-url.js';
 
 const supabase = process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY ? createClient(
-  process.env.VITE_SUPABASE_URL,
+  normalizeSupabaseUrl(process.env.VITE_SUPABASE_URL),
   process.env.VITE_SUPABASE_ANON_KEY
 ) : null;
 

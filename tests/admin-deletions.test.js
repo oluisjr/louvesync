@@ -34,6 +34,17 @@ test('admin deletion uses the database authorization RPC and never a direct tabl
   assert.equal(res.headers['Cache-Control'],'private, no-store');
 }));
 
+test('protected deletion normalizes Data API URLs without changing the database authorization call',async()=>configured(async()=>{
+  process.env.SUPABASE_URL='https://fixture.supabase.co/rest/v1/';
+  const res=response();
+  const handler=createAdminDeleteHandler((url,key)=>{
+    assert.equal(url,'https://fixture.supabase.co');assert.equal(key,'public-fixture-key');
+    return {rpc:(_name,args)=>({abortSignal:async()=>({data:{ok:true,targetType:args.p_payload.targetType,targetId:args.p_payload.targetId},error:null})})};
+  });
+  await handler(request({...admin,targetType:'event',targetId:'event-1'}),res);
+  assert.equal(res.code,200);
+}));
+
 test('ordinary members cannot gain deletion access by spoofing is_admin',async()=>configured(async()=>{
   const app=fixture();app.result={data:null,error:{code:'42501',message:'not admin'}};
   const res=response();await app.handler(request({memberId:'ordinary-member',pin:'MEMBER_PIN',targetType:'song',targetId:'song-1',is_admin:true}),res);

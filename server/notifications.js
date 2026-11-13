@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
 import { validatePushSubscription } from '../src/lib/notification-policy.js';
+import { normalizeSupabaseUrl } from '../src/lib/supabase-url.js';
 
 const actions = new Set(['config', 'list', 'mark_read', 'subscribe', 'unsubscribe', 'dispatch']);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -97,7 +98,7 @@ export function createNotificationsHandler({ clientFactory = createClient, send 
       if (!env.CRON_SECRET || req.headers.authorization !== 'Bearer ' + env.CRON_SECRET) return res.status(401).json({ error: 'Não autorizado.' });
       if (!url || !config.configured) return res.status(503).json({ code: 'PUSH_CONFIGURATION_REQUIRED', error: 'O envio Push ainda não está configurado.' });
       try {
-        const client = clientFactory(url.trim(), config.serviceKey.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
+        const client = clientFactory(normalizeSupabaseUrl(url), config.serviceKey.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
         return res.status(200).json({ ok: true, ...await dispatchNotifications(client, config, send, wait) });
       } catch (error) { return databaseFailure(res, error); }
     }
@@ -111,14 +112,14 @@ export function createNotificationsHandler({ clientFactory = createClient, send 
     if (!payload) return res.status(400).json({ error: 'Solicitação de notificação inválida.' });
     if (!url || !anonKey) return res.status(503).json({ code: 'NOTIFICATIONS_UNAVAILABLE', setupRequired: true, error: 'As notificações ainda não estão configuradas no servidor.' });
     try {
-      const client = clientFactory(url.trim(), anonKey.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
+      const client = clientFactory(normalizeSupabaseUrl(url), anonKey.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
       const result = await rpc(client, 'louvesync_notifications', payload);
       if (result.error) return databaseFailure(res, result.error);
       if (result.data?.ok !== true) return res.status(503).json({ error: 'O servidor retornou notificações inválidas.' });
       if (payload.action === 'config') return res.status(200).json({ ...result.data, publicKey: config.publicKey, pushConfigured: config.configured, setupRequired: false });
       if (payload.action === 'dispatch') {
         if (!config.configured) return res.status(200).json({ ...result.data, processed: 0, pushed: 0, pushConfigured: false });
-        const worker = clientFactory(url.trim(), config.serviceKey.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
+        const worker = clientFactory(normalizeSupabaseUrl(url), config.serviceKey.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
         return res.status(200).json({ ...result.data, ...await dispatchNotifications(worker, config, send, wait) });
       }
       return res.status(200).json(result.data);

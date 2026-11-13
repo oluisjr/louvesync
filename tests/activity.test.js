@@ -60,6 +60,7 @@ test('activity distinguishes Supabase gateway credentials from PIN authorization
       [401, null, 503, 'ACTIVITY_SUPABASE_AUTH'],
       [403, null, 503, 'ACTIVITY_SUPABASE_AUTH'],
       [401, 'PGRST301', 503, 'ACTIVITY_SUPABASE_AUTH'],
+      [404, 'PGRST125', 503, 'ACTIVITY_URL_INVALID'],
       [401, '28000', 401, null],
       [403, '42501', 403, null],
       [400, '42703', 503, 'ACTIVITY_DATABASE_ERROR'],
@@ -170,6 +171,29 @@ test('activity uses the app public connection even when the Vercel API is miscon
   assert.equal(calls[0].options.keepalive, true);
   assert.equal(calls[0].options.cache, 'no-store');
   assert.deepEqual(JSON.parse(calls[0].options.body), { p_payload: { ...view, ...credentials } });
+});
+
+test('REST endpoint URLs do not produce PGRST125 in direct activity calls or the Vercel SDK', async () => {
+  const configured = connection.url + '/rest/v1/';
+  const expected = connection.url + '/rest/v1/rpc/louvesync_activity';
+  const calls = [];
+  const fetcher = async url => {
+    calls.push(String(url));
+    return String(url) === expected ? Response.json(acknowledgement) : Response.json({ code: 'PGRST125', message: 'Invalid path specified in request URL' }, { status: 404 });
+  };
+  const data = await activityRequest(credentials, view, { connection: { ...connection, url: configured }, fetcher });
+  assert.equal(data.ok, true);
+  const previous = { url: process.env.SUPABASE_URL, key: process.env.SUPABASE_ANON_KEY };
+  process.env.SUPABASE_URL = configured; process.env.SUPABASE_ANON_KEY = connection.anonKey;
+  try {
+    const handler = createActivityHandler((url, key, options) => createClient(url, key, { ...options, global: { fetch: fetcher } }));
+    const res = response();
+    await handler({ method: 'POST', headers: {}, body: { ...credentials, ...view } }, res);
+    assert.equal(res.code, 200);
+    assert.deepEqual(calls, [expected, expected]);
+  } finally {
+    for (const [name, value] of [['SUPABASE_URL', previous.url], ['SUPABASE_ANON_KEY', previous.key]]) if (value === undefined) delete process.env[name]; else process.env[name] = value;
+  }
 });
 
 test('a failed RPC response falls back to the API with the same receipt identity', async () => {
