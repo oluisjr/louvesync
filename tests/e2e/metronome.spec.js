@@ -50,7 +50,7 @@ async function open(browser, mode = 'gesture') {
   },mode);
   const page=await context.newPage(),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
-  const code=`export const supabase=null;window.__fixtureSongs=${JSON.stringify(songs)};window.__songLoads=0;
+  const code=`export const supabase=null;export const publicSupabaseConfig=null;window.__fixtureSongs=${JSON.stringify(songs)};window.__songLoads=0;
     export async function fetchSongs(){window.__songLoads++;return structuredClone(window.__fixtureSongs);}
     export async function fetchMembers(){return [${JSON.stringify(profile)}];}
     export async function fetchEvents(){return [];}

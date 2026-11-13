@@ -7,6 +7,8 @@ import { createViewRecorder, activityRequest } from '../src/lib/activity-client.
 const sessionId = '11111111-1111-4111-8111-111111111111';
 const credentials = { memberId: 'member-test', pin: 'fixture-private-pin' };
 const view = { action: 'view', targetType: 'event', targetId: 'event-test', viewId: sessionId, viewedAt: '2026-11-08T12:00:00Z' };
+const connection = { url: 'https://app-project.supabase.co', anonKey: 'fixture-public-key' };
+const acknowledgement = { ok: true, serverTime: '2026-11-13T12:00:00Z' };
 const response = () => ({ code: 200, body: null, headers: {}, setHeader(k, v) { this.headers[k] = v; }, status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } });
 class Storage {
   values = new Map();
@@ -147,12 +149,65 @@ test('two tabs keep separate receipts, failed writes remain queued, and one memb
 test('activity transport keeps credentials out of the URL and cannot override the signed-in identity', async () => {
   const original = global.fetch;
   let call;
-  global.fetch = async (url, options) => { call = { url, options }; return { ok: true, json: async () => ({ ok: true }) }; };
+  global.fetch = async (url, options) => { call = { url, options }; return { ok: true, json: async () => acknowledgement }; };
   try {
     await activityRequest(credentials, { ...view, memberId: 'someone-else', pin: 'wrong' });
     assert.equal(call.url, '/api/activity'); assert.equal(call.options.cache, 'no-store');
     const body = JSON.parse(call.options.body); assert.equal(body.memberId, credentials.memberId); assert.equal(body.pin, credentials.pin);
   } finally { global.fetch = original; }
+});
+
+test('activity uses the app public connection even when the Vercel API is misconfigured', async () => {
+  const calls = [];
+  await activityRequest(credentials, { ...view, memberId: 'forged', pin: 'wrong' }, {
+    connection, keepalive: true,
+    fetcher: async (url, options) => { calls.push({ url, options }); return Response.json(acknowledgement); },
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, connection.url + '/rest/v1/rpc/louvesync_activity');
+  assert.ok(!calls[0].url.includes(credentials.pin));
+  assert.equal(calls[0].options.headers.apikey, connection.anonKey);
+  assert.equal(calls[0].options.keepalive, true);
+  assert.equal(calls[0].options.cache, 'no-store');
+  assert.deepEqual(JSON.parse(calls[0].options.body), { p_payload: { ...view, ...credentials } });
+});
+
+test('a failed RPC response falls back to the API with the same receipt identity', async () => {
+  const storage = new Storage(), calls = [], stored = new Set();
+  const recorder = createViewRecorder({ storage, send: (actor, payload) => activityRequest(actor, payload, {
+    connection,
+    fetcher: async (url, options) => {
+      const body = JSON.parse(options.body), payload = body.p_payload || body;
+      calls.push({ url, payload }); stored.add(payload.viewId);
+      return url === '/api/activity' ? Response.json(acknowledgement) : Response.json({ message: 'Response lost after commit' }, { status: 503 });
+    },
+  }) });
+  const receipt = recorder.add(credentials.memberId, 'event', 'event-test');
+  await recorder.flush(credentials);
+  assert.deepEqual(calls.map(call => call.url), [connection.url + '/rest/v1/rpc/louvesync_activity', '/api/activity']);
+  assert.deepEqual(calls.map(call => call.payload.viewId), [receipt.viewId, receipt.viewId]);
+  assert.equal(stored.size, 1); assert.equal(storage.length, 0);
+});
+
+test('direct RPC keeps PIN and admin denials authoritative and sanitizes upstream errors', async () => {
+  for (const [code, status] of [['28000', 401], ['42501', 403]]) {
+    let calls = 0;
+    await assert.rejects(activityRequest(credentials, { action: 'viewers', targetType: 'event', targetId: 'event-test' }, {
+      connection, fetcher: async () => { calls++; return Response.json({ code, message: credentials.pin }, { status }); },
+    }), error => error.status === status && !error.message.includes(credentials.pin));
+    assert.equal(calls, 1);
+  }
+});
+
+test('malformed successes never remove queued views and a later valid response recovers them', async () => {
+  const storage = new Storage(); let healthy = false;
+  const recorder = createViewRecorder({ storage, send: (actor, payload) => activityRequest(actor, payload, {
+    connection, fetcher: async () => Response.json(healthy ? acknowledgement : { ok: true }),
+  }) });
+  recorder.add(credentials.memberId, 'announcement', 'post-test');
+  await recorder.flush(credentials); assert.equal(storage.length, 1);
+  healthy = true;
+  await recorder.flush(credentials); assert.equal(storage.length, 0);
 });
 
 test('views arriving during an in-flight flush are sent without waiting for the next heartbeat', async () => {

@@ -1,30 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
+import { activityFailure } from '../src/lib/activity-errors.js';
 
 const actions = new Set(['heartbeat', 'leave', 'view', 'online', 'viewers']);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identifier = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
 
 function databaseFailure(res, error, upstreamStatus) {
-  if (['PGRST202', '42P01', '42883'].includes(error?.code)) return res.status(503).json({ code: 'ACTIVITY_SETUP_REQUIRED', error: 'O monitoramento precisa ser ativado no banco.' });
-  if (error?.code === '28000') return res.status(401).json({ error: 'Sessão inválida. Entre novamente no app.' });
-  if (error?.code === '42501') return res.status(403).json({ error: 'Acesso exclusivo do administrador.' });
-  if (error?.code === 'P0002') return res.status(404).json({ error: 'Conteúdo não encontrado.' });
-  if (['22023', '22P02', '22007', '22008'].includes(error?.code)) return res.status(400).json({ error: 'Solicitação de atividade inválida.' });
-  if ([401, 403].includes(upstreamStatus) || ['PGRST301', 'PGRST302', 'PGRST303'].includes(error?.code)) return res.status(503).json({
-    code: 'ACTIVITY_SUPABASE_AUTH',
-    error: 'O Supabase recusou a chave pública configurada na Vercel. Confira se a URL e a chave anon são do mesmo projeto, salve em Production e faça Redeploy.',
-  });
-  // Only fixed-format diagnostic codes are safe to return. Upstream messages,
-  // details and hints may include SQL values or credential material.
-  const databaseCode = typeof error?.code === 'string' && /^(?:[A-Z0-9]{5}|PGRST\d{3})$/.test(error.code) ? error.code : null;
-  const status = Number.isInteger(upstreamStatus) && upstreamStatus >= 400 && upstreamStatus <= 599 ? upstreamStatus : null;
-  const diagnostic = databaseCode || (status ? `HTTP ${status}` : 'sem código');
-  return res.status(503).json({
-    code: 'ACTIVITY_DATABASE_ERROR',
-    databaseCode,
-    upstreamStatus: status,
-    error: `O Supabase não conseguiu consultar as visualizações (${diagnostic}).`,
-  });
+  const failure = activityFailure(error, upstreamStatus);
+  return res.status(failure.status).json(failure.body);
 }
 
 export function activityPayload(body) {

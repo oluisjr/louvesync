@@ -11,6 +11,7 @@ if (!url || !anon) {
 }
 
 let client = null;
+let publicConfig = null;
 if (url && anon) {
   try {
     let cleanUrl = String(url).trim();
@@ -18,12 +19,16 @@ if (url && anon) {
       cleanUrl = 'https://' + cleanUrl;
     }
     client = createClient(cleanUrl, String(anon).trim());
+    publicConfig = Object.freeze({ url: cleanUrl.replace(/\/+$/, ''), anonKey: String(anon).trim() });
   } catch (err) {
     console.error('[LouveSync] Erro crítico ao inicializar o cliente Supabase. Verifique suas variáveis de ambiente no Vercel:', err);
   }
 }
 
 export const supabase = client;
+// Only the existing public frontend configuration is shared with transports.
+// Server service-role credentials are never read or included here.
+export const publicSupabaseConfig = publicConfig;
 
 /* ── helpers ──────────────────────────────────────────────── */
 

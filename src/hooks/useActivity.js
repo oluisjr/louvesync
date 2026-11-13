@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { activityRequest, createViewRecorder } from '../lib/activity-client.js';
+import { activityRequest as requestActivity, createViewRecorder } from '../lib/activity-client.js';
 import { broadcastUpdate, onRealtime } from '../lib/realtime.js';
+import { publicSupabaseConfig } from '../lib/supabase.js';
+
+const activityRequest = (credentials, payload, options = {}) => requestActivity(credentials, payload, { ...options, connection: publicSupabaseConfig });
 
 function changed() {
   window.dispatchEvent(new Event('louvesync:activity'));
@@ -11,7 +14,7 @@ export function useActivity(profile, members) {
   const memberId = profile?.id;
   const pin = members.find(member => member.id === memberId)?.pin;
   const credentials = useMemo(() => memberId && pin != null ? { memberId, pin: String(pin) } : null, [memberId, pin]);
-  const recorder = useMemo(() => createViewRecorder({ onSaved: changed }), []);
+  const recorder = useMemo(() => createViewRecorder({ send: activityRequest, onSaved: changed }), []);
   const recordView = useCallback((targetType, targetId) => {
     if (!memberId || document.visibilityState !== 'visible') return;
     recorder.add(memberId, targetType, targetId);

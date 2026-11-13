@@ -1,4 +1,9 @@
+import { activityFailure } from './activity-errors.js';
+
 const prefix = 'ls_content_view_v1:';
+
+const validResponse = (data, action) => typeof data?.serverTime === 'string' && Number.isFinite(Date.parse(data.serverTime)) &&
+  (action === 'online' ? Array.isArray(data.members) : action === 'viewers' ? Array.isArray(data.viewers) : data.ok === true);
 
 export async function activityRequest(credentials, payload, options = {}) {
   if (!credentials?.memberId || !credentials.pin) throw new Error('Sessão de monitoramento indisponível. Entre novamente no app.');
@@ -7,19 +12,46 @@ export async function activityRequest(credentials, payload, options = {}) {
   if (options.signal?.aborted) abort();
   options.signal?.addEventListener('abort', abort, { once: true });
   const timer = setTimeout(abort, 10000);
-  try {
-    const response = await fetch('/api/activity', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
-      body: JSON.stringify({ ...payload, memberId: credentials.memberId, pin: credentials.pin }),
+  const body = { ...payload, memberId: credentials.memberId, pin: credentials.pin };
+  const send = async (url, headers, rpc = false) => {
+    const response = await (options.fetcher || fetch)(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, cache: 'no-store',
+      body: JSON.stringify(rpc ? { p_payload: body } : body),
       signal: controller.signal, keepalive: !!options.keepalive,
     });
-    const data = await response.json().catch(() => ({}));
+    const data = await response.json().catch(() => null);
     if (!response.ok) {
-      const error = new Error(data.error || 'O monitoramento está temporariamente indisponível.');
-      error.status = response.status; error.code = data.code;
+      const failure = rpc ? activityFailure(data, response.status) : { status: response.status, body: data };
+      const error = new Error(failure.body?.error || 'O monitoramento está temporariamente indisponível.');
+      error.status = failure.status; error.code = failure.body?.code;
+      throw error;
+    }
+    if (!validResponse(data, payload.action)) {
+      const error = new Error('O monitoramento retornou uma resposta inválida.');
+      error.status = 502;
       throw error;
     }
     return data;
+  };
+  try {
+    let directError;
+    const connection = options.connection;
+    if (connection?.url && connection?.anonKey) {
+      try {
+        // Match the connection already used by members/events in this app.
+        // Authorization and per-content aggregation stay in the existing RPC.
+        return await send(connection.url.replace(/\/+$/, '') + '/rest/v1/rpc/louvesync_activity', { apikey: connection.anonKey, Authorization: `Bearer ${connection.anonKey}` }, true);
+      } catch (error) {
+        if (controller.signal.aborted || error.status < 500) throw error;
+        directError = error;
+      }
+    }
+    try { return await send('/api/activity'); }
+    catch (error) {
+      // Preserve the error from the app's actual project if both paths fail.
+      if (directError && (!error.status || error.status >= 500)) throw directError;
+      throw error;
+    }
   } catch (error) {
     if (error.status) throw error;
     throw new Error('Não foi possível conectar ao monitoramento.', { cause: error });

@@ -289,6 +289,7 @@ async function fixture(browser) {
     import { updateEventItems } from '/src/lib/event-storage.js';
     const clone=value=>structuredClone(value);
     const channels=[];
+    export const publicSupabaseConfig=window.__testActivityConnection||null;
     window.__testDeliver=(name,message)=>channels.filter(c=>c.topic===name).forEach(c=>c.handlers.filter(h=>h.type==='broadcast'&&h.filter.event===message.event).forEach(h=>h.fn({payload:message.payload})));
     export const supabase={channel(name){const c={topic:name,state:'joined',handlers:[],on(type,filter,fn){this.handlers.push({type,filter,fn});return this;},subscribe(fn){queueMicrotask(()=>fn?.('SUBSCRIBED'));return this;},unsubscribe(){},send(message){return window.__testBroadcast(name,message).then(()=> 'ok');}};channels.push(c);return c;},removeChannel(c){const i=channels.indexOf(c);if(i>=0)channels.splice(i,1);},from(table){const query={table,op:'select',filters:{},inFilters:{}};return {select(){return this;},eq(k,v){query.filters[k]=v;return this;},match(values){Object.assign(query.filters,values);return this;},in(k,v){query.inFilters[k]=v;return this;},order(){return this;},single(){return this;},maybeSingle(){return this;},upsert(data){query.op='upsert';query.data=data;return this;},insert(data){query.op='insert';query.data=data;return this;},delete(){query.op='delete';return this;},update(data){query.op='update';query.data=data;return this;},then(resolve,reject){return window.__testDb('query',[query]).then(resolve,reject);}};}};
     export async function setEventItems(...args){return updateEventItems(supabase,...args);}
@@ -298,6 +299,7 @@ async function fixture(browser) {
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block', ...options.device }); contexts.push(context);
     await context.addInitScript(profile => { try { localStorage.setItem('ls_profile', JSON.stringify(profile)); localStorage.removeItem('ls_last_activity'); } catch { /* Sandboxed media frames have no storage access. */ } }, profile);
     if(options.theme)await context.addInitScript(theme=>{try{if(!localStorage.getItem('ls_theme'))localStorage.setItem('ls_theme',theme);}catch{/* Sandboxed media frames have no storage access. */}},options.theme);
+    if(options.directActivity)await context.addInitScript(()=>{window.__testActivityConnection={url:'https://activity-fixture.supabase.co',anonKey:'fixture-public-key'};});
     if(options.visualViewportHeight)await context.addInitScript(height=>Object.defineProperty(window.visualViewport,'height',{configurable:true,value:height}),options.visualViewportHeight);
     if(options.standalone)await context.addInitScript(()=>{
       Object.defineProperty(navigator,'standalone',{value:true});
@@ -396,13 +398,13 @@ async function fixture(browser) {
     const page = await context.newPage(); pages.push(page);
     page.on('pageerror', error => failures.push(error.message));
     await page.route('**/src/lib/supabase.js*', route => route.fulfill({ contentType: 'text/javascript', body: code }));
-    if(options.activity)await page.route('**/api/activity',async route=>{
-      const body=route.request().postDataJSON();state.activityRequests.push(structuredClone(body));
+    const handleActivity=async(route,direct=false)=>{
+      const body=direct?route.request().postDataJSON().p_payload:route.request().postDataJSON();state.activityRequests.push({...structuredClone(body),transport:direct?'rpc':'api'});
       const actor=state.members.find(row=>row.id===body.memberId&&row.pin===body.pin);
       const reply=(status,json)=>route.fulfill({status,json});
-      if(!actor)return reply(401,{error:'Sessão inválida.'});
-      if(['online','viewers'].includes(body.action)&&!actor.is_admin)return reply(403,{error:'Acesso exclusivo do administrador.'});
-      if(state.activityFailure)return reply(503,{code:'ACTIVITY_SETUP_REQUIRED',error:state.activityFailure});
+      if(!actor)return reply(401,direct?{code:'28000',message:'Sessão inválida.'}:{error:'Sessão inválida.'});
+      if(['online','viewers'].includes(body.action)&&!actor.is_admin)return reply(403,direct?{code:'42501',message:'Acesso exclusivo do administrador.'}:{error:'Acesso exclusivo do administrador.'});
+      if(state.activityFailure&&!direct)return reply(503,{code:'ACTIVITY_SETUP_REQUIRED',error:state.activityFailure});
       const serverTime=new Date(state.activityNow).toISOString();
       if(['heartbeat','leave'].includes(body.action)){
         const existing=state.activitySessions.get(body.sessionId);
@@ -427,9 +429,11 @@ async function fixture(browser) {
         return reply(200,{viewers:[...groups.values()],serverTime});
       }
       return reply(400,{error:'Ação inválida.'});
-    });
+    };
+    if(options.activity)await page.route('**/api/activity',route=>handleActivity(route));
     await page.route('**/version.json', route => route.fulfill({ json: {version:'test'} }));
     await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/, route => route.abort());
+    if(options.directActivity)await page.route('https://activity-fixture.supabase.co/rest/v1/rpc/louvesync_activity',route=>handleActivity(route,true));
     await page.clock.setFixedTime(new Date(time));
     await page.goto('http://127.0.0.1:5174/');
     await expect(page.getByRole('button', {name:'Escala',exact:true})).toBeVisible();
@@ -658,6 +662,51 @@ test('mural records only visible notices, queues offline observation times and k
     await expect(row).toContainText('12:20');
     await expect(row).toBeInViewport({ratio:1});
     await first.screenshot({path:test.info().outputPath('mural-viewers.png')});
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('monitoring uses the app Supabase connection when the Vercel activity API is misconfigured',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.members=app.state.members.map((person,index)=>({...person,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
+  app.state.events[0].date='2026-10-24';
+  app.state.events.push({...structuredClone(app.state.events[0]),id:'event-2',date:'2026-10-25'});
+  app.state.posts=[{id:'post-1',title:'Aviso da equipe',content:'Cheguem antes do culto.',created_at:'2026-10-24T10:00:00Z',created_by:admin.id}];
+  app.state.activityFailure='O monitoramento ainda não está configurado no servidor.';
+  try{
+    const viewer=await app.open(admin,undefined,{activity:true,directActivity:true});
+    const reader=await app.open(member,undefined,{activity:true,directActivity:true});
+    await navigate(viewer,'Admin');
+    await expect(viewer.locator('.ui-activity-list').getByText('Membro Teste',{exact:true})).toBeVisible();
+    await reader.evaluate(({memberId})=>{
+      const receipt={memberId,viewId:'11111111-1111-4111-8111-111111111111',targetType:'event',targetId:'event-1',viewedAt:'2026-10-24T14:00:00Z'};
+      localStorage.setItem('ls_content_view_v1:'+receipt.viewId,JSON.stringify(receipt));
+    },{memberId:member.id});
+    await reader.reload();
+    await expect.poll(()=>app.state.activityViews.has('11111111-1111-4111-8111-111111111111')).toBe(true);
+    await expect.poll(()=>reader.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_content_view_v1:')).length)).toBe(0);
+    await reader.getByRole('button',{name:'Escala',exact:true}).click();
+    for(const index of [0,1]){
+      await reader.getByRole('button',{name:'Ver detalhes →',exact:true}).nth(index).click();
+      await expect.poll(()=>[...app.state.activityViews.values()].filter(v=>v.memberId===member.id&&v.targetType==='event'&&v.targetId===`event-${index+1}`).length).toBe(index===0?2:1);
+      await reader.locator('.gL2').getByRole('button').first().click();
+    }
+    await viewer.getByRole('button',{name:'Escala',exact:true}).click();
+    await viewer.getByRole('button',{name:'Ver detalhes →',exact:true}).first().click();
+    await viewer.getByRole('button',{name:'Ver visualizações de Culto de Teste',exact:true}).click();
+    const report=viewer.getByRole('dialog',{name:'Visualizações da escala',exact:true});
+    await expect(report.locator('.ui-activity-readers').getByText('Membro Teste',{exact:true})).toBeVisible();
+    await expect(report.locator('.ui-activity-readers')).toContainText('2 visualizações desta escala');
+    await reader.getByRole('button',{name:'Mural',exact:true}).click();
+    await expect.poll(()=>[...app.state.activityViews.values()].filter(v=>v.memberId===member.id&&v.targetType==='announcement'&&v.targetId==='post-1').length).toBe(1);
+    const denied=await reader.evaluate(async()=>{
+      const response=await fetch('https://activity-fixture.supabase.co/rest/v1/rpc/louvesync_activity',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_payload:{action:'viewers',memberId:'user-member',pin:'MEMBER_TEST_PIN',is_admin:true,targetType:'event',targetId:'event-1'}})});
+      return response.status;
+    });
+    expect(denied).toBe(403);
+    // Closing/reloading a page may interrupt its RPC leave request and use the
+    // keepalive API alternative. Reads and view receipts must use the app RPC.
+    expect(app.state.activityRequests.filter(request=>request.action!=='leave').every(request=>request.transport==='rpc')).toBe(true);
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
