@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createClient } from '@supabase/supabase-js';
 import { createActivityHandler, activityPayload } from '../server/activity.js';
 import { createViewRecorder, activityRequest } from '../src/lib/activity-client.js';
 
@@ -44,6 +45,41 @@ test('activity API delegates existing-PIN authorization to the database and repo
     const get = response(); await handler({ ...request, method: 'GET' }, get); assert.equal(get.code, 405);
   } finally {
     for (const [name, value] of [['SUPABASE_URL', before.url], ['SUPABASE_ANON_KEY', before.key]]) if (value === undefined) delete process.env[name]; else process.env[name] = value;
+  }
+});
+
+test('activity distinguishes Supabase gateway credentials from PIN authorization and SQL failures without returning secret details', async () => {
+  const names = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'];
+  const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  process.env.SUPABASE_URL = 'https://fixture.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'fixture-public-key';
+  try {
+    for (const [status, upstreamCode, expectedStatus, expectedCode] of [
+      [401, null, 503, 'ACTIVITY_SUPABASE_AUTH'],
+      [403, null, 503, 'ACTIVITY_SUPABASE_AUTH'],
+      [401, 'PGRST301', 503, 'ACTIVITY_SUPABASE_AUTH'],
+      [401, '28000', 401, null],
+      [403, '42501', 403, null],
+      [400, '42703', 503, 'ACTIVITY_DATABASE_ERROR'],
+      [500, '42702', 503, 'ACTIVITY_DATABASE_ERROR'],
+      [500, 'invalid-secret-diagnostic', 503, 'ACTIVITY_DATABASE_ERROR'],
+    ]) {
+      const handler = createActivityHandler((url, key, options) => createClient(url, key, {
+        ...options,
+        global: { fetch: async () => new Response(JSON.stringify({ code: upstreamCode, message: credentials.pin, details: 'fixture-private-key', hint: 'fixture-sensitive-sql' }), { status, headers: { 'Content-Type': 'application/json' } }) },
+      }));
+      const res = response();
+      await handler({ method: 'POST', headers: {}, body: { ...credentials, action: 'online' } }, res);
+      assert.equal(res.code, expectedStatus);
+      if (expectedCode) assert.equal(res.body.code, expectedCode);
+      if (expectedCode === 'ACTIVITY_DATABASE_ERROR') {
+        assert.equal(res.body.databaseCode, /^[A-Z0-9]{5}$/.test(upstreamCode) ? upstreamCode : null);
+        assert.equal(res.body.upstreamStatus, status);
+      }
+      for (const secret of [credentials.pin, 'fixture-public-key', 'fixture-private-key', 'fixture-sensitive-sql', 'invalid-secret-diagnostic']) assert.ok(!JSON.stringify(res.body).includes(secret));
+    }
+  } finally {
+    for (const name of names) if (previous[name] === undefined) delete process.env[name]; else process.env[name] = previous[name];
   }
 });
 

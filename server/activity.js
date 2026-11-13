@@ -4,6 +4,29 @@ const actions = new Set(['heartbeat', 'leave', 'view', 'online', 'viewers']);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identifier = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
 
+function databaseFailure(res, error, upstreamStatus) {
+  if (['PGRST202', '42P01', '42883'].includes(error?.code)) return res.status(503).json({ code: 'ACTIVITY_SETUP_REQUIRED', error: 'O monitoramento precisa ser ativado no banco.' });
+  if (error?.code === '28000') return res.status(401).json({ error: 'Sessão inválida. Entre novamente no app.' });
+  if (error?.code === '42501') return res.status(403).json({ error: 'Acesso exclusivo do administrador.' });
+  if (error?.code === 'P0002') return res.status(404).json({ error: 'Conteúdo não encontrado.' });
+  if (['22023', '22P02', '22007', '22008'].includes(error?.code)) return res.status(400).json({ error: 'Solicitação de atividade inválida.' });
+  if ([401, 403].includes(upstreamStatus) || ['PGRST301', 'PGRST302', 'PGRST303'].includes(error?.code)) return res.status(503).json({
+    code: 'ACTIVITY_SUPABASE_AUTH',
+    error: 'O Supabase recusou a chave pública configurada na Vercel. Confira se a URL e a chave anon são do mesmo projeto, salve em Production e faça Redeploy.',
+  });
+  // Only fixed-format diagnostic codes are safe to return. Upstream messages,
+  // details and hints may include SQL values or credential material.
+  const databaseCode = typeof error?.code === 'string' && /^(?:[A-Z0-9]{5}|PGRST\d{3})$/.test(error.code) ? error.code : null;
+  const status = Number.isInteger(upstreamStatus) && upstreamStatus >= 400 && upstreamStatus <= 599 ? upstreamStatus : null;
+  const diagnostic = databaseCode || (status ? `HTTP ${status}` : 'sem código');
+  return res.status(503).json({
+    code: 'ACTIVITY_DATABASE_ERROR',
+    databaseCode,
+    upstreamStatus: status,
+    error: `O Supabase não conseguiu consultar as visualizações (${diagnostic}).`,
+  });
+}
+
 export function activityPayload(body) {
   if (!body || !actions.has(body.action) || !identifier(body.memberId) || typeof body.pin !== 'string' || !body.pin.length || body.pin.length > 256) return null;
   const payload = { action: body.action, memberId: body.memberId, pin: body.pin };
@@ -45,15 +68,8 @@ export function createActivityHandler(clientFactory = createClient) {
     });
     try {
       const client = clientFactory(url.trim(), key.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
-      const { data, error } = await client.rpc('louvesync_activity', { p_payload: payload }).abortSignal(AbortSignal.timeout(8000));
-      if (error) {
-        if (['PGRST202', '42P01', '42883'].includes(error.code)) return res.status(503).json({ code: 'ACTIVITY_SETUP_REQUIRED', error: 'O monitoramento precisa ser ativado no banco.' });
-        if (error.code === '28000') return res.status(401).json({ error: 'Sessão inválida. Entre novamente no app.' });
-        if (error.code === '42501') return res.status(403).json({ error: 'Acesso exclusivo do administrador.' });
-        if (error.code === 'P0002') return res.status(404).json({ error: 'Conteúdo não encontrado.' });
-        if (['22023', '22P02', '22007', '22008'].includes(error.code)) return res.status(400).json({ error: 'Solicitação de atividade inválida.' });
-        return res.status(503).json({ error: 'Não foi possível atualizar o monitoramento.' });
-      }
+      const { data, error, status } = await client.rpc('louvesync_activity', { p_payload: payload }).abortSignal(AbortSignal.timeout(8000));
+      if (error) return databaseFailure(res, error, status);
       const valid = typeof data?.serverTime === 'string' && Number.isFinite(Date.parse(data.serverTime)) &&
         (payload.action === 'online' ? Array.isArray(data.members) : payload.action === 'viewers' ? Array.isArray(data.viewers) : data.ok === true);
       if (!valid) return res.status(503).json({ error: 'O monitoramento retornou uma resposta inválida.' });

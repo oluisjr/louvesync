@@ -18,6 +18,8 @@ A API `/api/activity` reutiliza `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` d
 
 Se aparecer erro de configuração do servidor após alterar as variáveis, confira essas duas configurações em **Settings → Environment Variables → Production** e faça **Redeploy**. Elas precisam estar disponíveis para as funções da API, além do build do site. As variáveis VAPID e `SUPABASE_SERVICE_ROLE_KEY` das notificações são adicionais e não substituem a URL e a chave pública. Nunca coloque a chave `service_role` em `VITE_SUPABASE_ANON_KEY`. A API identifica no erro qual configuração está faltando; não é necessário reinstalar o SQL nem apagar o histórico para corrigir esse caso.
 
+Se o servidor encontra as variáveis, mas a consulta falha, a API distingue rejeição da chave pelo Supabase, sessão/PIN inválidos, acesso restrito e falha de SQL. A mensagem inclui somente o código técnico de SQL ou HTTP, sem repassar mensagens, detalhes ou dicas que possam conter credenciais. [diagnose-activity.sql](../supabase/diagnose-activity.sql) verifica a instalação e consulta um relatório diretamente no SQL Editor, sem gravar ou apagar dados. Consulta funcionando no editor e chave recusada pela API indicam que é preciso conferir o par URL/chave pública usado pela função da Vercel.
+
 ## Regras de registro
 
 - On-line significa app em primeiro plano e conectado. Cada aparelho tem sua própria sessão e envia um sinal a cada 25 segundos. Minimizar, sair ou fechar tenta encerrar a sessão imediatamente. Sem esse sinal, ela expira após 75 segundos. Uma pessoa em dois aparelhos aparece uma vez; fechar um deles não desconecta o outro. Versões de sessão impedem que um sinal atrasado ressuscite uma sessão encerrada.
