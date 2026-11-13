@@ -73,7 +73,13 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
       ]);
       if (!alive.current || version !== request.current) return;
       if (results[0].error) throw results[0].error;
-      setPosts(results[0].data || []);
+      const savedPosts = results[0].data || [];
+      setPosts(previous => [
+        ...previous.filter(post => post.pendingSync && !savedPosts.some(saved => String(saved.id) === String(post.id) || (
+          String(saved.created_by) === String(post.created_by) && saved.title === post.title && saved.content === post.content && Date.parse(saved.created_at) === Date.parse(post.created_at)
+        ))),
+        ...savedPosts,
+      ]);
       if (!results[1].error) setComments(results[1].data || []);
       if (!results[2].error) setReactions(results[2].data || []);
       if (!results[3].error) setSaves((results[3].data || []).map(row => row.post_id));
@@ -121,9 +127,18 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
     locks.current.add('post'); setPosting(true); setPostError('');
     const row = { id: 'post_' + crypto.randomUUID(), title: newTitle.trim(), content: newContent.trim(), created_at: new Date().toISOString(), created_by: profile.id };
     try {
-      if (!navigator.onLine) queue('create_post', row);
-      else if (supabase) { const { error } = await supabase.from('announcements').insert(row); if (error) throw error; }
-      setPosts(previous => [row, ...previous]); setNewTitle(''); setNewContent(''); setNewPostOpen(false);
+      let published;
+      if (!navigator.onLine) {
+        queue('create_post', row);
+        published = { ...row, pendingSync: true };
+      } else {
+        if (!supabase) throw new Error('A conexão com o mural está indisponível. Atualize o app e tente novamente.');
+        const { data, error } = await supabase.from('announcements').insert(row).select('*').single();
+        if (error) throw error;
+        if (data?.id == null) throw new Error('O banco não confirmou a publicação. Tente novamente.');
+        published = data;
+      }
+      setPosts(previous => [published, ...previous.filter(post => String(post.id) !== String(published.id))]); setNewTitle(''); setNewContent(''); setNewPostOpen(false);
       await notifyChange();
     } catch (error) { setPostError('Não foi possível publicar. ' + (error.message || 'Tente novamente.')); }
     finally { locks.current.delete('post'); setPosting(false); }
@@ -167,11 +182,11 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
       const author = authorFor(post.created_by), postComments = comments.filter(comment => comment.post_id === post.id), postReactions = reactions.filter(reaction => reaction.post_id === post.id);
       const saved = saves.includes(post.id), liked = postReactions.some(reaction => reaction.member_id === profile.id && reaction.emoji === '👍');
       const photo = safeImage(post), visibleComments = expandedComments[post.id] ? postComments : postComments.slice(-1);
-      return <ObservedPost key={post.id} post={post} enabled={!newPostOpen} onView={() => activity?.recordView('announcement', post.id)} className="community-post">
+      return <ObservedPost key={post.id} post={post} enabled={!newPostOpen && !post.pendingSync} onView={() => activity?.recordView('announcement', String(post.id))} className="community-post">
         <header className="community-post-header"><Avatar member={author}/><div className="community-author"><strong>{author.name}</strong><small>{author.role || author.instrument || 'Ministério'} · <time dateTime={post.created_at}>{dateText(post.created_at)}</time></small></div><button type="button" className="community-save" aria-label={`${saved ? 'Remover dos salvos' : 'Salvar aviso'}: ${post.title}`} aria-pressed={saved} disabled={pending[`save:${post.id}`]} onClick={() => toggleSave(post.id)}><SocialIcon name="save"/></button></header>
         <div className={'community-post-body' + (rehearsalPost(post) ? ' community-post-rehearsal' : '')}><h3>{post.title}</h3><p>{post.content}</p></div>
         {photo && <img className="community-post-photo" src={photo} alt={'Imagem de ' + post.title} loading="lazy"/>}
-        {profile?.is_admin && <div className="community-viewers"><ViewersButton activity={activity} targetType="announcement" targetId={post.id} title={post.title} members={members} dark={dark}/></div>}
+        {post.pendingSync ? <p className="community-pending" role="status">Aguardando sincronização. As visualizações estarão disponíveis após a publicação.</p> : profile?.is_admin && <div className="community-viewers"><ViewersButton activity={activity} targetType="announcement" targetId={String(post.id)} title={post.title} members={members} dark={dark}/></div>}
         <div className="community-social-summary"><span><span aria-hidden="true">{postReactions.length ? [...new Set(postReactions.map(reaction => reaction.emoji))].slice(0, 3).join('') : '♡'}</span> {postReactions.length} {postReactions.length === 1 ? 'reação' : 'reações'}</span><button type="button" onClick={() => setExpandedComments(previous => ({ ...previous, [post.id]: !previous[post.id] }))} aria-expanded={!!expandedComments[post.id]}>{postComments.length} {postComments.length === 1 ? 'comentário' : 'comentários'}</button></div>
         <div className="community-social-actions"><button type="button" aria-pressed={liked} disabled={pending[`reaction:${post.id}:👍`]} onClick={() => toggleReaction(post.id, '👍')}><SocialIcon name="like"/>Curtir</button><button type="button" aria-haspopup="menu" aria-controls={reactionMenu?.postId === post.id ? reactionMenuId : undefined} aria-expanded={reactionMenu?.postId === post.id} onClick={event => setReactionMenu(reactionMenu?.postId === post.id ? null : { postId: post.id, anchor: event.currentTarget })}><span aria-hidden="true">♡</span>Reagir</button><button type="button" aria-expanded={!!expandedComments[post.id]} onClick={() => setExpandedComments(previous => ({ ...previous, [post.id]: !previous[post.id] }))}><SocialIcon name="comment"/>Comentar</button></div>
         {!!visibleComments.length && <div className="community-comments">{visibleComments.map(comment => { const member = authorFor(comment.member_id); return <div className="community-comment" key={comment.id}><Avatar member={member} small/><div><strong>{member.name}</strong><p>{comment.text}</p></div></div>; })}</div>}

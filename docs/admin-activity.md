@@ -4,6 +4,8 @@ O admin encontra **Membros on-line** na aba Admin. Nos detalhes de cada escala e
 
 Cada relatório pertence ao ID daquele evento ou aviso. Eventos com o mesmo nome têm históricos independentes; a data e o horário do evento aparecem no painel para distinguir escalas recorrentes. O total de pessoas conta cada membro uma vez naquele conteúdo; a quantidade de visualizações na linha do membro conta suas aberturas daquele mesmo conteúdo. Ao trocar de evento, o painel aguarda a nova consulta sem reaproveitar nomes, contagens ou horários do relatório anterior. Essa correção é da aplicação e não requer executar novamente o SQL.
 
+Comunicados novos usam o registro confirmado e devolvido pelo Supabase, inclusive seu ID definitivo. IDs numéricos são convertidos em texto ao registrar ou consultar visualizações. Publicações offline ficam identificadas como pendentes e só oferecem o relatório após a sincronização; atualizar o feed preserva o rascunho pendente até reconhecer sua versão publicada. Uma conexão de banco indisponível mantém o formulário e o texto para nova tentativa, sem apresentar uma publicação local como se estivesse confirmada no servidor.
+
 ## Ativação no Supabase
 
 A implementação precisa de duas tabelas novas e uma função RPC. O arquivo é separado da aplicação e não é executado pelo build ou pelo deploy da Vercel:

@@ -291,7 +291,7 @@ async function fixture(browser) {
     const channels=[];
     export const publicSupabaseConfig=window.__testActivityConnection||null;
     window.__testDeliver=(name,message)=>channels.filter(c=>c.topic===name).forEach(c=>c.handlers.filter(h=>h.type==='broadcast'&&h.filter.event===message.event).forEach(h=>h.fn({payload:message.payload})));
-    export const supabase={channel(name){const c={topic:name,state:'joined',handlers:[],on(type,filter,fn){this.handlers.push({type,filter,fn});return this;},subscribe(fn){queueMicrotask(()=>fn?.('SUBSCRIBED'));return this;},unsubscribe(){},send(message){return window.__testBroadcast(name,message).then(()=> 'ok');}};channels.push(c);return c;},removeChannel(c){const i=channels.indexOf(c);if(i>=0)channels.splice(i,1);},from(table){const query={table,op:'select',filters:{},inFilters:{}};return {select(){return this;},eq(k,v){query.filters[k]=v;return this;},match(values){Object.assign(query.filters,values);return this;},in(k,v){query.inFilters[k]=v;return this;},order(){return this;},single(){return this;},maybeSingle(){return this;},upsert(data){query.op='upsert';query.data=data;return this;},insert(data){query.op='insert';query.data=data;return this;},delete(){query.op='delete';return this;},update(data){query.op='update';query.data=data;return this;},then(resolve,reject){return window.__testDb('query',[query]).then(resolve,reject);}};}};
+    export const supabase={channel(name){const c={topic:name,state:'joined',handlers:[],on(type,filter,fn){this.handlers.push({type,filter,fn});return this;},subscribe(fn){queueMicrotask(()=>fn?.('SUBSCRIBED'));return this;},unsubscribe(){},send(message){return window.__testBroadcast(name,message).then(()=> 'ok');}};channels.push(c);return c;},removeChannel(c){const i=channels.indexOf(c);if(i>=0)channels.splice(i,1);},from(table){const query={table,op:'select',filters:{},inFilters:{}};return {select(){return this;},eq(k,v){query.filters[k]=v;return this;},match(values){Object.assign(query.filters,values);return this;},in(k,v){query.inFilters[k]=v;return this;},order(){return this;},single(){query.single=true;return this;},maybeSingle(){query.single=true;return this;},upsert(data){query.op='upsert';query.data=data;return this;},insert(data){query.op='insert';query.data=data;return this;},delete(){query.op='delete';return this;},update(data){query.op='update';query.data=data;return this;},then(resolve,reject){return window.__testDb('query',[query]).then(resolve,reject);}};}};
     export async function setEventItems(...args){return updateEventItems(supabase,...args);}
     ${names.filter(name=>name!=='setEventItems').map(name=>`export async function ${name}(...args){return window.__testDb('${name}',args);}`).join('\n')}
   `;
@@ -349,12 +349,16 @@ async function fixture(browser) {
         if(muralKeys[query.table]){
           const key=muralKeys[query.table];state[key]||=[];
           const matches=row=>Object.entries(query.filters).every(([field,value])=>row[field]===value);
+          let inserted;
           if(query.op==='insert'){
             if(state.muralInsertError)return {data:null,error:{message:state.muralInsertError}};
-            state[key].push(...structuredClone(Array.isArray(query.data)?query.data:[query.data]));
+            inserted=structuredClone(Array.isArray(query.data)?query.data:[query.data]);
+            if(query.table==='announcements'&&state.muralGeneratedId)inserted=inserted.map(row=>({...row,id:state.muralGeneratedId}));
+            state[key].push(...inserted);
           }
           if(query.op==='delete')state[key]=state[key].filter(row=>!matches(row));
-          return {data:structuredClone(state[key].filter(matches)),error:null};
+          const rows=inserted||state[key].filter(matches);
+          return {data:structuredClone(query.single?rows[0]||null:rows),error:null};
         }
         if(query.table==='equipment'){
           state.equipment||=[{id:'equipment-fixture',name:'Microfone de teste',brand:'Shure',serial_number:'TEST-01',status:'Disponível',custodian_id:null}];
@@ -397,7 +401,7 @@ async function fixture(browser) {
     await context.exposeBinding('__testBroadcast', async (_source, name, message) => { await Promise.all(pages.filter(page=>!page.isClosed()).map(page=>page.evaluate(({name,message})=>window.__testDeliver?.(name,message),{name,message}))); });
     const page = await context.newPage(); pages.push(page);
     page.on('pageerror', error => failures.push(error.message));
-    await page.route('**/src/lib/supabase.js*', route => route.fulfill({ contentType: 'text/javascript', body: code }));
+    await page.route('**/src/lib/supabase.js*', route => route.fulfill({ contentType: 'text/javascript', body: options.noSupabase ? code.replace('export const supabase=','const fixtureSupabase=')+'\nexport const supabase=null;' : code }));
     const handleActivity=async(route,direct=false)=>{
       const body=direct?route.request().postDataJSON().p_payload:route.request().postDataJSON();state.activityRequests.push({...structuredClone(body),transport:direct?'rpc':'api'});
       const actor=state.members.find(row=>row.id===body.memberId&&row.pin===body.pin);
@@ -405,6 +409,10 @@ async function fixture(browser) {
       if(!actor)return reply(401,direct?{code:'28000',message:'Sessão inválida.'}:{error:'Sessão inválida.'});
       if(['online','viewers'].includes(body.action)&&!actor.is_admin)return reply(403,direct?{code:'42501',message:'Acesso exclusivo do administrador.'}:{error:'Acesso exclusivo do administrador.'});
       if(state.activityFailure&&!direct)return reply(503,{code:'ACTIVITY_SETUP_REQUIRED',error:state.activityFailure});
+      if(['view','viewers'].includes(body.action)){
+        const targets=body.targetType==='event'?state.events:state.posts;
+        if(!targets.some(target=>String(target.id)===String(body.targetId)))return reply(404,direct?{code:'P0002',message:'Conteúdo não encontrado.'}:{error:'Conteúdo não encontrado.'});
+      }
       const serverTime=new Date(state.activityNow).toISOString();
       if(['heartbeat','leave'].includes(body.action)){
         const existing=state.activitySessions.get(body.sessionId);
@@ -849,6 +857,78 @@ test('approved social mural preserves failed drafts and shares comments and reac
   expect(app.failures).toEqual([]);
  }finally{await app.close();}
 });
+for(const storedId of ['database-post-101',101])test(`a new mural post uses its confirmed database ID for recording and consulting views (${typeof storedId})`,async({browser})=>{
+ const app=await fixture(browser);
+ app.state.members=app.state.members.map((person,index)=>({...person,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
+ app.state.muralGeneratedId=storedId;
+ try{
+  const first=await app.open(admin,undefined,{activity:true,directActivity:true});
+  const second=await app.open(member,undefined,{activity:true,directActivity:true});
+  for(const page of [first,second])await page.getByRole('button',{name:'Mural',exact:true}).click();
+  await first.getByRole('button',{name:'Novo Aviso',exact:true}).click();
+  const composer=first.getByRole('dialog',{name:'Novo Comunicado',exact:true});
+  await composer.getByPlaceholder('Título do post *').fill('Louvor novo');
+  await composer.getByPlaceholder('Escreva o comunicado aqui...').fill('Vamos estudar o novo arranjo.');
+  await composer.getByRole('button',{name:'Publicar',exact:true}).click();await expect(composer).toHaveCount(0);
+  await expect(second.getByRole('article',{name:'Louvor novo',exact:true})).toBeVisible();
+  await expect.poll(()=>[...app.state.activityViews.values()].some(view=>view.memberId===member.id&&view.targetId===String(storedId))).toBe(true);
+  await first.getByRole('button',{name:'Ver visualizações de Louvor novo',exact:true}).click();
+  const report=first.getByRole('dialog',{name:'Visualizações do aviso',exact:true});
+  await expect(report.locator('.ui-activity-readers').getByText('Membro Teste',{exact:true})).toBeVisible();
+  await expect(report.getByRole('alert')).toHaveCount(0);
+  expect(app.state.activityRequests.filter(request=>request.targetType==='announcement').every(request=>request.targetId===String(storedId))).toBe(true);
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('mural preserves the draft instead of claiming publication when the database client is unavailable',async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  const page=await app.open(admin,undefined,{noSupabase:true});
+  await page.getByRole('button',{name:'Mural',exact:true}).click();
+  await page.getByRole('button',{name:'Novo Aviso',exact:true}).click();
+  const composer=page.getByRole('dialog',{name:'Novo Comunicado',exact:true});
+  await composer.getByPlaceholder('Título do post *').fill('Aviso que precisa ser salvo');
+  await composer.getByPlaceholder('Escreva o comunicado aqui...').fill('Texto que deve continuar disponível.');
+  await composer.getByRole('button',{name:'Publicar',exact:true}).click();
+  await expect(composer.getByRole('alert')).toContainText('A conexão com o mural está indisponível');
+  await expect(composer.getByPlaceholder('Título do post *')).toHaveValue('Aviso que precisa ser salvo');
+  await expect(page.getByRole('article',{name:'Aviso que precisa ser salvo',exact:true})).toHaveCount(0);
+  expect(app.state.posts).toHaveLength(0);
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('an offline mural post waits for synchronization before offering its viewers report',async({browser})=>{
+ const app=await fixture(browser);
+ app.state.members=app.state.members.map((person,index)=>({...person,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
+ app.state.muralGeneratedId='database-post-offline';
+ try{
+  const page=await app.open(admin,undefined,{activity:true,directActivity:true});
+  await page.getByRole('button',{name:'Mural',exact:true}).click();
+  await page.context().setOffline(true);
+  await page.getByRole('button',{name:'Novo Aviso',exact:true}).click();
+  const composer=page.getByRole('dialog',{name:'Novo Comunicado',exact:true});
+  await composer.getByPlaceholder('Título do post *').fill('Aviso salvo offline');
+  await composer.getByPlaceholder('Escreva o comunicado aqui...').fill('Lembrem de revisar o repertório.');
+  await composer.getByRole('button',{name:'Publicar',exact:true}).click();
+  const post=page.getByRole('article',{name:'Aviso salvo offline',exact:true});
+  await expect(post.getByRole('status')).toContainText('Aguardando sincronização');
+  await expect(post.getByRole('button',{name:/Ver visualizações/})).toHaveCount(0);
+  expect(app.state.activityRequests.filter(request=>request.targetType==='announcement')).toHaveLength(0);
+  expect(app.state.posts).toHaveLength(0);
+  await page.context().setOffline(false);
+  await expect(post.getByRole('button',{name:'Ver visualizações de Aviso salvo offline',exact:true})).toBeVisible();
+  await expect(post.getByRole('status')).toHaveCount(0);
+  await expect(page.getByRole('article',{name:'Aviso salvo offline',exact:true})).toHaveCount(1);
+  await post.getByRole('button',{name:'Ver visualizações de Aviso salvo offline',exact:true}).click();
+  const report=page.getByRole('dialog',{name:'Visualizações do aviso',exact:true});
+  await expect(report.locator('.ui-activity-summary')).toBeVisible();
+  await expect(report.getByRole('alert')).toHaveCount(0);
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
 for(const [theme,width] of [['light',320],['dark',390]])test(`reaction popup floats without moving posts and supports touch and keyboard in ${theme} mode`,async({browser})=>{
  const app=await fixture(browser);
  app.state.posts=[{id:'post-1',title:'Culto de Domingo',content:'Chegar 30 minutos antes do culto.',created_at:'2026-10-24T14:00:00Z',created_by:admin.id},{id:'post-2',title:'Próximo ensaio',content:'Vamos revisar as transições e os tons.',created_at:'2026-10-23T14:00:00Z',created_by:admin.id}];

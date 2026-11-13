@@ -52,6 +52,7 @@
 .community-post-photo { display:block; width:100%; max-height:350px; object-fit:contain; background:var(--community-field); }
 .community-viewers { padding-inline:14px; }
 .community-viewers .ui-viewers-control { margin-block:0 8px; }
+.community-pending { margin:0 14px 8px; padding:10px 12px; border-radius:12px; background:var(--community-accent-soft); color:var(--community-muted); font-size:12px; line-height:1.5; }
 .community-social-summary { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px; color:var(--community-muted); font-size:11px; }
 .community-social-summary > span > span { font-size:14px; }
 .community-social-summary button { padding:3px 0; border:0; background:transparent; color:var(--community-muted); font:inherit; cursor:pointer; }
