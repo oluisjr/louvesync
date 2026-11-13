@@ -59,19 +59,24 @@
   width:52px;
   height:52px;
   max-width:100%;
-  border-radius:50%;
-  border:1px solid #99d9edb3;
-  background:linear-gradient(145deg,#fffffff2,#edf8ffe6);
-  box-shadow:inset 0 1px 2px #fff,0 2px 5px #3b72971a;
+  border:0;
+  background:transparent;
 }
 .app-navigation-emblem img { display:block; width:38px; height:38px; max-width:78%; object-fit:contain; }
-.app-navigation-church.on .app-navigation-emblem { border-color:var(--navigation-accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--navigation-accent) 22%,transparent),inset 0 1px 2px #fff; }
-.app-navigation[data-theme="dark"] .app-navigation-emblem { background:linear-gradient(145deg,#fffffff5,#e9d6fff2); border-color:#ddc1f7b3; }
+.app-navigation-church.on::after { content:''; position:absolute; bottom:3px; left:50%; transform:translateX(-50%); width:22px; height:3px; border-radius:10px; background:var(--navigation-underline); }
+.app-navigation[data-theme="dark"] .app-navigation-emblem img { filter:drop-shadow(0 0 1px #ffffffa6); }
+.ui-dialog-layer[data-theme="light"]:has(.app-more-menu) { --ui-text:#162c42; --ui-muted:#496477; --ui-accent:#007fa8; --ui-accent-soft:#ceeff8; --ui-surface:#edfaff; --ui-panel:#e9f7fc; --ui-line:#c1e5ef; --ui-row:#f6fdff; --more-art:url('/images/home/devotional-ribbons.webp'); --more-scrim:#edfaffed; }
+.ui-dialog-layer[data-theme="dark"]:has(.app-more-menu) { --more-art:url('/images/home/devotional-ribbons-dark.webp'); --more-scrim:#34244feb; }
+.ui-dialog:has(.app-more-menu) { border-color:var(--ui-line); }
 .app-more-menu { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-.app-more-destination { text-align:left; justify-content:flex-start; min-height:58px; padding:12px; gap:9px; }
-.app-more-destination > span:first-child { display:grid; place-items:center; color:var(--ui-accent); }
+.app-more-destination { text-align:left; justify-content:flex-start; min-height:76px; padding:12px; gap:9px; border-radius:16px; position:relative; overflow:hidden; background-color:var(--ui-row); }
+.app-more-destination:is(.app-more-repertorio,.app-more-devocional,.app-more-ensaio,.app-more-ia,.app-more-membros,.app-more-admin) { background-image:linear-gradient(90deg,var(--more-scrim),var(--more-scrim) 50%,transparent),var(--more-art); background-size:cover; background-position:right bottom; }
+.app-more-destination.app-more-treinamento { background-image:linear-gradient(90deg,var(--more-scrim),transparent),url('/images/training/practice.webp'); background-size:cover; background-position:right bottom; }
+.ui-dialog-layer[data-theme="dark"] .app-more-treinamento { background-image:linear-gradient(90deg,var(--more-scrim),transparent),url('/images/training/practice-dark.webp'); }
+.app-more-destination:hover { border-color:var(--ui-accent); }
+.app-more-destination > span:first-child { display:grid; place-items:center; color:var(--ui-accent); flex:0 0 22px; }
 .app-more-destination > span:nth-child(2) { min-width:0; overflow-wrap:anywhere; }
-.app-more-destination[aria-current="page"] { border-color:var(--ui-accent); background:var(--ui-accent-soft); }
+.app-more-destination[aria-current="page"] { border-color:var(--ui-accent); box-shadow:inset 0 0 0 1px var(--ui-accent); }
 .app-more-chevron { margin-left:auto; flex:0 0 auto; color:var(--ui-muted); font-size:22px; }
 @media (max-width:359px) {
   .app-nav .app-navigation.gNav { padding-inline:5px; }

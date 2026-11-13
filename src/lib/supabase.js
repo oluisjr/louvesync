@@ -1,6 +1,7 @@
 import { updateEventItems, upsertEventRecord } from './event-storage.js';
 import { createClient } from '@supabase/supabase-js';
 import { decodeSequence, encodeSequence } from './domain.js';
+import { deleteAdminContent } from './admin-delete-client.js';
 
 const url  = import.meta.env.VITE_SUPABASE_URL;
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -94,10 +95,9 @@ export async function upsertSong(song) {
   }
 }
 
-export async function deleteSong(id) {
+export async function deleteSong(id, actor) {
   if (!supabase) return null;
-  const { error } = await supabase.from('songs').delete().eq('id', id);
-  if (error) throw error;
+  return deleteAdminContent('song', id, actor);
 }
 
 export async function requestDeleteSong(songId, userId) {
@@ -132,14 +132,9 @@ export async function upsertEvent(event) {
   return upsertEventRecord(supabase, event);
 }
 
-export async function deleteEvent(id) {
+export async function deleteEvent(id, actor) {
   if (!supabase) return null;
-  const { error: songsError } = await supabase.from('event_songs').delete().eq('event_id', id);
-  if (songsError) throw songsError;
-  const { error: membersError } = await supabase.from('event_members').delete().eq('event_id', id);
-  if (membersError) throw membersError;
-  const { error } = await supabase.from('events').delete().eq('id', id);
-  if (error) throw error;
+  return deleteAdminContent('event', id, actor);
 }
 
 export async function requestDeleteEvent(eventId, userId) {

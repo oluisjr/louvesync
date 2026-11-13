@@ -1,0 +1,59 @@
+.practical-training {
+  --ui-text:#162c42; --ui-muted:#496477; --ui-accent:#007fa8; --ui-accent-soft:#ceeff8; --ui-panel:#edfaff; --ui-field:#e3f4f9; --ui-line:#b5e2ed; --ui-row:#f6fdff;
+  --training-card:rgba(255,255,255,.7); --training-edge:#d7f1f9; --training-scrim:#e9f9fcf5; --training-art:url('/images/home/devotional-ribbons.webp');
+  padding-top:18px;
+}
+.practical-training[data-theme="dark"] {
+  --ui-text:#f5f2ff; --ui-muted:#ded0ed; --ui-accent:#ca9fff; --ui-accent-soft:#493066; --ui-panel:#271d3c; --ui-field:#211733; --ui-line:#8064a3; --ui-row:#3b2a58;
+  --training-card:rgba(52,36,79,.84); --training-edge:#8960ae; --training-scrim:#34244ff2; --training-art:url('/images/home/devotional-ribbons-dark.webp');
+}
+.training-heading { display:flex; gap:10px; align-items:flex-start; margin-bottom:20px; color:var(--ui-text); }
+.training-heading > svg { margin-top:3px; flex-shrink:0; }
+.training-heading h2 { font-size:24px; font-weight:900; letter-spacing:-.5px; line-height:1.2; margin:0; }
+.training-heading p { margin:4px 0 0; color:var(--ui-muted); font-size:13px; }
+.training-tracks { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; margin-bottom:16px; }
+.training-track { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:7px; min-height:70px; min-width:0; padding:10px 4px; border:1px solid var(--training-edge); border-radius:18px; background:var(--training-card); color:var(--ui-text); font:800 12px/1.3 'Nunito',sans-serif; cursor:pointer; }
+.practical-training .training-track[aria-pressed="true"] { color:var(--ui-accent); border-color:var(--ui-accent); background:var(--ui-accent-soft)!important; outline:none; }
+.training-card { margin:0 0 13px; border:1px solid var(--training-edge); border-radius:20px; background:var(--training-card); padding:17px; box-shadow:0 5px 16px #245f7e09; }
+.practical-training[data-theme="dark"] .training-card { box-shadow:0 5px 16px #14072526; }
+.training-hero { background-image:linear-gradient(90deg,var(--training-scrim),transparent),url('/images/training/practice.webp'); background-size:cover; background-position:center right; }
+.practical-training[data-theme="dark"] .training-hero { background-image:linear-gradient(90deg,var(--training-scrim),transparent),url('/images/training/practice-dark.webp'); }
+.training-hero .ui-eyebrow { display:flex; align-items:center; gap:5px; font-size:11px; }
+.training-hero h3 { font-size:21px; font-weight:900; line-height:1.25; margin:8px 0 5px; color:var(--ui-text); max-width:85%; }
+.training-hero > p { font-size:12px; margin:0 0 15px; max-width:80%; color:var(--ui-muted); }
+.training-session-actions { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+.training-session-actions .ui-button { font-size:12px; min-height:40px; padding:9px 12px; }
+.training-progress { margin-top:14px; }
+.training-progress > div { display:flex; justify-content:space-between; gap:8px; font-size:10px; color:var(--ui-muted); }
+.training-progress progress { appearance:none; display:block; width:100%; height:5px; margin-top:6px; border:0; border-radius:10px; overflow:hidden; background:var(--ui-accent-soft); accent-color:var(--ui-accent); }
+.training-progress progress::-webkit-progress-bar { background:var(--ui-accent-soft); }
+.training-progress progress::-webkit-progress-value { background:var(--ui-accent); border-radius:10px; }
+.training-progress progress::-moz-progress-bar { background:var(--ui-accent); border-radius:10px; }
+.training-exercises > h3 { font-size:19px; font-weight:900; margin:17px 0 10px; }
+.training-exercises ol { list-style:none; margin:0; padding:0; }
+.training-step { display:flex; align-items:flex-start; gap:9px; padding:12px; border-radius:15px; margin-bottom:8px; }
+.training-step[aria-current="step"] { border-color:var(--ui-accent); }
+.training-step-number { display:grid; place-items:center; flex:0 0 31px; width:31px; height:31px; border-radius:50%; background:var(--ui-accent-soft); color:var(--ui-accent); font-size:18px; font-weight:900; }
+.training-step > div { flex:1; min-width:0; }
+.training-step h4 { margin:0 0 3px; font-size:12px; line-height:1.35; font-weight:900; }
+.training-step p { margin:0; color:var(--ui-muted); font-size:11px; line-height:1.45; }
+.training-duration { display:flex; align-items:center; gap:3px; flex:0 0 auto; font-size:10px; color:var(--ui-accent); white-space:nowrap; padding-left:7px; border-left:1px solid var(--ui-line); }
+.training-metronome > h3, .training-tip > h3 { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:900; letter-spacing:.07em; text-transform:uppercase; color:var(--ui-accent); margin:0 0 10px; }
+.training-metronome-controls { display:flex; gap:8px; align-items:center; }
+.training-metronome-controls > div:first-child { flex:1; min-width:0; }
+.training-metronome-controls output { display:block; color:var(--ui-text); font-weight:900; font-size:24px; line-height:1.2; }
+.training-metronome-controls > div > span { display:block; font-size:11px; color:var(--ui-muted); margin-top:3px; }
+.training-metronome-controls .ui-icon-button { border-radius:50%; }
+.training-play { display:grid; place-items:center; width:47px; height:47px; flex:0 0 47px; padding:0; background:var(--ui-accent); color:var(--ui-panel); border:1px solid var(--training-edge); border-radius:50%; cursor:pointer; }
+.training-beats { display:flex; gap:5px; margin-top:12px; }
+.training-beats span { width:6px; height:6px; border-radius:50%; background:var(--ui-accent-soft); border:1px solid var(--ui-accent); }
+.training-beats span[data-active="true"] { background:var(--ui-accent); }
+.training-metronome .ui-message { margin-top:12px; margin-bottom:0; }
+.training-tip { background-image:linear-gradient(90deg,var(--training-scrim),transparent),var(--training-art); background-position:right center; background-size:cover; }
+.training-tip > h3 { color:var(--app-warning); }
+.training-tip p { font-size:12px; line-height:1.6; font-style:italic; color:var(--ui-muted); margin:0; }
+.training-resources { margin:20px 0 12px; }
+.training-resources summary { display:flex; align-items:center; justify-content:space-between; padding:13px; border:1px solid var(--training-edge); background:var(--training-card); border-radius:14px; color:var(--ui-text); font-size:13px; font-weight:800; cursor:pointer; }
+.training-resources > .ui-helper { margin:12px 0; }
+.training-resources > div { margin-top:16px; }
+@media (max-width:359px) { .training-step { padding:10px; gap:7px; } .training-step-number { width:26px; height:26px; flex-basis:26px; } .training-duration { padding-left:5px; font-size:9px; gap:2px; } .training-metronome-controls { gap:5px; } .training-metronome-controls output { font-size:21px; } .training-track { font-size:11px; } }

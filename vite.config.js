@@ -7,7 +7,7 @@ const localApi = () => ({
     for (const name of ['VITE_SUPABASE_URL','VITE_SUPABASE_ANON_KEY','SUPABASE_SERVICE_KEY','SCRAPERAPI_KEY','GROQ_API_KEY','VITE_GROQ_API_KEY']) if (env[name] && !process.env[name]) process.env[name] = env[name];
     server.middlewares.use(async (req,res,next) => {
       const url = new URL(req.url,'http://localhost');
-      const name = url.pathname.match(/^\/api\/(proxy|cifra|maestro|setlist|version|activity)$/)?.[1];
+      const name = url.pathname.match(/^\/api\/(proxy|cifra|maestro|setlist|version|activity|bible|admin-delete|delete-event|notifications)$/)?.[1];
       if (!name) return next();
       try {
         req.query = Object.fromEntries(url.searchParams);

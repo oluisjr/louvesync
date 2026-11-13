@@ -290,14 +290,14 @@ async function fixture(browser) {
     const clone=value=>structuredClone(value);
     const channels=[];
     window.__testDeliver=(name,message)=>channels.filter(c=>c.topic===name).forEach(c=>c.handlers.filter(h=>h.type==='broadcast'&&h.filter.event===message.event).forEach(h=>h.fn({payload:message.payload})));
-    export const supabase={channel(name){const c={topic:name,state:'joined',handlers:[],on(type,filter,fn){this.handlers.push({type,filter,fn});return this;},subscribe(fn){queueMicrotask(()=>fn?.('SUBSCRIBED'));return this;},unsubscribe(){},send(message){return window.__testBroadcast(name,message).then(()=> 'ok');}};channels.push(c);return c;},removeChannel(c){const i=channels.indexOf(c);if(i>=0)channels.splice(i,1);},from(table){const query={table,op:'select',filters:{},inFilters:{}};return {select(){return this;},eq(k,v){query.filters[k]=v;return this;},in(k,v){query.inFilters[k]=v;return this;},order(){return this;},single(){return this;},maybeSingle(){return this;},upsert(data){query.op='upsert';query.data=data;return this;},insert(data){query.op='insert';query.data=data;return this;},delete(){query.op='delete';return this;},update(data){query.op='update';query.data=data;return this;},then(resolve,reject){return window.__testDb('query',[query]).then(resolve,reject);}};}};
+    export const supabase={channel(name){const c={topic:name,state:'joined',handlers:[],on(type,filter,fn){this.handlers.push({type,filter,fn});return this;},subscribe(fn){queueMicrotask(()=>fn?.('SUBSCRIBED'));return this;},unsubscribe(){},send(message){return window.__testBroadcast(name,message).then(()=> 'ok');}};channels.push(c);return c;},removeChannel(c){const i=channels.indexOf(c);if(i>=0)channels.splice(i,1);},from(table){const query={table,op:'select',filters:{},inFilters:{}};return {select(){return this;},eq(k,v){query.filters[k]=v;return this;},match(values){Object.assign(query.filters,values);return this;},in(k,v){query.inFilters[k]=v;return this;},order(){return this;},single(){return this;},maybeSingle(){return this;},upsert(data){query.op='upsert';query.data=data;return this;},insert(data){query.op='insert';query.data=data;return this;},delete(){query.op='delete';return this;},update(data){query.op='update';query.data=data;return this;},then(resolve,reject){return window.__testDb('query',[query]).then(resolve,reject);}};}};
     export async function setEventItems(...args){return updateEventItems(supabase,...args);}
     ${names.filter(name=>name!=='setEventItems').map(name=>`export async function ${name}(...args){return window.__testDb('${name}',args);}`).join('\n')}
   `;
   async function open(profile = admin, time = '2026-10-24T12:00:00-03:00', options = {}) {
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block', ...options.device }); contexts.push(context);
-    await context.addInitScript(profile => { localStorage.setItem('ls_profile', JSON.stringify(profile)); localStorage.removeItem('ls_last_activity'); }, profile);
-    if(options.theme)await context.addInitScript(theme=>{if(!localStorage.getItem('ls_theme'))localStorage.setItem('ls_theme',theme);},options.theme);
+    await context.addInitScript(profile => { try { localStorage.setItem('ls_profile', JSON.stringify(profile)); localStorage.removeItem('ls_last_activity'); } catch { /* Sandboxed media frames have no storage access. */ } }, profile);
+    if(options.theme)await context.addInitScript(theme=>{try{if(!localStorage.getItem('ls_theme'))localStorage.setItem('ls_theme',theme);}catch{/* Sandboxed media frames have no storage access. */}},options.theme);
     if(options.visualViewportHeight)await context.addInitScript(height=>Object.defineProperty(window.visualViewport,'height',{configurable:true,value:height}),options.visualViewportHeight);
     if(options.standalone)await context.addInitScript(()=>{
       Object.defineProperty(navigator,'standalone',{value:true});
@@ -343,7 +343,17 @@ async function fixture(browser) {
       }
       if (action === 'query') {
         const query = args[0];
-        if(query.table==='announcements')return {data:structuredClone(state.posts),error:null};
+        const muralKeys={announcements:'posts',announcement_comments:'comments',announcement_reactions:'reactions',announcement_saves:'saves'};
+        if(muralKeys[query.table]){
+          const key=muralKeys[query.table];state[key]||=[];
+          const matches=row=>Object.entries(query.filters).every(([field,value])=>row[field]===value);
+          if(query.op==='insert'){
+            if(state.muralInsertError)return {data:null,error:{message:state.muralInsertError}};
+            state[key].push(...structuredClone(Array.isArray(query.data)?query.data:[query.data]));
+          }
+          if(query.op==='delete')state[key]=state[key].filter(row=>!matches(row));
+          return {data:structuredClone(state[key].filter(matches)),error:null};
+        }
         if(query.table==='equipment'){
           state.equipment||=[{id:'equipment-fixture',name:'Microfone de teste',brand:'Shure',serial_number:'TEST-01',status:'Disponível',custodian_id:null}];
           if(query.op==='upsert'){
@@ -763,14 +773,106 @@ test('new-song manual path works immediately and Santa Ceia includes every categ
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
+test('approved social mural preserves failed drafts and shares comments and reactions',async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  const first=await app.open(admin),second=await app.open(member);
+  for(const page of [first,second])await page.getByRole('button',{name:'Mural',exact:true}).click();
+  await expect(second.getByRole('button',{name:'Novo Aviso',exact:true})).toHaveCount(0);
+  await first.getByRole('button',{name:'Novo Aviso',exact:true}).click();
+  const dialog=first.getByRole('dialog',{name:'Novo Comunicado',exact:true});
+  await dialog.getByPlaceholder('Título do post *').fill('Ensaio de sábado');
+  await dialog.getByPlaceholder('Escreva o comunicado aqui...').fill('Vamos revisar as transições às 15h.');
+  app.state.muralInsertError='Falha de conexão simulada';
+  await dialog.getByRole('button',{name:'Publicar',exact:true}).click();
+  await expect(dialog.getByRole('alert')).toContainText('Falha de conexão simulada');
+  await expect(dialog.getByPlaceholder('Título do post *')).toHaveValue('Ensaio de sábado');
+  app.state.muralInsertError=null;
+  await dialog.getByRole('button',{name:'Publicar',exact:true}).click();await expect(dialog).toHaveCount(0);
+  const post=second.locator('.community-post').filter({has:second.getByRole('heading',{name:'Ensaio de sábado',exact:true})});
+  await expect(post).toBeVisible();
+  await post.getByRole('button',{name:'Curtir',exact:true}).click();await expect(post.getByRole('button',{name:'Curtir',exact:true})).toHaveAttribute('aria-pressed','true');
+  await post.getByRole('button',{name:'Curtir',exact:true}).click();await expect(post.getByRole('button',{name:'Curtir',exact:true})).toHaveAttribute('aria-pressed','false');
+  await post.getByRole('button',{name:'Comentar',exact:true}).click();
+  await post.getByRole('textbox',{name:'Escrever comentário em Ensaio de sábado',exact:true}).fill('Estarei lá!');
+  await post.getByRole('button',{name:'Enviar',exact:true}).click();
+  await expect(first.locator('.community-post').getByText('Estarei lá!',{exact:true})).toBeVisible();
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+test('practical training changes instruments and runs its timer and real metronome',async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  const page=await app.open(admin);await navigate(page,'Treinar');
+  const training=page.locator('.practical-training');
+  await training.getByRole('button',{name:'Teclado',exact:true}).click();
+  await expect(training.getByText('Aqueça com cinco notas',{exact:true})).toBeVisible();
+  await training.getByRole('button',{name:'Voz',exact:true}).click();
+  await expect(training.getByText('Respire por 4 tempos',{exact:true})).toBeVisible();
+  await training.getByRole('button',{name:'Começar prática',exact:true}).click();
+  const start=await page.evaluate(()=>Date.now());await page.clock.setFixedTime(start+3500);
+  await training.getByRole('button',{name:'Pausar prática',exact:true}).click();
+  await expect(training.getByLabel('Tempo de prática',{exact:true})).toContainText('0:03');
+  await training.getByRole('button',{name:'Reiniciar',exact:true}).click();
+  await expect(training.getByRole('button',{name:'Começar prática',exact:true})).toBeVisible();
+  await training.getByRole('button',{name:'Ativar metrônomo',exact:true}).click();
+  await expect(training.getByRole('button',{name:'Parar metrônomo',exact:true})).toHaveAttribute('aria-pressed','true');
+  await training.getByRole('button',{name:'Aumentar andamento',exact:true}).click();await expect(training.getByLabel('Andamento do metrônomo',{exact:true})).toHaveText('75 BPM');
+  await training.getByRole('button',{name:'Parar metrônomo',exact:true}).click();
+  await expect(training.locator('iframe')).toHaveCount(0);
+  await training.locator('summary').click();
+  await expect(training.getByText('🎸 Afinador Cromático',{exact:true})).toBeVisible();
+  expect(await training.locator('iframe').first().getAttribute('src')).not.toContain('undefined');
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+test('notification inbox activates a device, preserves read receipts and opens the correct event',async({browser})=>{
+ const app=await fixture(browser),requests=[];
+ app.state.members=app.state.members.map(person=>({...person,pin:'NOTIFICATION_TEST_PIN'}));
+ try{
+  const page=await app.open(member);
+  const items=[{id:'11111111-1111-4111-8111-111111111111',type:'event_changed',targetId:'event-1',title:'Escala atualizada',body:'Confira as músicas do culto.',url:'/?tab=escala&event=event-1',created_at:'2026-10-24T12:00:00Z',read_at:null}];
+  await page.route('**/api/notifications',route=>{const body=route.request().postDataJSON();requests.push(body);if(body.action==='mark_read')for(const item of items)if(body.ids.includes(item.id))item.read_at=new Date().toISOString();return route.fulfill({json:{ok:true,items,publicKey:'B'+ 'A'.repeat(86),pushConfigured:true}});});
+  await page.addInitScript(()=>{
+   let subscribed=false;
+   const subscription={endpoint:'https://fcm.googleapis.com/fcm/send/fixture',toJSON(){return {endpoint:this.endpoint,keys:{p256dh:'B'+'A'.repeat(86),auth:'A'.repeat(22)}};},async unsubscribe(){subscribed=false;return true;}};
+   Object.defineProperty(window,'Notification',{configurable:true,value:{permission:'default',async requestPermission(){this.permission='granted';return 'granted';}}});
+   Object.defineProperty(window,'PushManager',{configurable:true,value:function(){}});
+   Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:{addEventListener(){},removeEventListener(){},async getRegistration(){return {active:true,pushManager:{async getSubscription(){return subscribed?subscription:null;},async subscribe(){subscribed=true;return subscription;}}};}}});
+  });
+  await page.reload();await page.getByRole('button',{name:'Notificações',exact:true}).click();
+  const inbox=page.getByRole('dialog',{name:'Notificações',exact:true});
+  await expect(inbox.getByText('Escala atualizada',{exact:true})).toBeVisible();
+  await inbox.getByRole('button',{name:'Ativar notificações',exact:true}).click();await expect(inbox.getByText('Notificações ativadas neste aparelho.',{exact:true})).toBeVisible();
+  expect(requests.filter(body=>body.action==='subscribe')).toHaveLength(1);
+  await inbox.getByRole('button',{name:'Ver escala',exact:true}).click();
+  await expect(inbox).toHaveCount(0);await expect(page.locator('.gL2').getByText('Culto de Teste',{exact:true})).toBeVisible();
+  await expect.poll(()=>items[0].read_at!==null).toBe(true);
+  expect(requests.every(body=>body.memberId===member.id)).toBe(true);expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+test('opening a push target waits for an unfinished event editor instead of discarding it',async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  const page=await app.open(admin);await page.getByRole('button',{name:'Escala',exact:true}).click();
+  await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();await page.getByRole('button',{name:'Editar',exact:true}).click();
+  const editor=page.getByRole('dialog',{name:'Editar evento',exact:true});
+  await editor.getByLabel('Nome do evento',{exact:true}).fill('Rascunho não salvo');
+  await page.evaluate(()=>navigator.serviceWorker.dispatchEvent(new MessageEvent('message',{data:{type:'LOUVESYNC_OPEN_NOTIFICATION',url:location.origin+'/?tab=escala&event=event-1'}})));
+  await expect(editor).toBeVisible();await expect(editor.getByLabel('Nome do evento',{exact:true})).toHaveValue('Rascunho não salvo');
+  await page.keyboard.press('Escape');await expect(editor).toHaveCount(0);
+  await expect(page.locator('.gL2').getByText('Culto de Teste',{exact:true})).toBeVisible();
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
 test('Bible plan uses the selected book and opening a passage does not mark it read',async({browser})=>{
   const app=await fixture(browser);
   try{
     const page=await app.open();const requests=[];
-    await page.route('https://bible-api.com/**',route=>{requests.push(route.request().url());return route.fulfill({json:{verses:[{verse:1,text:'Versículo de teste'}]}});});
+    await page.route('**/api/bible?**',route=>{const url=new URL(route.request().url());requests.push(url.href);return route.fulfill({json:{book:url.searchParams.get('book'),chapter:Number(url.searchParams.get('chapter')),translation:'almeida',source:'getbible',verses:[{number:1,text:'Versículo de teste'}]}});});
     await page.getByRole('button',{name:'Bíblia',exact:true}).click();await page.getByRole('button',{name:'Planos de leitura',exact:true}).click();
     await page.getByRole('button',{name:'Hebreus 11:1',exact:true}).click();await expect(page.getByRole('heading',{name:'Hebreus 11',exact:true})).toBeVisible();
-    await expect.poll(()=>requests.some(url=>url.includes('/hebrews+11?'))).toBe(true);
+    await expect.poll(()=>requests.some(url=>url.includes('book=hebrews')&&url.includes('chapter=11'))).toBe(true);
     expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ls_bible_plans')||'{}'))).toEqual({});expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });

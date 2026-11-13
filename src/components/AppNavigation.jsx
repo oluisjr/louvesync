@@ -37,7 +37,7 @@ const AppNavigation = forwardRef(function AppNavigation({ tabs, currentTab, onNa
     </div>
     {moreOpen && <Dialog dark={dark} title="Mais" description="Acesse as outras áreas do ministério." icon="music" compact closeLabel="Fechar menu Mais" onClose={() => setMoreOpen(false)} footer={<button type="button" className="ui-button ui-button-wide" onClick={() => setMoreOpen(false)}>Fechar</button>}>
       <div className="app-more-menu">
-        {moreDestinations.map(destination => <button key={destination.id} type="button" className="ui-button app-more-destination" aria-current={currentTab === destination.id ? 'page' : undefined} onClick={() => navigate(destination.id)}><span aria-hidden="true">{destination.ico}</span><span>{destination.l}</span><span className="app-more-chevron" aria-hidden="true">›</span></button>)}
+        {moreDestinations.map(destination => <button key={destination.id} type="button" className={'ui-button app-more-destination app-more-'+destination.id} aria-current={currentTab === destination.id ? 'page' : undefined} onClick={() => navigate(destination.id)}><span aria-hidden="true">{destination.ico}</span><span>{destination.l}</span><span className="app-more-chevron" aria-hidden="true">›</span></button>)}
       </div>
     </Dialog>}
   </>;

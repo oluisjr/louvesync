@@ -2,6 +2,10 @@
   "installCommand": "npm ci --include=optional",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/bible.js": { "maxDuration": 30 },
+    "api/notifications.js": { "maxDuration": 30 }
+  },
   "headers": [
     {
       "source": "/(.*)",

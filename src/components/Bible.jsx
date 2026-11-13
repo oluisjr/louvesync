@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { readCache, writeCache } from '../lib/domain.js';
 import { Icon, PageHeading, Section } from './Interface.jsx';
+import { fetchBibleChapter, normalizeBiblePosition, normalizeBibleVerses } from '../lib/bible-client.js';
 
 export default function Bible({ dark, books, plans }) {
-  const saved = readCache('ls_bible_position', { book: 'john', chapter: 1 });
+  const saved = normalizeBiblePosition(readCache('ls_bible_position', { book: 'john', chapter: 1 }), books);
   const [book, setBook] = useState(saved.book);
   const [chapter, setChapter] = useState(saved.chapter);
   const [verse, setVerse] = useState(null);
@@ -18,18 +19,16 @@ export default function Bible({ dark, books, plans }) {
   useEffect(() => {
     const abort = new AbortController();
     const key = `ls_bible_${book}_${chapter}`;
-    const cached = readCache(key, null);
+    let cached = null;
+    try { cached=normalizeBibleVerses(readCache(key,null)); } catch { /* Ignore malformed or empty stored chapters. */ }
     setStatus(cached ? 'cached' : 'loading');
     setVerses(cached || []);
     writeCache('ls_bible_position', { book, chapter });
-    fetch(`https://bible-api.com/${encodeURIComponent(book)}+${chapter}?translation=almeida`, { signal: abort.signal })
-      .then(response => { if (!response.ok) throw new Error('Capítulo indisponível'); return response.json(); })
-      .then(data => {
+    fetchBibleChapter(book, chapter, { signal: abort.signal })
+      .then(rows => {
         if (abort.signal.aborted) return;
-        if (!data.verses?.length) throw new Error('Capítulo indisponível');
-        const rows = data.verses.map(item => ({ number: item.verse, text: item.text.trim() }));
         setVerses(rows); writeCache(key, rows); setStatus('ready');
-      }).catch(error => { if (error.name !== 'AbortError') setStatus(cached ? 'cached' : 'error'); });
+      }).catch(error => { if (!abort.signal.aborted && error.name !== 'AbortError') setStatus(cached ? 'cached' : 'error'); });
     return () => abort.abort();
   }, [book, chapter, retry]);
   useEffect(() => {

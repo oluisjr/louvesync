@@ -110,7 +110,9 @@ self.addEventListener('message', event => {
 self.addEventListener('push', event => {
   let data;
   try { data = event.data?.json(); } catch { data = { body: event.data?.text() }; }
-  event.waitUntil(self.registration.showNotification(data?.title || 'LouveSync', { body: data?.body || 'Novidades no ministério', icon: '/pwa-192x192.png', data: { url: data?.url || '/' } }));
+  let url='/';
+  try { const target=new URL(data?.url||'/',self.location.origin);if(target.origin===self.location.origin)url=target.href; } catch { /* Keep navigation inside the app. */ }
+  event.waitUntil(self.registration.showNotification(data?.title || 'LouveSync', { body: data?.body || 'Novidades no ministério', icon: '/pwa-192x192.png', tag:data?.id||data?.tag, data: { url } }));
 });
 self.addEventListener('notificationclick', event => {
   event.notification.close();
@@ -118,7 +120,16 @@ self.addEventListener('notificationclick', event => {
   if (url.origin !== self.location.origin) return;
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async clients => {
     const client = clients[0];
-    if (client) { await client.navigate(url.href); return client.focus(); }
+    if (client) {
+      const handled=await new Promise(resolve=>{
+        const channel=new MessageChannel(),timer=setTimeout(()=>{channel.port1.close();resolve(false);},1500);
+        channel.port1.onmessage=message=>{clearTimeout(timer);channel.port1.close();resolve(message.data?.ok===true);};
+        try { client.postMessage({type:'LOUVESYNC_OPEN_NOTIFICATION',url:url.href},[channel.port2]); }
+        catch {clearTimeout(timer);channel.port1.close();resolve(false);}
+      });
+      if(!handled)await client.navigate(url.href);
+      return client.focus();
+    }
     return self.clients.openWindow(url.href);
   }));
 });

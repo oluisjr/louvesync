@@ -14,6 +14,11 @@ import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
 import EquipmentEditor from './components/EquipmentEditor.jsx';
 import AppNavigation from './components/AppNavigation.jsx';
+import CommunityMural from './components/CommunityMural.jsx';
+import PracticalTraining from './components/PracticalTraining.jsx';
+import NotificationInbox from './components/NotificationInbox.jsx';
+import { useNotifications } from './hooks/useNotifications.js';
+import { notificationDestination } from './lib/notifications-client.js';
 import './home.css';
 import MetronomeControls from './components/MetronomeControls.jsx';
 import { useMetronome } from './hooks/useMetronome.js';
@@ -21,7 +26,7 @@ import { useAppDisplay } from './hooks/useAppDisplay.js';
 import { useNavigationClearance } from './hooks/useNavigationClearance.js';
 import { useActivity, useVisibleView } from './hooks/useActivity.js';
 import { useLoginViewport } from './hooks/useLoginViewport.js';
-import { ActivityMonitor, ObservedPost, ViewersButton } from './components/Activity.jsx';
+import { ActivityMonitor, ViewersButton } from './components/Activity.jsx';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
 import { onRealtime, onRealtimeStatus, broadcastUpdate, disconnectRealtime } from './lib/realtime.js';
@@ -498,8 +503,6 @@ const Devocional = memo(({dark})=>{
 
 /* ─── TREINAMENTO ───────────────────────────────────────────── */
 const Treinamento = memo(({dark, profile})=>{
-  const tc=dark?'#F5F2FF':'#0F172A';
-  const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
 
   const isVocal = profile?.role === 'Vocal' || profile?.instrument?.toLowerCase().includes('vocal') || profile?.instrument?.toLowerCase().includes('voz');
 
@@ -517,23 +520,11 @@ const Treinamento = memo(({dark, profile})=>{
     { type: 'text', title: 'Volume não é Qualidade', cat: 'Dica Prática', text: 'Bateristas e guitarristas: a dinâmica é a alma da música. Saibam a hora de diminuir o volume para que a igreja ouça a si mesma cantando. O volume da banda deve servir à congregação, não encobri-la.' }
   ];
 
-  return <div className="app-page">
-       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
-      <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoGuitar s={20}/>Treinamento</div>
-    </div>
-
-    <div className={`${gc} aUp`} style={{...CS, background:'linear-gradient(135deg,rgba(16,185,129,.1),transparent)',border:'1px solid rgba(16,185,129,.15)'}}>
-      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:"var(--app-positive, #059669)",textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Trilha: {isVocal ? 'Vocais' : 'Instrumentistas'}</div>
-      <div style={{fontSize:'var(--fs-base)',fontWeight:600,color:tc,lineHeight:1.6}}>Conteúdos multimídia focados na sua evolução como {profile?.instrument || 'ministro'}!</div>
-    </div>
-
-    <ContentCarousel content={content} dark={dark}/>
-
-    {/* 🎸 Afinador Cromático */}
+  return <PracticalTraining dark={dark} profile={profile}>
+    <ContentCarousel content={content.map(item=>({...item,theme:item.cat,ytId:item.type==='video'?item.id:undefined,spotifyId:item.type==='podcast'?item.id:undefined}))} dark={dark}/>
     <Afinador dark={dark}/>
-  </div>;
+  </PracticalTraining>;
 });
-
 /* ─── AFINADOR CROMÁTICO ────────────────────────────────────── */
 const Afinador = memo(({dark})=>{
   const  t2=dark?'#C9C3DD':'#475569';
@@ -1110,7 +1101,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
       title: 'Aprovar Exclusão',
       msg: 'Aprovar e EXCLUIR definitivamente esta música?',
       onConfirm: async () => {
-        try{await dbDelSong(songId);setSongs(s=>s.filter(x=>x.id!==songId));await broadcastUpdate({type:'data_changed'});}catch(error){alert(`Não foi possível excluir: ${error.message}`);}
+        try{await dbDelSong(songId,activity.credentials);setSongs(s=>s.filter(x=>x.id!==songId));await broadcastUpdate({type:'data_changed'});}catch(error){alert(`Não foi possível excluir: ${error.message}`);}
         setConfirmState(null);
       },
       onCancel: () => setConfirmState(null)
@@ -1251,7 +1242,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
                        title: 'Aprovar Exclusão',
                        msg: `Aprovar e EXCLUIR definitivamente o evento "${ev.label}"?`,
                        onConfirm: async () => {
-                         try{await dbDelEvent(ev.id);await broadcastUpdate({type:'data_changed'});}catch(error){alert(`Não foi possível excluir: ${error.message}`);}
+                         try{await dbDelEvent(ev.id,activity.credentials);await broadcastUpdate({type:'data_changed'});}catch(error){alert(`Não foi possível excluir: ${error.message}`);}
                          setConfirmState(null);
                        },
                        onCancel: () => setConfirmState(null)
@@ -3017,348 +3008,6 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
 });
 
 /* ─── NOTIFS SHEET ──────────────────────────────────────────── */
-const NotifsSheet = memo(({dark,notifs,onClose,onMarkRead,onMarkAllRead,onAction})=>{
-  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
-  return <>
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:99,animation:'fadeIn .2s'}} onClick={onClose}/>
-    <div className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'78dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .4s cubic-bezier(.22,1,.36,1)'}}>
-      <div style={{display:'flex',justifyContent:'center',padding:'14px 0 0'}}><div style={{width:44,height:4,borderRadius:100,background:'rgba(127,127,127,.22)'}}/></div>
-      <div style={{padding:'16px 20px 52px'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div style={{fontSize:18,fontWeight:900,color:tc,display:'flex',alignItems:'center',gap:8}}><IcoBell s={18}/>Notificações</div>
-          <div style={{display:'flex',gap:8}}>
-            <button onClick={onMarkAllRead} style={{fontSize:'var(--fs-xs)',fontWeight:700,color:'var(--app-link, #4F46E5)',border:'none',background:'transparent',cursor:'pointer'}}>Marcar todas lidas</button>
-            <button onClick={onClose} style={{width:30,height:30,borderRadius:8,border:'none',background:'rgba(0,0,0,.07)',color:t2,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={12}/></button>
-          </div>
-        </div>
-        {notifs.length===0&&<EmptyState icon={<IcoBell s={28}/>} title="Nenhuma notificação"/>}
-        {notifs.map(n=><div key={n.id} onClick={()=>onMarkRead(n.id)} style={{display:'flex',gap:11,padding:13,borderRadius:'var(--r-md)',marginBottom:7,cursor:'pointer',background:n.read?(dark?'rgba(255,255,255,.02)':'rgba(0,0,0,.02)'):(dark?'rgba(79,70,229,.1)':'rgba(79,70,229,.06)'),border:n.read?'none':'1px solid rgba(79,70,229,.15)',transition:'all .2s'}}>
-          <div style={{width:38,height:38,borderRadius:'var(--r-sm)',background:'rgba(79,70,229,.1)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><IcoBell s={16}/></div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:'var(--fs-sm)',fontWeight:n.read?600:800,color:tc,lineHeight:1.4}}>{n.text}</div>
-            <div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:3}}>{n.time}</div>
-            {n.cta&&<button onClick={e=>{e.stopPropagation();onAction(n);}} style={{marginTop:6,fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',border:'1px solid rgba(79,70,229,.25)',background:'rgba(79,70,229,.06)',borderRadius:100,padding:'3px 12px',cursor:'pointer',fontWeight:700}}>{n.cta}</button>}
-          </div>
-          {!n.read&&<div style={{width:8,height:8,borderRadius:'50%',background:'#4F46E5',flexShrink:0,marginTop:4}}/>}
-        </div>)}
-      </div>
-    </div>
-  </>;
-});
-
-/* ─── MAIN APP ──────────────────────────────────────────────── */
-
-/* ─── MURAL DE COMUNICADOS ─── */
-const Mural = memo(({profile, dark, members, activity}) => {
-  const tc = dark ? '#F5F2FF' : '#0F172A', t2 = dark ? '#C9C3DD' : '#475569';
-  const gc = 'gL1', CS = {borderRadius:'var(--r-xl)', padding:20, marginBottom:16};
-
-  const [posts, setPosts] = useState([]);
-  const [comments, setComments] = useState([]);
-  const [reactions, setReactions] = useState([]);
-  const [saves, setSaves] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // 1. Fetch data on mount
-  useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-
-    const loadAllData = async () => {
-      try {
-        const [
-          { data: pData },
-          { data: cData },
-          { data: rData }
-        ] = await Promise.all([
-          supabase.from('announcements').select('*').order('created_at', { ascending: false }),
-          supabase.from('announcement_comments').select('*').order('created_at', { ascending: true }),
-          supabase.from('announcement_reactions').select('*')
-        ]);
-
-        if (pData) setPosts(pData);
-        if (cData) setComments(cData);
-        if (rData) setReactions(rData);
-
-        if (profile?.id) {
-          const { data: sData } = await supabase.from('announcement_saves').select('post_id').eq('member_id', profile.id);
-          if (sData) setSaves(sData.map(s => s.post_id));
-        }
-      } catch (err) {
-        console.error('Error fetching Mural data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadAllData();
-  }, [profile?.id]);
-
-  // 2. Supabase Realtime Channels
-  useEffect(() => {
-    if (!supabase) return;
-
-    const channel = supabase.channel(`mural_realtime_changes_${Math.random().toString(36).substring(7)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
-        supabase.from('announcements').select('*').order('created_at', { ascending: false })
-          .then(({ data }) => { if (data) setPosts(data); });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_comments' }, () => {
-        supabase.from('announcement_comments').select('*').order('created_at', { ascending: true })
-          .then(({ data }) => { if (data) setComments(data); });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_reactions' }, () => {
-        supabase.from('announcement_reactions').select('*')
-          .then(({ data }) => { if (data) setReactions(data); });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const [newPostOpen, setNewPostOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newContent, setNewContent] = useState('');
-  const [expandedComments, setExpandedComments] = useState({});
-  const [newCommentTexts, setNewCommentTexts] = useState({});
-
-  const handleCreatePost = async () => {
-    if (!newTitle.trim() || !newContent.trim()) return alert('Título e Conteúdo são obrigatórios!');
-    const newPost = {
-      id: 'post_' + Date.now(),
-      title: newTitle,
-      content: newContent,
-      created_at: new Date().toISOString(),
-      created_by: profile?.id || 'admin'
-    };
-
-    // Update local UI immediately
-    setPosts(prev => [newPost, ...prev]);
-    setNewTitle('');
-    setNewContent('');
-    setNewPostOpen(false);
-
-if (!navigator.onLine) {
-      window.dispatchOfflineTask && window.dispatchOfflineTask('create_post', newPost);
-      alert('Offline — Seu comunicado foi enfileirado para envio automático!');
-      return;
-    }
-    if (supabase) {
-      const { error } = await supabase.from('announcements').insert(newPost);
-      if (error) console.error(error);
-    }
-  };
-
-  const handleAddComment = async (postId) => {
-    const txt = newCommentTexts[postId] || '';
-    if (!txt.trim()) return;
-    const newC = {
-      id: 'comment_' + Date.now(),
-      post_id: postId,
-      member_id: profile?.id || 'admin',
-      text: txt,
-      created_at: new Date().toISOString()
-    };
-
-    // Update local UI immediately
-    setComments(prev => [...prev, newC]);
-    setNewCommentTexts(prev => ({ ...prev, [postId]: '' }));
-
-if (!navigator.onLine) {
-      window.dispatchOfflineTask && window.dispatchOfflineTask('create_comment', newC);
-      alert('Offline — Seu comentário foi enfileirado!');
-      return;
-    }
-    if (supabase) {
-      const { error } = await supabase.from('announcement_comments').insert(newC);
-      if (error) console.error(error);
-    }
-  };
-
-  const handleToggleReaction = async (postId, emoji) => {
-    vib();
-    const existing = reactions.find(r => r.post_id === postId && r.member_id === (profile?.id || 'admin') && r.emoji === emoji);
-    if (existing) {
-      setReactions(prev => prev.filter(r => !(r.post_id === postId && r.member_id === (profile?.id || 'admin') && r.emoji === emoji)));
-      if (!navigator.onLine) {
-        window.dispatchOfflineTask && window.dispatchOfflineTask('toggle_reaction', { action: 'delete', row: { post_id: postId, member_id: profile?.id || 'admin', emoji } });
-        return;
-      }
-      if (supabase) {
-        const { error } = await supabase.from('announcement_reactions').delete().match({ post_id: postId, member_id: profile?.id || 'admin', emoji });
-        if (error) console.error(error);
-      }
-    } else {
-      const newR = { post_id: postId, member_id: profile?.id || 'admin', emoji };
-      setReactions(prev => [...prev, newR]);
-      if (!navigator.onLine) {
-        window.dispatchOfflineTask && window.dispatchOfflineTask('toggle_reaction', { action: 'insert', row: newR });
-        return;
-      }
-      if (supabase) {
-        const { error } = await supabase.from('announcement_reactions').insert(newR);
-        if (error) console.error(error);
-      }
-    }
-  };
-
-  const handleToggleSave = async (postId) => {
-    vib();
-    const isSaved = saves.includes(postId);
-    if (isSaved) {
-      setSaves(prev => prev.filter(id => id !== postId));
-      if (supabase) {
-        const { error } = await supabase.from('announcement_saves').delete().match({ post_id: postId, member_id: profile?.id || 'admin' });
-        if (error) console.error(error);
-      }
-    } else {
-      setSaves(prev => [...prev, postId]);
-      if (supabase) {
-        const { error } = await supabase.from('announcement_saves').insert({ post_id: postId, member_id: profile?.id || 'admin' });
-        if (error) console.error(error);
-      }
-    }
-  };
-
-  return (
-    <div className="app-page aUp">
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
-        <div style={{fontSize:'var(--fs-xl)', fontWeight:900, color:tc, display:'flex', alignItems:'center', gap:8}}>
-          📢 Mural de Comunicados
-        </div>
-        {profile?.is_admin && (
-          <button onClick={() => setNewPostOpen(true)} className="bp" style={{width:'auto', padding:'8px 16px', borderRadius:100, fontSize:'var(--fs-sm)'}}>
-            + Novo Post
-          </button>
-        )}
-      </div>
-
-      {loading ? <div style={{display:'flex',justifyContent:'center',padding:40}}><Loader/></div> : (
-      <div style={{display:'flex', flexDirection:'column', gap:14}}>
-        {posts.map(post => {
-          const author = members.find(m => m.id === post.created_by) || { name: 'Líder', color: '#7B3FF2', avatar: 'LD' };
-          const postComments = comments.filter(c => c.post_id === post.id);
-          const postReactions = reactions.filter(r => r.post_id === post.id);
-          const isSaved = saves.includes(post.id);
-
-          const emoTypes = ['👍', '🙏', '🎵', '🔥'];
-
-          return (
-            <ObservedPost key={post.id} post={post} enabled={!newPostOpen} onView={() => activity.recordView('announcement', post.id)} className={gc} style={{...CS, position:'relative', borderLeft:`4px solid ${author.color || '#7B3FF2'}`}}>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10}}>
-                <div style={{display:'flex', alignItems:'center', gap:10}}>
-                  <Ava m={author} size={36} ring />
-                  <div>
-                    <div style={{fontWeight:800, color:tc, fontSize:'var(--fs-sm)'}}>{author.name}</div>
-                    <div style={{fontSize:10, color:t2}}>{new Date(post.created_at).toLocaleString('pt-BR')}</div>
-                  </div>
-                </div>
-                <button onClick={() => handleToggleSave(post.id)} style={{background:'transparent', border:'none', color: isSaved ? '#F59E0B' : t2, cursor:'pointer', fontSize:18}}>
-                  {isSaved ? '★' : '☆'}
-                </button>
-              </div>
-
-              <div style={{fontSize:15, fontWeight:800, color:tc, marginBottom:6}}>{post.title}</div>
-              <div style={{fontSize:'var(--fs-sm)', color:tc, lineHeight:1.6, marginBottom:14, whiteSpace:'pre-wrap'}}>{post.content}</div>
-              {profile?.is_admin&&<ViewersButton activity={activity} targetType="announcement" targetId={post.id} title={post.title} members={members} dark={dark}/>}
-
-              {/* Reactions strip */}
-              <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom:12}}>
-                {emoTypes.map(emoji => {
-                  const list = postReactions.filter(r => r.emoji === emoji);
-                  const active = list.some(r => r.member_id === (profile?.id || 'admin'));
-                  return (
-                    <button key={emoji} onClick={() => handleToggleReaction(post.id, emoji)} style={{
-                      padding: '5px 10px',
-                      borderRadius: 100,
-                      border: active ? '1px solid rgba(123,63,242,0.3)' : '1px solid transparent',
-                      background: active ? 'rgba(123,63,242,0.12)' : (dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'),
-                      color: tc,
-                      fontSize: 'var(--fs-xs)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      transition: 'all 0.15s'
-                    }}>
-                      <span>{emoji}</span>
-                      {list.length > 0 && <span style={{fontWeight:800}}>{list.length}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Comments Section */}
-              <hr style={{margin:'10px 0', opacity:0.1}} />
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                <button onClick={() => setExpandedComments(p => ({ ...p, [post.id]: !p[post.id] }))} style={{background:'transparent', border:'none', color:'var(--app-link, #4F46E5)', fontSize:'var(--fs-xs)', fontWeight:800, cursor:'pointer'}}>
-                  💬 {postComments.length} comentário{postComments.length !== 1 ? 's' : ''} {expandedComments[post.id] ? '▲' : '▼'}
-                </button>
-              </div>
-
-              {expandedComments[post.id] && (
-                <div style={{marginTop:12, display:'flex', flexDirection:'column', gap:10}} className="aUp">
-                  {postComments.map(c => {
-                    const cMem = members.find(m => m.id === c.member_id) || { name: 'Membro', color: '#94A3B8', avatar: 'MB' };
-                    return (
-                      <div key={c.id} style={{display:'flex', gap:8, alignItems:'flex-start', padding:'6px 0', borderBottom:`1px solid ${dark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)'}`}}>
-                        <Ava m={cMem} size={24} />
-                        <div style={{flex:1}}>
-                          <div style={{display:'flex', justifyContent:'space-between'}}>
-                            <span style={{fontWeight:800, color:tc, fontSize:'var(--fs-xs)'}}>{cMem.name}</span>
-                            <span style={{fontSize:9, color:t2}}>{new Date(c.created_at).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</span>
-                          </div>
-                          <div style={{fontSize:'var(--fs-xs)', color:tc, marginTop:2, lineHeight:1.4}}>{c.text}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  <div style={{display:'flex', gap:6, marginTop:6}}>
-                    <div className="gIn" style={{flex:1, padding:'0 10px', height:32, display:'flex', alignItems:'center'}}>
-                      <input data-update-blocking={!!newCommentTexts[post.id]?.trim()} className="fi" value={newCommentTexts[post.id] || ''} onChange={e => setNewCommentTexts(p => ({ ...p, [post.id]: e.target.value }))} onKeyDown={e => e.key === 'Enter' && handleAddComment(post.id)} placeholder="Escreva um comentário..." style={{fontSize:'var(--fs-xs)', padding:0}} />
-                    </div>
-                    <button onClick={() => handleAddComment(post.id)} className="bp" style={{width:'auto', padding:'0 12px', height:32, borderRadius:'var(--r-md)', fontSize:'var(--fs-xs)'}}>
-                      Enviar
-                    </button>
-                  </div>
-                </div>
-              )}
-            </ObservedPost>
-          );
-        })}
-
-        {posts.length === 0 && <EmptyState icon="📢" title="Nenhum comunicado no mural" />}
-      </div>
-      )}
-
-      {newPostOpen && (
-        <div data-update-blocking="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
-          <div className={gc} style={{width:'100%', maxWidth:400, borderRadius:'var(--r-xl)', padding:20}}>
-            <div style={{fontSize:16, fontWeight:900, color:tc, marginBottom:14}}>Novo Comunicado</div>
-            <div className="gIn" style={{marginBottom:10}}>
-              <input className="fi" value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Título do post *" style={{color:tc}} />
-            </div>
-            <div className="gIn" style={{marginBottom:14}}>
-              <textarea className="fi" value={newContent} onChange={e => setNewContent(e.target.value)} placeholder="Escreva o comunicado aqui..." rows={4} style={{color:tc}} />
-            </div>
-            <div style={{display:'flex', gap:10}}>
-              <button className="bp" onClick={handleCreatePost} style={{flex:1}}>Publicar</button>
-              <button onClick={() => setNewPostOpen(false)} style={{padding:10, borderRadius:'var(--r-md)', border:'none', background:'rgba(0,0,0,0.1)', color:tc, fontWeight:700, cursor:'pointer'}}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-});
-
 /* ─── MODO ENSAIO COLABORATIVO ─── */
 const Ensaio = props=><Rehearsal {...props} LyricView={LyricView}/>;
 
@@ -3372,6 +3021,8 @@ export default function LouveSync() {
   const [allMembers,setAllMembers]=useState([]);
   const [authLoading,setAuthLoading]=useState(true);
   const activity=useActivity(profile,allMembers);
+  const notifications=useNotifications(activity.credentials);
+  const notifyChanges=notifications.changed;
 
   // ── Data
   const [songRecords,setSongs]=useState(()=>readCache('ls_songs',[]));
@@ -3417,18 +3068,6 @@ export default function LouveSync() {
   const [notifsOpen,setNotifsOpen]=useState(false);
   const [selRole,setSelRole]=useState('Todos');
   const [confetti,setConfetti]=useState([]);
-  const [notifs,setNotifs]=useState(()=>{
-    const stored = localStorage.getItem('ls_notifs');
-    if(stored) try { return JSON.parse(stored); } catch{/* preserve existing local state */}
-    return [
-      {id:1,text:'Bem-vindo ao LouveSync! Confirme sua presença no próximo evento.',time:'agora',read:false,cta:'Ver Escala',ctaTab:'escala'},
-      {id:2,text:'Nova música disponível no repertório.',time:'hoje',read:false,cta:'Ver Repertório',ctaTab:'repertorio'},
-    ];
-  });
-
-  useEffect(()=>{
-    localStorage.setItem('ls_notifs', JSON.stringify(notifs));
-  }, [notifs]);
   const [confirmState,setConfirmState]=useState(null);
   const [installPrompt,setDeferredPrompt]=useState(null);
   const [syncQueue, setQueueState] = useState(() => {
@@ -3495,7 +3134,7 @@ export default function LouveSync() {
             if(result.error)throw result.error;
           }
           setSyncQueue(prev=>prev.filter(item=>item.id!==task.id));
-          broadcastUpdate({type:'data_changed'});
+          broadcastUpdate({type:'data_changed'});notifyChanges();
         }
         setSyncError('');
       }catch(error){
@@ -3505,7 +3144,7 @@ export default function LouveSync() {
     })();
     // Do not cancel in-flight writes when a new item is appended to the queue.
     return undefined;
-  },[isOnline,syncQueue,profile,retrySync,setSyncQueue]);
+  },[isOnline,syncQueue,profile,retrySync,setSyncQueue,notifyChanges]);
   const [stageToast, setStageToast] = useState(null);
   const [chordColor, setChordColor] = useState('#FF6B35');
   const [fontFam, setFontFam] = useState("'Nunito', sans-serif");
@@ -3536,22 +3175,6 @@ export default function LouveSync() {
   const [createEvDate,setCreateEvDate]=useState(null);
   const [editEvState,setEditEvState]=useState(null);
 
-  // ── Vocalist Monthly Reminder
-  useEffect(()=>{
-     if(profile && profile.vocal_category) {
-        const d = new Date();
-        const currentMonth = d.getMonth() + '_' + d.getFullYear();
-        const lastNotif = localStorage.getItem('ls_notif_month_'+profile.id);
-        if (lastNotif !== currentMonth) {
-            setNotifs(p => {
-               if(p.some(n=>n.id==='vocal_'+currentMonth)) return p;
-               return [{id:'vocal_'+currentMonth, text:`Lembrete: Como vocalista de ${profile.vocal_category}, adicione pelo menos uma nova música neste mês!`, time:'hoje', read:false, cta:'Adicionar Música', ctaAction:'addSong'}, ...p];
-            });
-            localStorage.setItem('ls_notif_month_'+profile.id, currentMonth);
-        }
-     }
-  }, [profile]);
-
   // ── AI
   const [aiMsgs,setAiMsgs]=useState([{r:'a',c:'Olá! Sou o Maestro, assistente de adoração do IMWAL.\n\nPosso ajudar com:\n• Setlists por tema bíblico\n• Fluxo progressivo de adoração\n• Reflexões ministeriais\n• Dicas de condução e ensaio\n\nComo posso servir hoje?'}]);
   const [aiIn,setAiIn]=useState('');
@@ -3562,9 +3185,31 @@ export default function LouveSync() {
   const [keyF,setKeyF]=useState('');
   // inCifra: qualquer tab pode abrir a cifra de uma música
   const inCifra = !!selSong;
-  const homeTheme = !!profile && tab==='home' && !inCifra;
+  const homeTheme = !!profile && ['home','mural','treinamento'].includes(tab) && !inCifra;
   useAppDisplay(dark,homeTheme);
-  const unread=notifs.filter(n=>!n.read).length;
+  const unread=notifications.items.filter(item=>!item.read_at).length;
+  const [pushLink,setPushLink]=useState(()=>new URL(window.location.href).searchParams.has('tab')?window.location.href:null);
+  const openNotificationTarget=useCallback(item=>{
+    const target=notificationDestination(item,window.location.origin);
+    if(!profile||!target||profile.permissions&&!profile.permissions.includes(target.tab))return;
+    stopMetronome();setTab(target.tab);setSelEvent(null);setNotifsOpen(false);
+    if(target.tab==='repertorio')setSelSong(songs.find(song=>song.id===target.songId)||null);
+    else{setSelSong(null);setEvSheet(target.eventId?events.find(event=>event.id===target.eventId)||null:null);}
+  },[profile,songs,events,stopMetronome]);
+  useEffect(()=>{
+    const receive=event=>{
+      if(event.data?.type!=='LOUVESYNC_OPEN_NOTIFICATION')return;
+      if(!notificationDestination({url:event.data.url},window.location.origin))return;
+      setPushLink(event.data.url);event.ports?.[0]?.postMessage({ok:true});
+    };
+    navigator.serviceWorker?.addEventListener('message',receive);
+    return()=>navigator.serviceWorker?.removeEventListener('message',receive);
+  },[]);
+  useEffect(()=>{
+    if(!pushLink||!profile||dataLoading||addOpen||createEvOpen||confirmState||inCifra||stageMode)return;
+    openNotificationTarget({url:pushLink});setPushLink(null);
+  },[pushLink,profile,dataLoading,addOpen,createEvOpen,confirmState,inCifra,stageMode,openNotificationTarget]);
+  function handleOpenNotification(item){void notifications.markRead([item.id]);openNotificationTarget(item);}
 
   /* ── Load auth members ── */
   useEffect(()=>{
@@ -3693,6 +3338,7 @@ export default function LouveSync() {
     return true;
   }
   function handleLogout() {
+    void notifications.detach();
     localStorage.removeItem('ls_profile');
     localStorage.removeItem('ls_last_activity');
     setProfile(null); setSelSong(null); setSelEvent(null); setTab('home');
@@ -3729,7 +3375,7 @@ export default function LouveSync() {
     setEvents(evs=>evs.map(ev=>ev.id===eventId?{...ev,confirmations:{...ev.confirmations,[profile.id]:confirmed}}:ev));
     if(!isOnline){setSyncQueue(prev=>[...prev,{type:'confirm',data:{eventId,memberId:profile.id,confirmed}}]);return;}
     if(!supabase)return;
-    try{await setPresence(eventId,profile.id,confirmed);await broadcastUpdate({type:'data_changed'});}
+    try{await setPresence(eventId,profile.id,confirmed);await broadcastUpdate({type:'data_changed'});notifyChanges();}
     catch(error){setEvents(evs=>evs.map(ev=>ev.id===eventId?{...ev,confirmations:{...ev.confirmations,[profile.id]:previous}}:ev));setSyncError(`Presença não salva: ${error.message}`);}
   }
 
@@ -3739,7 +3385,7 @@ export default function LouveSync() {
     try{
       await setSingerForSong(eventId,songId,memberId);
       setEvents(evs=>evs.map(e=>e.id===eventId?{...e,singerBySong:{...e.singerBySong,[songId]:memberId}}:e));
-      await broadcastUpdate({type:'data_changed'});
+      await broadcastUpdate({type:'data_changed'});notifyChanges();
     }catch(error){setSyncError(`Vocal não salvo: ${error.message}`);}
   };
   const handleUpdateSongOptions=async(songId,newKey,updateOfficial,newBpm,newTs,singerId,eventId)=>{
@@ -3755,21 +3401,21 @@ export default function LouveSync() {
       }
       setEvents(evs=>evs.map(e=>e.id===eventId?{...e,keyBySong:{...e.keyBySong,[songId]:newKey}}:e));
       setSongs(list=>list.map(song=>song.id===songId?{...song,...(newBpm?{bpm:Number(newBpm)}:{}),...(newTs?{time_signature:newTs}:{}),...(updateOfficial&&singerId?{vocal_keys:{...song.vocal_keys,[singerId]:newKey}}:{})}:song));
-      await broadcastUpdate({type:'data_changed'});
+      await broadcastUpdate({type:'data_changed'});notifyChanges();
     }catch(error){setSyncError(`Ajustes não salvos: ${error.message}`);}
   };
 
   const handleRequestDeleteEvent=useCallback(ev=>{
     if(!profile?.is_admin)return;
     setConfirmState({title:'Excluir Evento',msg:`Excluir permanentemente o evento "${ev.label}"?`,onConfirm:async()=>{
-      try{if(!navigator.onLine&&supabase)throw new Error('Conecte-se para excluir o evento.');await dbDelEvent(ev.id);setEvents(previous=>previous.filter(item=>item.id!==ev.id));setEvSheet(null);setConfirmState(null);await broadcastUpdate({type:'data_changed'});}
+      try{if(!navigator.onLine&&supabase)throw new Error('Conecte-se para excluir o evento.');await dbDelEvent(ev.id,activity.credentials);setEvents(previous=>previous.filter(item=>item.id!==ev.id));setEvSheet(null);setConfirmState(null);await broadcastUpdate({type:'data_changed'});notifyChanges();}
       catch(error){setSyncError(`Evento não excluído: ${error.message}`);setConfirmState(null);}
     },onCancel:()=>setConfirmState(null)});
-  },[profile?.is_admin]);
+  },[profile?.is_admin,activity.credentials,notifyChanges]);
   function handleDeleteSong(id){
     if(!profile?.is_admin)return;
     setConfirmState({title:'Excluir Música',msg:'Excluir permanentemente esta música?',onConfirm:async()=>{
-      try{if(!navigator.onLine&&supabase)throw new Error('Conecte-se para excluir a música.');await dbDelSong(id);setSongs(previous=>previous.filter(song=>song.id!==id));setSelSong(null);setConfirmState(null);await broadcastUpdate({type:'data_changed'});}
+      try{if(!navigator.onLine&&supabase)throw new Error('Conecte-se para excluir a música.');await dbDelSong(id,activity.credentials);setSongs(previous=>previous.filter(song=>song.id!==id));setSelSong(null);setConfirmState(null);await broadcastUpdate({type:'data_changed'});notifyChanges();}
       catch(error){setSyncError(`Música não excluída: ${error.message}`);setConfirmState(null);}
     },onCancel:()=>setConfirmState(null)});
   }
@@ -3786,7 +3432,7 @@ export default function LouveSync() {
       setEvents(prev=>{const next=[...prev];for(const ev of toAdd){const index=next.findIndex(row=>row.id===ev.id);if(index<0)next.push(ev);else next[index]=ev;}return next;});
       if(!isOnline)setSyncQueue(prev=>[...prev,{type:'create_event',data:toAdd}]);
       setCreateEvOpen(false);setEditEvState(null);spawnConfetti();
-      await broadcastUpdate({type:'data_changed'});
+      await broadcastUpdate({type:'data_changed'});notifyChanges();
     }catch(error){setSyncError(`Evento não salvo: ${error.message}`);throw error;}
   }
 
@@ -3795,7 +3441,7 @@ export default function LouveSync() {
     try {
       await setSequenceForSong(evId, songId, seqStr);
       setEvents(evs => evs.map(e => e.id === evId ? {...e, sequenceBySong: {...(e.sequenceBySong||{}), [songId]:seqStr}} : e));
-      await broadcastUpdate({type:'data_changed'});
+      await broadcastUpdate({type:'data_changed'});notifyChanges();
     } catch(err) {
       setSyncError(`Sequência não salva: ${err.message}`);
     }
@@ -3810,7 +3456,7 @@ export default function LouveSync() {
       if(!saved)throw new Error('Não foi possível salvar a música.');
       setSongs(prev=>prev.some(row=>row.id===newSong.id)?prev.map(row=>row.id===newSong.id?saved:row):[...prev,saved]);
       if(!isOnline)setSyncQueue(prev=>[...prev,{type:'save_song',data:newSong}]);
-      setAddOpen(false);spawnConfetti();await broadcastUpdate({type:'data_changed'});
+      setAddOpen(false);spawnConfetti();await broadcastUpdate({type:'data_changed'});notifyChanges();
       return saved;
     }catch(error){setSyncError(`Música não salva: ${error.message}`);throw error;}
   }
@@ -3819,7 +3465,7 @@ export default function LouveSync() {
     try{
       const keys=await saveVocalKey(songId,singerId,key);
       setSongs(prev=>prev.map(song=>song.id===songId?{...song,vocal_keys:keys||{...song.vocal_keys,[singerId]:key}}:song));
-      await broadcastUpdate({type:'data_changed'});
+      await broadcastUpdate({type:'data_changed'});notifyChanges();
     }catch(error){setSyncError(`Tom vocal não salvo: ${error.message}`);}
   }
 
@@ -3925,7 +3571,7 @@ export default function LouveSync() {
             </div>}
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
-            {!inCifra&&<button onClick={()=>setNotifsOpen(true)} style={{position:'relative',width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(123,63,242,.08)',color:'#7B3FF2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            {!inCifra&&<button aria-label="Notificações" onClick={()=>setNotifsOpen(true)} style={{position:'relative',width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(123,63,242,.08)',color:'#7B3FF2',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
               <IcoBell s={18}/>{unread>0&&<div className="ndot-ring"/>}
             </button>}
             {!inCifra&&(installPrompt||(/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.matchMedia('(display-mode: standalone)').matches))&&<button className="bSec" onClick={async()=>{if(installPrompt){await installPrompt.prompt();setDeferredPrompt(null);}else alert('No Safari, toque em Compartilhar e depois em Adicionar à Tela de Início.');}}>Instalar</button>}
@@ -3944,7 +3590,7 @@ export default function LouveSync() {
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
             {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metronome={metronome} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} onSaveSong={handleSaveSong} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
 
-            {tab==='mural'&&!inCifra&&<Mural profile={profile} dark={dark} members={allMembers} activity={activity}/>}
+            {tab==='mural'&&!inCifra&&<CommunityMural profile={profile} dark={dark} members={allMembers} activity={activity}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio connectionStatus={connectionStatus} dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
             {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
             {tab==='escala'&&!inCifra&&<Escala selWeekIdx={escalaWeek} setSelWeekIdx={setEscalaWeek} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} onConfirm={handleConfirm} onEvSheet={setEvSheet} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
@@ -3965,7 +3611,7 @@ export default function LouveSync() {
       {addOpen&&<AddSong dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
       {profile?.is_admin&&createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
       {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{if(!profile?.is_admin)return;setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
-      {notifsOpen&&!addOpen&&!createEvOpen&&<NotifsSheet dark={dark} notifs={notifs} onClose={()=>setNotifsOpen(false)} onMarkRead={id=>setNotifs(ns=>ns.map(n=>n.id===id?{...n,read:true}:n))} onMarkAllRead={()=>setNotifs(ns=>ns.map(n=>({...n,read:true})))} onAction={n=>{if(n.ctaAction==='addSong'){setAddOpen(true);setNotifsOpen(false);}else if(n.ctaTab){navTo(n.ctaTab);setNotifsOpen(false);}}}/>}
+      {notifsOpen&&!addOpen&&!createEvOpen&&<NotificationInbox dark={dark} controller={notifications} onClose={()=>setNotifsOpen(false)} onOpen={handleOpenNotification}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
 
       {/* Global Stage Toast Notification */}

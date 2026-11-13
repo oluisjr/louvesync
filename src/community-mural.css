@@ -1,0 +1,84 @@
+.community-mural {
+  --community-text:#172b3a;
+  --community-muted:#465e70;
+  --community-accent:#007fa2;
+  --community-accent-soft:#cceef7;
+  --community-card:#ffffffc4;
+  --community-line:#a6dbe97a;
+  --community-field:#f5fcfd;
+  --community-shadow:0 6px 20px #3d869e12;
+  --community-art:url('/images/home/devotional-ribbons.webp');
+  --community-scenic:url('/images/home/worship-landscape.webp');
+  color:var(--community-text);
+}
+.community-mural[data-theme="dark"] {
+  --community-text:#f5f2ff;
+  --community-muted:#ded0ed;
+  --community-accent:#ca9fff;
+  --community-accent-soft:#493066;
+  --community-card:#34244fe0;
+  --community-line:#8960ae80;
+  --community-field:#271d3c;
+  --community-shadow:0 6px 20px #14072533;
+  --community-art:url('/images/home/devotional-ribbons-dark.webp');
+  --community-scenic:url('/images/home/worship-landscape-dark.webp');
+}
+.community-heading { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
+.community-heading > span { font-size:23px; }
+.community-heading h2 { font-size:var(--fs-xl); font-weight:900; line-height:1.25; letter-spacing:-.5px; color:var(--community-text); }
+.community-compose { display:flex; align-items:center; gap:8px; padding:11px; margin-bottom:14px; border:1px solid var(--community-line); border-radius:18px; background:var(--community-card); box-shadow:var(--community-shadow); }
+.community-avatar { display:grid; place-items:center; flex:0 0 36px; width:36px; height:36px; border-radius:50%; background:var(--person-color); color:#fff; font-size:12px; line-height:1; font-weight:900; box-shadow:inset 0 1px 1px #ffffff66,0 0 0 2px #ffffff66; }
+.community-avatar-small { flex-basis:28px; width:28px; height:28px; font-size:10px; }
+.community-compose-prompt { flex:1; min-width:0; padding:7px 0; border:0; background:transparent; text-align:left; color:var(--community-muted); font:500 12px/1.5 'Nunito',sans-serif; cursor:pointer; }
+.community-new-button { display:flex; align-items:center; justify-content:center; gap:4px; min-height:40px; padding:8px 10px; border:1px solid var(--community-line); border-radius:13px; background:var(--community-accent-soft); color:var(--community-accent); font:800 11px/1.25 'Nunito',sans-serif; cursor:pointer; }
+.community-new-button svg { flex-shrink:0; }
+.community-filters { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:16px; }
+.community-filter { min-height:38px; padding:7px 10px; border:1px solid var(--community-line); border-radius:100px; background:var(--community-card); color:var(--community-muted); font:700 12px/1.4 'Nunito',sans-serif; cursor:pointer; }
+.community-mural .community-filter[aria-pressed="true"] { outline:none; border-color:transparent; background:var(--community-accent)!important; color:#fff; box-shadow:inset 0 1px 2px #ffffff77; }
+.community-mural[data-theme="dark"] .community-filter[aria-pressed="true"] { background:#7b3ff2!important; }
+.community-feed { display:flex; flex-direction:column; gap:14px; }
+.community-post { min-width:0; border:1px solid var(--community-line); border-radius:20px; overflow:hidden; background:var(--community-card); box-shadow:var(--community-shadow); }
+.community-post-header { display:flex; align-items:center; gap:10px; padding:14px 14px 9px; }
+.community-author { min-width:0; flex:1; }
+.community-author strong { display:block; font-size:14px; font-weight:900; color:var(--community-text); overflow-wrap:anywhere; }
+.community-author small { display:block; margin-top:2px; font-size:10px; line-height:1.5; color:var(--community-muted); overflow-wrap:anywhere; }
+.community-save { display:grid; place-items:center; flex:0 0 34px; width:34px; height:34px; padding:6px; border:0; border-radius:10px; background:transparent; color:var(--community-muted); cursor:pointer; }
+.community-mural .community-save[aria-pressed="true"] { outline:none; background:var(--community-accent-soft)!important; color:var(--community-accent); }
+.community-post-body { position:relative; padding:6px 14px 15px; overflow:hidden; isolation:isolate; }
+.community-post-body::before { position:absolute; z-index:-1; content:''; right:0; bottom:0; width:80%; height:170px; pointer-events:none; opacity:.55; background-image:linear-gradient(90deg,var(--community-card),transparent 55%),var(--community-art); background-position:right bottom; background-size:cover; }
+.community-post-body.community-post-rehearsal::before { background-image:linear-gradient(90deg,var(--community-card),transparent 55%),var(--community-scenic); opacity:.35; }
+.community-post-body h3 { position:relative; margin:0 0 7px; color:var(--community-text); font-size:17px; font-weight:900; line-height:1.35; letter-spacing:-.25px; overflow-wrap:anywhere; }
+.community-post-body p { position:relative; margin:0; color:var(--community-text); font-size:14px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+.community-post-photo { display:block; width:100%; max-height:350px; object-fit:contain; background:var(--community-field); }
+.community-viewers { padding-inline:14px; }
+.community-viewers .ui-viewers-control { margin-block:0 8px; }
+.community-social-summary { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px; color:var(--community-muted); font-size:11px; }
+.community-social-summary > span > span { font-size:14px; }
+.community-social-summary button { padding:3px 0; border:0; background:transparent; color:var(--community-muted); font:inherit; cursor:pointer; }
+.community-social-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:2px; margin:0 12px; border-top:1px solid var(--community-line); border-bottom:1px solid var(--community-line); padding:4px 0; }
+.community-social-actions button { display:flex; justify-content:center; align-items:center; gap:5px; min-height:38px; padding:5px 2px; border:0; border-radius:8px; background:transparent; color:var(--community-muted); font:700 11px/1.4 'Nunito',sans-serif; cursor:pointer; }
+.community-social-actions button > span { font-size:19px; line-height:1; }
+.community-mural .community-social-actions button[aria-pressed="true"] { outline:none; background:var(--community-accent-soft)!important; color:var(--community-accent); }
+.community-reactions { display:flex; flex-wrap:wrap; gap:7px; padding:10px 14px 2px; }
+.community-reactions button { display:flex; gap:4px; align-items:center; justify-content:center; min-width:44px; min-height:34px; padding:5px 8px; border:1px solid var(--community-line); border-radius:100px; background:var(--community-field); color:var(--community-text); font:700 12px/1.4 'Nunito',sans-serif; cursor:pointer; }
+.community-mural .community-reactions button[aria-pressed="true"] { outline:none; background:var(--community-accent-soft)!important; border-color:var(--community-accent); }
+.community-comments { display:flex; flex-direction:column; gap:8px; padding:12px 14px 2px; }
+.community-comment { display:flex; align-items:flex-start; gap:8px; }
+.community-comment > div { flex:1; min-width:0; padding:8px 11px; background:var(--community-accent-soft); border-radius:13px; }
+.community-comment strong { display:block; font-size:11px; font-weight:900; color:var(--community-text); overflow-wrap:anywhere; }
+.community-comment p { margin:2px 0 0; color:var(--community-text); font-size:12px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+.community-comment-form { display:flex; align-items:center; gap:6px; padding:11px 14px 13px; }
+.community-comment-form input { flex:1; min-width:0; min-height:40px; padding:9px 11px; border:1px solid var(--community-line); border-radius:100px; background:var(--community-field); color:var(--community-text); font:500 16px/1.4 'Nunito',sans-serif; }
+.community-comment-form input::placeholder { color:var(--community-muted); font-size:12px; opacity:1; }
+.community-comment-form button { min-height:40px; padding:8px 10px; border:0; border-radius:12px; background:var(--community-accent-soft); color:var(--community-accent); font:800 11px/1.4 'Nunito',sans-serif; cursor:pointer; }
+.community-post > .community-social-actions:last-child { margin-bottom:10px; border-bottom:0; }
+.community-post-error { margin:9px 14px 13px; color:var(--app-negative); font-size:12px; line-height:1.5; }
+.community-loading,.community-empty { padding:32px 14px; text-align:center; color:var(--community-muted); font-size:13px; }
+.community-empty { display:flex; flex-direction:column; align-items:center; gap:10px; border:1px solid var(--community-line); border-radius:20px; background:var(--community-card); }
+.community-empty strong { color:var(--community-text); font-size:14px; }
+.community-empty p { margin:0; font-size:12px; }
+.community-message { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 13px; margin:0 0 14px; border:1px solid var(--community-line); border-radius:13px; background:var(--community-card); color:var(--community-muted); font-size:12px; line-height:1.5; }
+.community-message button { flex-shrink:0; padding:7px 9px; border:1px solid var(--community-line); border-radius:9px; background:var(--community-accent-soft); color:var(--community-accent); font:800 11px/1.4 'Nunito',sans-serif; cursor:pointer; }
+.community-error { color:var(--app-negative); }
+.community-mural button:focus-visible,.community-mural input:focus-visible { outline:2px solid var(--community-accent); outline-offset:3px; }
+@media (max-width:359px) { .community-compose { padding:9px; gap:7px; } .community-new-button { padding:7px; } .community-compose-prompt { font-size:11px; } .community-heading h2 { font-size:20px; } .community-social-actions button { font-size:10px; } .community-social-actions button svg { width:15px; } }

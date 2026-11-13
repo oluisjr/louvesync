@@ -31,7 +31,11 @@ Os testes de navegador simulam o banco e o transporte Realtime e exercitam duas 
 
 ## Interface e edição de eventos
 
-A Home mantém a organização original e usa verde-água/azul-claro no tema claro, com artes nos cards de lembrete, música da semana e confirmações. O tema escuro mantém o roxo existente e usa variantes próprias das artes. Essas cores ficam restritas à Home; as outras telas conservam o visual anterior. A barra compartilhada tem cinco destinos fixos: Início, Escala, símbolo da igreja (Mural), Bíblia e Mais. O menu Mais reúne os demais destinos permitidos para o perfil, sem mudar as telas de destino.
+A Home mantém a organização original e usa verde-água/azul-claro no tema claro, com artes nos cards de lembrete, música da semana e confirmações. O tema escuro mantém o roxo existente e usa variantes próprias das artes. Mural, Treino e Mais seguem as propostas aprovadas; Escala, Bíblia e demais telas preservam seus layouts. A barra compartilhada tem cinco destinos fixos: Início, Escala, símbolo transparente da igreja (Mural), Bíblia e Mais. O menu Mais reúne os destinos permitidos para cada perfil.
+
+O Mural usa um feed com comentários, reações e avisos salvos, preservando os registros de visualização. O Treino oferece práticas por instrumento, cronômetro de 10 minutos e metrônomo real; os conteúdos e o afinador anteriores continuam em Recursos e afinador. A Bíblia consulta `/api/bible`, com validação dos 66 livros, dois provedores Almeida e preservação dos capítulos lidos no aparelho.
+
+Para a validação de exclusão administrativa no banco e os avisos de escala/músicas/recusas, veja [ativação das notificações](docs/notifications.md) e [exclusões](docs/admin-deletions.md). O código não considera uma inscrição push ativada antes da confirmação do servidor. As migrações e as variáveis VAPID precisam estar instaladas na infraestrutura para concluir a ativação externa.
 
 Os temas usam fundos coloridos e superfícies distintas para cartões e painéis, com bordas mais visíveis. O modo escuro reforça os tons de violeta e as cores das categorias, com textos claros para leitura. A navegação mantém o vidro translúcido, blur do conteúdo ao fundo, saturação e reflexos nas bordas nos dois temas, incluindo o filtro prefixado para Safari. Eventos expirados preservam a legibilidade e continuam identificados pelo aviso Expirado.
 
