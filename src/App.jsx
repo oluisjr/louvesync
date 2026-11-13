@@ -27,6 +27,8 @@ import { useNavigationClearance } from './hooks/useNavigationClearance.js';
 import { useActivity, useVisibleView } from './hooks/useActivity.js';
 import { useLoginViewport } from './hooks/useLoginViewport.js';
 import { ActivityMonitor, ViewersButton } from './components/Activity.jsx';
+import { publishAnnouncement } from './lib/announcement-storage.js';
+import { remapAnnouncementTask } from './lib/announcement-queue.js';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
 import { onRealtime, onRealtimeStatus, broadcastUpdate, disconnectRealtime } from './lib/realtime.js';
@@ -3103,15 +3105,20 @@ export default function LouveSync() {
   }, [setSyncQueue]);
 
   const syncing=useRef(false);
+  const completedSyncTasks=useRef(new Set());
   const [retrySync,setRetrySync]=useState(0);
   const [isOnline,setIsOnline]=useState(navigator.onLine);
   useEffect(()=>{
-    if(!isOnline || !supabase || !profile || !syncQueue.some(task=>!task.actorId||task.actorId===profile.id) || syncing.current)return;
+    if(!isOnline || !supabase || !profile || !syncQueue.some(task=>!completedSyncTasks.current.has(task.id)&&(!task.actorId||task.actorId===profile.id)) || syncing.current)return;
     syncing.current=true;
     let retry;
     (async()=>{
       try {
-        for(const task of syncQueue){
+        const savedPostIds=new Map();
+        for(const queuedTask of syncQueue){
+          if(completedSyncTasks.current.has(queuedTask.id))continue;
+          let task=queuedTask;
+          for(const [localId,savedId] of savedPostIds)task=remapAnnouncementTask(task,localId,savedId);
           if(task.actorId && task.actorId!==profile.id)continue;
           if(task.type==='confirm') await setPresence(task.data.eventId,task.data.memberId,task.data.confirmed);
           else if(task.type==='create_event'){
@@ -3126,13 +3133,23 @@ export default function LouveSync() {
             setSongs(prev=>prev.map(song=>song.id===task.data.id?saved:song));
           }else{
             let result;
-            if(task.type==='create_post')result=await supabase.from('announcements').insert(task.data);
+            if(task.type==='create_post'){
+              const saved=await publishAnnouncement(supabase,task.data);
+              result={data:saved,error:null};
+              if(String(saved.id)!==String(task.data.id)){
+                savedPostIds.set(task.data.id,saved.id);
+                setSyncQueue(previous=>previous.map(item=>remapAnnouncementTask(item,task.data.id,saved.id)));
+              }
+            }
             else if(task.type==='create_comment')result=await supabase.from('announcement_comments').insert(task.data);
             else if(task.type==='toggle_reaction')result=task.data.action==='insert'?await supabase.from('announcement_reactions').insert(task.data.row):await supabase.from('announcement_reactions').delete().match(task.data.row);
             else if(task.type==='save_rehearsal_note')result=await supabase.from('rehearsal_notes').upsert(task.data);
             else throw new Error('Operação offline não reconhecida.');
             if(result.error)throw result.error;
           }
+          // A render can briefly retain the last acknowledged job while React
+          // commits the queue update. Never send that successful write twice.
+          completedSyncTasks.current.add(task.id);
           setSyncQueue(prev=>prev.filter(item=>item.id!==task.id));
           broadcastUpdate({type:'data_changed'});notifyChanges();
         }
@@ -3185,7 +3202,7 @@ export default function LouveSync() {
   const [keyF,setKeyF]=useState('');
   // inCifra: qualquer tab pode abrir a cifra de uma música
   const inCifra = !!selSong;
-  const homeTheme = !!profile && ['home','mural','treinamento'].includes(tab) && !inCifra;
+  const homeTheme = !!profile && ['home','mural','treinamento','ensaio'].includes(tab) && !inCifra;
   useAppDisplay(dark,homeTheme);
   const unread=notifications.items.filter(item=>!item.read_at).length;
   const [pushLink,setPushLink]=useState(()=>new URL(window.location.href).searchParams.has('tab')?window.location.href:null);

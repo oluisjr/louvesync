@@ -295,10 +295,20 @@ async function fixture(browser) {
     export async function setEventItems(...args){return updateEventItems(supabase,...args);}
     ${names.filter(name=>name!=='setEventItems').map(name=>`export async function ${name}(...args){return window.__testDb('${name}',args);}`).join('\n')}
   `;
+  const storageCode=`
+    const audioFiles=new Map();
+    if(supabase)supabase.storage={from(bucket){return {
+      async upload(path,blob){const result=await window.__testDb('rehearsalUpload',[{bucket,path,size:blob.size,type:blob.type}]);if(!result.error)audioFiles.set(path,URL.createObjectURL(blob));return result;},
+      getPublicUrl(path){return {data:{publicUrl:audioFiles.get(path)}};},
+      async remove(paths){for(const path of paths){URL.revokeObjectURL(audioFiles.get(path));audioFiles.delete(path);}return {error:null};}
+    };}};
+  `;
   async function open(profile = admin, time = '2026-10-24T12:00:00-03:00', options = {}) {
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block', ...options.device }); contexts.push(context);
     await context.addInitScript(profile => { try { localStorage.setItem('ls_profile', JSON.stringify(profile)); localStorage.removeItem('ls_last_activity'); } catch { /* Sandboxed media frames have no storage access. */ } }, profile);
     if(options.theme)await context.addInitScript(theme=>{try{if(!localStorage.getItem('ls_theme'))localStorage.setItem('ls_theme',theme);}catch{/* Sandboxed media frames have no storage access. */}},options.theme);
+    if(options.muralCache)await context.addInitScript(({profile,cache})=>localStorage.setItem('ls_mural_cache_v1:'+profile.id,JSON.stringify(cache)),{profile,cache:options.muralCache});
+    if(options.offlineQueue)await context.addInitScript(queue=>localStorage.setItem('ls_sync_queue',JSON.stringify(queue)),options.offlineQueue);
     if(options.directActivity)await context.addInitScript(url=>{window.__testActivityConnection={url,anonKey:'fixture-public-key'};},typeof options.directActivity==='string'?options.directActivity:'https://activity-fixture.supabase.co');
     if(options.visualViewportHeight)await context.addInitScript(height=>Object.defineProperty(window.visualViewport,'height',{configurable:true,value:height}),options.visualViewportHeight);
     if(options.standalone)await context.addInitScript(()=>{
@@ -335,6 +345,10 @@ async function fixture(browser) {
         return args[0];
       }
       if (action === 'setPresence') { state.events[0].event_members.find(row => row.member_id === args[1]).confirmed = args[2]; return; }
+      if (action === 'rehearsalUpload') {
+        (state.audioUploads||=[]).push(structuredClone(args[0]));
+        return {error:state.audioUploadError?{message:state.audioUploadError}:null};
+      }
       if (action === 'upsertSong') { const index = state.songs.findIndex(song => song.id === args[0].id); if(index<0)state.songs.push(args[0]);else state.songs[index]=args[0];return args[0]; }
       if (action === 'saveVocalKey') { const song=state.songs.find(song=>song.id===args[0]);song.vocal_keys[args[1]]=args[2];return song.vocal_keys; }
       if (action === 'setSingerForSong') { const event=state.events.find(event=>event.id===args[0]);event.event_songs.filter(row=>row.song_id===args[1]).forEach(row=>{row.singer_member_id=args[2];});return; }
@@ -350,8 +364,10 @@ async function fixture(browser) {
           const key=muralKeys[query.table];state[key]||=[];
           const matches=row=>Object.entries(query.filters).every(([field,value])=>row[field]===value);
           let inserted;
+          if(query.table==='announcements'&&query.op==='select'&&query.filters.id&&state.muralReadbackError)return {data:null,error:{message:state.muralReadbackError}};
           if(query.op==='insert'){
             if(state.muralInsertError)return {data:null,error:{message:state.muralInsertError}};
+            if(query.table==='announcements'&&state.muralRejectLocalIds&&query.data.id)return {data:null,error:{code:'22P02',message:'invalid input syntax for type uuid'}};
             inserted=structuredClone(Array.isArray(query.data)?query.data:[query.data]);
             if(query.table==='announcements'&&state.muralGeneratedId)inserted=inserted.map(row=>({...row,id:state.muralGeneratedId}));
             state[key].push(...inserted);
@@ -394,6 +410,15 @@ async function fixture(browser) {
         }
         if (query.table === 'rehearsal_sessions') { if(query.op==='upsert')state.session={...state.session,...query.data};return {data:state.session,error:null}; }
         if (query.table === 'rehearsal_notes') { if(query.op==='upsert')state.notes[query.data.song_id]=query.data;return {data:state.notes[query.filters.song_id]||null,error:null}; }
+        if (query.table === 'rehearsal_takes') {
+          state.takes||=[];
+          if(query.op==='insert'){
+            if(state.takeInsertError)return {data:null,error:{message:state.takeInsertError}};
+            state.takes.unshift(structuredClone(query.data));
+          }
+          if(query.op==='delete')state.takes=state.takes.filter(take=>take.id!==query.filters.id);
+          return {data:structuredClone(state.takes.filter(take=>Object.entries(query.filters).every(([key,value])=>take[key]===value))),error:null};
+        }
         return {data:[],error:null};
       }
       return null;
@@ -401,7 +426,7 @@ async function fixture(browser) {
     await context.exposeBinding('__testBroadcast', async (_source, name, message) => { await Promise.all(pages.filter(page=>!page.isClosed()).map(page=>page.evaluate(({name,message})=>window.__testDeliver?.(name,message),{name,message}))); });
     const page = await context.newPage(); pages.push(page);
     page.on('pageerror', error => failures.push(error.message));
-    await page.route('**/src/lib/supabase.js*', route => route.fulfill({ contentType: 'text/javascript', body: options.noSupabase ? code.replace('export const supabase=','const fixtureSupabase=')+'\nexport const supabase=null;' : code }));
+    await page.route('**/src/lib/supabase.js*', route => route.fulfill({ contentType: 'text/javascript', body: (options.noSupabase ? code.replace('export const supabase=','const fixtureSupabase=')+'\nexport const supabase=null;' : code)+storageCode }));
     const handleActivity=async(route,direct=false)=>{
       const body=direct?route.request().postDataJSON().p_payload:route.request().postDataJSON();state.activityRequests.push({...structuredClone(body),transport:direct?'rpc':'api'});
       const actor=state.members.find(row=>row.id===body.memberId&&row.pin===body.pin);
@@ -861,6 +886,7 @@ for(const storedId of ['database-post-101',101])test(`a new mural post uses its 
  const app=await fixture(browser);
  app.state.members=app.state.members.map((person,index)=>({...person,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
  app.state.muralGeneratedId=storedId;
+ app.state.muralRejectLocalIds=true;
  try{
   const first=await app.open(admin,undefined,{activity:true,directActivity:true});
   const second=await app.open(member,undefined,{activity:true,directActivity:true});
@@ -899,6 +925,73 @@ test('mural preserves the draft instead of claiming publication when the databas
  }finally{await app.close();}
 });
 
+test('an own cached notice missing from the database is recoverable and never opens a nonexistent viewers report',async({browser})=>{
+ const app=await fixture(browser);
+ const ghost={id:'post-cached-only',title:'Louvor novo',content:'Estudar o arranjo completo.',created_at:'2026-10-24T10:00:00Z',created_by:admin.id,_publication:'confirmed'};
+ try{
+  const page=await app.open(admin,undefined,{activity:true,muralCache:{posts:[ghost]}});
+  await navigate(page,'Mural');
+  const post=page.getByRole('article',{name:'Louvor novo',exact:true});
+  await expect(post.getByRole('status')).toContainText('não foi localizado no banco');
+  await expect(post.getByRole('button',{name:/Ver visualizações/})).toHaveCount(0);
+  await expect(post.getByRole('button',{name:'Curtir',exact:true})).toBeDisabled();
+  await post.getByRole('button',{name:'Verificar publicação',exact:true}).click();
+  await expect(post.getByRole('status')).toContainText('não foi localizado no banco');
+  expect(app.state.posts).toHaveLength(0);
+  expect(app.state.activityRequests.filter(request=>request.action==='viewers')).toHaveLength(0);
+  await post.getByRole('button',{name:'Abrir como rascunho',exact:true}).click();
+  const composer=page.getByRole('dialog',{name:'Novo Comunicado',exact:true});
+  await expect(composer.getByPlaceholder('Título do post *')).toHaveValue(ghost.title);
+  await expect(composer.getByPlaceholder('Escreva o comunicado aqui...')).toHaveValue(ghost.content);
+  expect(app.state.posts).toHaveLength(0);
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('a notice deleted after loading is checked before consulting its viewers',async({browser})=>{
+ const app=await fixture(browser);
+ app.state.posts=[{id:'post-deleted',title:'Aviso removido',content:'Conteúdo preservado no aparelho.',created_at:'2026-10-24T10:00:00Z',created_by:admin.id}];
+ try{
+  const page=await app.open(admin,undefined,{activity:true});
+  await navigate(page,'Mural');
+  const viewers=page.getByRole('button',{name:'Ver visualizações de Aviso removido',exact:true});
+  await expect(viewers).toBeVisible();
+  app.state.posts=[];
+  await viewers.click();
+  await expect(page.getByRole('article',{name:'Aviso removido',exact:true}).getByRole('status')).toContainText('não foi localizado no banco');
+  await expect(page.getByRole('dialog',{name:'Visualizações do aviso',exact:true})).toHaveCount(0);
+  expect(app.state.activityRequests.filter(request=>request.action==='viewers')).toHaveLength(0);
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('a committed mural post with a failed readback retains its draft across reload and retries without duplicating',async({browser})=>{
+ const app=await fixture(browser);
+ app.state.muralGeneratedId='database-after-read-failure';
+ try{
+  const page=await app.open();await navigate(page,'Mural');
+  await page.getByRole('button',{name:'Novo Aviso',exact:true}).click();
+  let composer=page.getByRole('dialog',{name:'Novo Comunicado',exact:true});
+  await composer.getByPlaceholder('Título do post *').fill('Louvor com confirmação pendente');
+  await composer.getByPlaceholder('Escreva o comunicado aqui...').fill('Preserve este texto se a conexão cair.');
+  app.state.muralReadbackError='Leitura temporariamente indisponível';
+  await composer.getByRole('button',{name:'Publicar',exact:true}).click();
+  await expect(composer.getByRole('alert')).toContainText('Leitura temporariamente indisponível');
+  expect(app.state.posts).toHaveLength(1);
+  await page.reload();await navigate(page,'Mural');
+  await page.getByRole('button',{name:'Novo Aviso',exact:true}).click();
+  composer=page.getByRole('dialog',{name:'Novo Comunicado',exact:true});
+  await expect(composer.getByPlaceholder('Título do post *')).toHaveValue('Louvor com confirmação pendente');
+  await expect(composer.getByPlaceholder('Escreva o comunicado aqui...')).toHaveValue('Preserve este texto se a conexão cair.');
+  app.state.muralReadbackError=null;
+  await composer.getByRole('button',{name:'Publicar',exact:true}).click();
+  await expect(composer).toHaveCount(0);
+  expect(app.state.posts).toHaveLength(1);
+  await expect(page.getByRole('article',{name:'Louvor com confirmação pendente',exact:true})).toHaveCount(1);
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
 test('an offline mural post waits for synchronization before offering its viewers report',async({browser})=>{
  const app=await fixture(browser);
  app.state.members=app.state.members.map((person,index)=>({...person,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
@@ -925,6 +1018,27 @@ test('an offline mural post waits for synchronization before offering its viewer
   const report=page.getByRole('dialog',{name:'Visualizações do aviso',exact:true});
   await expect(report.locator('.ui-activity-summary')).toBeVisible();
   await expect(report.getByRole('alert')).toHaveCount(0);
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('legacy offline comments and reactions follow the database ID assigned to their notice',async({browser})=>{
+ const app=await fixture(browser);
+ app.state.muralGeneratedId=901;app.state.muralRejectLocalIds=true;
+ const post={id:'post-legacy-local',title:'Aviso offline antigo',content:'Texto salvo anteriormente.',created_at:'2026-10-24T10:00:00Z',created_by:admin.id};
+ const offlineQueue=[
+  {id:'job-post',actorId:admin.id,type:'create_post',data:post},
+  {id:'job-comment',actorId:admin.id,type:'create_comment',data:{id:'comment-legacy',post_id:post.id,member_id:admin.id,text:'Confirmado',created_at:post.created_at}},
+  {id:'job-reaction',actorId:admin.id,type:'toggle_reaction',data:{action:'insert',row:{post_id:post.id,member_id:admin.id,emoji:'👍'}}},
+ ];
+ try{
+  const page=await app.open(admin,undefined,{offlineQueue});
+  await expect.poll(()=>app.state.comments?.length||0).toBe(1);
+  await expect.poll(()=>app.state.reactions?.length||0).toBe(1);
+  expect(app.state.comments[0].post_id).toBe(901);
+  expect(app.state.reactions[0].post_id).toBe(901);
+  expect(app.state.posts).toHaveLength(1);
+  await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('ls_sync_queue')))).toEqual([]);
   expect(app.failures).toEqual([]);
  }finally{await app.close();}
 });
@@ -1054,13 +1168,95 @@ test('two devices share rehearsal song, arrangement, running timer and stage ale
     for(const page of [first,second])await navigate(page,'Ensaio');
     await first.getByRole('button',{name:'Teste ceia',exact:true}).click();
     await expect(second.getByRole('heading',{name:'Tocando agora: Teste ceia',exact:true})).toBeVisible();
+    for(const page of [first,second])await page.getByText('Direção musical',{exact:true}).click();
     await first.getByRole('button',{name:'Worship',exact:true}).click();await expect(second.getByRole('button',{name:'Worship',exact:true})).toHaveAttribute('aria-pressed','true');
+    for(const page of [first,second])await page.getByRole('button',{name:'Tempo de ensaio',exact:true}).click();
     await first.getByRole('button',{name:'Iniciar cronômetro',exact:true}).click();await expect(second.getByRole('button',{name:'Pausar',exact:true})).toBeVisible();
     const late=await app.open(member,'2026-10-24T12:00:12-03:00');
     await navigate(late,'Ensaio');
-    await expect(late.locator('output')).toHaveText('00:12');
+    await expect(late.getByLabel('Tempo compartilhado do ensaio',{exact:true})).toHaveText('00:12');
 
+    await second.getByRole('button',{name:'Avisar equipe',exact:true}).click();
     await second.getByRole('button',{name:'🔊 Mais Volume!',exact:true}).click();await expect(first.getByText('Alerta de Palco: Membro Teste',{exact:true})).toBeVisible();
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+for(const theme of ['light','dark'])test(`compact studio preserves notes, plays the metronome and clears the menu in ${theme} mode`,async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open(admin,undefined,{theme});
+    await page.setViewportSize({width:320,height:740});
+    await navigate(page,'Ensaio');
+    await expect(page.getByRole('heading',{name:'Estúdio',exact:true})).toBeVisible();
+    await expect(page.locator('.ls')).toHaveClass(/home-theme/);
+    await expect(page.locator('.app-nav [aria-current="page"]')).toHaveCount(1);
+    await expect(page.locator('.app-nav [aria-current="page"]')).toHaveAccessibleName('Mais');
+    await expect(page.getByRole('tab',{name:'Gravar',exact:true})).toHaveAttribute('aria-selected','true');
+    await page.getByRole('button',{name:'Teste adoracao',exact:true}).click();
+    await page.getByRole('tab',{name:/^Anotar/}).click();
+    await page.getByRole('textbox',{name:'Anotações do ensaio',exact:true}).fill('Repetir a ponte duas vezes.');
+    await page.getByRole('tab',{name:'Cifra',exact:true}).click();
+    await expect(page.locator('.ui-rehearsal-lyrics')).toContainText('Letra para');
+    await page.getByRole('button',{name:'Ativar metrônomo',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Parar metrônomo',exact:true})).toHaveAttribute('aria-pressed','true');
+    await expect(page.locator('.ui-metronome-dot[data-active="true"]')).toHaveCount(1);
+    await page.getByRole('button',{name:'Parar metrônomo',exact:true}).click();
+    await page.getByRole('tab',{name:/^Anotar/}).click();
+    await expect(page.getByRole('textbox',{name:'Anotações do ensaio',exact:true})).toHaveValue('Repetir a ponte duas vezes.');
+    await page.getByRole('button',{name:'Salvar anotação',exact:true}).click();
+    await expect.poll(()=>app.state.notes['song-0']?.note_text).toBe('Repetir a ponte duas vezes.');
+    await page.getByRole('button',{name:'Próxima música: Teste ceia',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Tocando agora: Teste ceia',exact:true})).toBeVisible();
+    await page.getByRole('tab',{name:'Gravar',exact:true}).click();
+    expect(await page.locator('.rehearsal-studio').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+    await page.locator('[data-main-scroll]').evaluate(el=>{el.scrollTop=el.scrollHeight;});
+    const end=await page.locator('.studio-direction').boundingBox(),nav=await page.locator('.app-nav .gNav').boundingBox();
+    expect(nav.y-end.y-end.height).toBeGreaterThanOrEqual(10);
+    await page.locator('[data-main-scroll]').evaluate(el=>{el.scrollTop=0;});
+    await page.screenshot({path:test.info().outputPath('compact-studio-'+theme+'.png'),scale:'css'});
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+for(const uploadFails of [false,true])test(`compact studio records real browser audio and ${uploadFails?'preserves a local copy on upload failure':'shares a playable take'}`,async({browser})=>{
+  const app=await fixture(browser);
+  if(uploadFails)app.state.audioUploadError='Storage indisponível';
+  try{
+    const page=await app.open();
+    await page.evaluate(()=>{
+      Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:async()=>{
+        const audio=new AudioContext(),tone=audio.createOscillator(),destination=audio.createMediaStreamDestination();
+        tone.connect(destination);tone.start();await audio.resume();
+        window.__recordingStream=destination.stream;window.__recordingAudio=audio;
+        return destination.stream;
+      }});
+    });
+    await navigate(page,'Ensaio');
+    await page.getByRole('button',{name:'Teste ceia',exact:true}).click();
+    await page.getByRole('button',{name:'Iniciar gravação',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Finalizar gravação',exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Escolher evento do ensaio',exact:true})).toBeDisabled();
+    await expect.poll(()=>page.locator('.studio-waveform > i').count()).toBeGreaterThan(2);
+    await expect(page.locator('.studio-record-time')).not.toHaveText('00:00');
+    const download=uploadFails?page.waitForEvent('download'):null;
+    await page.getByRole('button',{name:'Finalizar gravação',exact:true}).click();
+    await expect.poll(()=>app.state.audioUploads?.[0]?.size||0).toBeGreaterThan(0);
+    expect(app.state.audioUploads[0].bucket).toBe('rehearsal-audio');
+    if(uploadFails){
+      expect((await download).suggestedFilename()).toBe('ensaio-event-1.webm');
+      await expect(page.getByRole('status').filter({hasText:'Gravação baixada neste aparelho'})).toBeVisible();
+      expect(app.state.takes||[]).toHaveLength(0);
+    }else{
+      await expect.poll(()=>app.state.takes?.length||0).toBe(1);
+      expect(app.state.takes[0].event_id).toBe('event-1');
+      expect(app.state.takes[0].name).toContain('Teste ceia');
+      await expect(page.getByRole('status').filter({hasText:'Gravação salva para a equipe.'})).toBeVisible();
+      const audio=page.locator('.studio-take audio');
+      await expect.poll(()=>audio.evaluate(el=>Number.isFinite(el.duration)&&el.duration>0)).toBe(true);
+    }
+    expect(await page.evaluate(()=>window.__recordingStream.getTracks().every(track=>track.readyState==='ended'))).toBe(true);
+    await page.evaluate(()=>window.__recordingAudio.close());
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
@@ -1394,6 +1590,7 @@ test('PDF degrees follow assigned ministers in B and A across devices, stage, re
     await first.reload();
     await navigate(first,'Ensaio');
     await first.getByRole('button',{name:'Tua Unção',exact:true}).click();
+    await first.getByRole('tab',{name:'Cifra',exact:true}).click();
     await expect(first.locator('.ui-rehearsal-lyrics b').first()).toHaveText('C#m');
     await expect(first.locator('.ui-rehearsal-lyrics')).toContainText('E/G#');
     expect(app.state.songs[0].lyrics).toBe('');

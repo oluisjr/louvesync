@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Dialog, Icon, Section } from './Interface.jsx';
 import { useActivityQuery, useVisibleView } from '../hooks/useActivity.js';
 
@@ -49,11 +49,29 @@ function ViewersDialog({ activity, targetType, targetId, title, context, members
   </Dialog>;
 }
 
-export function ViewersButton({ activity, targetType, targetId, title, context, members, audience, dark }) {
+export function ViewersButton({ activity, targetType, targetId, title, context, members, audience, dark, beforeOpen }) {
   const target = JSON.stringify([targetType, targetId]);
   const [openTarget, setOpenTarget] = useState(null);
+  const [verification, setVerification] = useState(null);
+  const opening = useRef(false), currentTarget = useRef(target);
+  currentTarget.current = target;
+  const open = async () => {
+    if (opening.current) return;
+    if (!beforeOpen) { setOpenTarget(target); return; }
+    opening.current = true;
+    setVerification({ target, loading: true, error: '' });
+    try {
+      const allowed = await beforeOpen();
+      if (allowed !== false && currentTarget.current === target) setOpenTarget(target);
+      setVerification(null);
+    } catch (error) {
+      setVerification({ target, loading: false, error: error.message || 'Não foi possível verificar a publicação.' });
+    } finally { opening.current = false; }
+  };
+  const checking = verification?.target === target && verification.loading;
   return <div className="ui-scope ui-viewers-control" data-theme={dark ? 'dark' : 'light'}>
-    <button className="ui-button ui-button-soft ui-button-small" aria-label={`Ver visualizações de ${title}`} onClick={() => setOpenTarget(target)}><Icon name="eye" size={16}/>Quem visualizou</button>
+    <button className="ui-button ui-button-soft ui-button-small" aria-label={`Ver visualizações de ${title}`} disabled={checking} aria-busy={checking || undefined} onClick={open}><Icon name="eye" size={16}/>{checking ? 'Verificando…' : 'Quem visualizou'}</button>
+    {verification?.target === target && verification.error && <p className="ui-helper" role="alert">{verification.error}</p>}
     {openTarget === target && <ViewersDialog key={target} activity={activity} targetType={targetType} targetId={targetId} title={title} context={context} members={members} audience={audience} dark={dark} onClose={() => setOpenTarget(null)}/>}
   </div>;
 }

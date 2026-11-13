@@ -53,6 +53,10 @@
 .community-viewers { padding-inline:14px; }
 .community-viewers .ui-viewers-control { margin-block:0 8px; }
 .community-pending { margin:0 14px 8px; padding:10px 12px; border-radius:12px; background:var(--community-accent-soft); color:var(--community-muted); font-size:12px; line-height:1.5; }
+.community-pending > p { margin:0; }
+.community-publication-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:8px; }
+.community-publication-actions button { min-height:36px; padding:6px 10px; border:1px solid var(--community-line); border-radius:10px; background:var(--community-field); color:var(--community-accent); font:800 11px/1.4 'Nunito',sans-serif; cursor:pointer; }
+.community-publication-actions button:disabled { opacity:.6; cursor:wait; }
 .community-social-summary { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px; color:var(--community-muted); font-size:11px; }
 .community-social-summary > span > span { font-size:14px; }
 .community-social-summary button { padding:3px 0; border:0; background:transparent; color:var(--community-muted); font:inherit; cursor:pointer; }
