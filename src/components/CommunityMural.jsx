@@ -4,9 +4,9 @@ import { readCache, writeCache } from '../lib/domain.js';
 import { broadcastUpdate, onRealtime } from '../lib/realtime.js';
 import { Dialog, Icon } from './Interface.jsx';
 import { ObservedPost, ViewersButton } from './Activity.jsx';
+import ReactionPicker from './ReactionPicker.jsx';
 import '../community-mural.css';
 
-const reactionTypes = ['👍', '🙏', '🎵', '🔥'];
 const dateText = value => {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return '';
@@ -48,12 +48,17 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState('');
   const [expandedComments, setExpandedComments] = useState({});
-  const [expandedReactions, setExpandedReactions] = useState({});
+  const [reactionMenu, setReactionMenu] = useState(null);
   const [commentTexts, setCommentTexts] = useState({});
   const [actionErrors, setActionErrors] = useState({});
   const [pending, setPending] = useState({});
   const formId = useId();
+  const reactionMenuId = useId();
   const request = useRef(0), alive = useRef(true), locks = useRef(new Set());
+  const closeReactions = useCallback((restoreFocus = false) => {
+    setReactionMenu(null);
+    if (restoreFocus) reactionMenu?.anchor.focus({ preventScroll: true });
+  }, [reactionMenu]);
 
   const refresh = useCallback(async ({ initial = false } = {}) => {
     if (!supabase) { setLoading(false); return; }
@@ -149,12 +154,13 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
   });
   const authorFor = id => members.find(member => member.id === id) || { name: 'Membro', avatar: 'MB', color: '#7b3ff2' };
   const filteredPosts = posts.filter(post => filter === 'saved' ? saves.includes(post.id) : filter === 'rehearsal' ? rehearsalPost(post) : true);
+  const reactionPost = reactionMenu && filteredPosts.find(post => post.id === reactionMenu.postId);
   const openComposer = () => { if (profile?.is_admin) { setPostError(''); setNewPostOpen(true); } };
 
   return <div className="app-page aUp community-mural" data-theme={dark ? 'dark' : 'light'}>
     <div className="community-heading"><span aria-hidden="true">📢</span><h2>Mural de Comunicados</h2></div>
     {profile?.is_admin && <div className="community-compose"><Avatar member={profile}/><button type="button" className="community-compose-prompt" onClick={openComposer}>Compartilhe um aviso com a equipe…</button><button type="button" className="community-new-button" onClick={openComposer} aria-label="Novo Aviso"><Icon name="plus" size={16}/><span>Novo aviso</span></button></div>}
-    <div className="community-filters" role="group" aria-label="Filtrar comunicados">{[['all', 'Todos'], ['saved', 'Salvos'], ['rehearsal', 'Ensaios']].map(([id, label]) => <button className="community-filter" type="button" key={id} aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}</button>)}</div>
+    <div className="community-filters" role="group" aria-label="Filtrar comunicados">{[['all', 'Todos'], ['saved', 'Salvos'], ['rehearsal', 'Ensaios']].map(([id, label]) => <button className="community-filter" type="button" key={id} aria-pressed={filter === id} onClick={() => { closeReactions(); setFilter(id); }}>{label}</button>)}</div>
     {notice && <p className="community-message" role="status">{notice}</p>}
     {loadError && <div className="community-message community-error" role="alert"><span>{loadError}</span><button type="button" onClick={() => refresh({ initial: true })}>Tentar novamente</button></div>}
     {loading && !posts.length ? <p className="community-loading" role="status">Carregando comunicados…</p> : <div className="community-feed">{filteredPosts.map(post => {
@@ -167,13 +173,13 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
         {photo && <img className="community-post-photo" src={photo} alt={'Imagem de ' + post.title} loading="lazy"/>}
         {profile?.is_admin && <div className="community-viewers"><ViewersButton activity={activity} targetType="announcement" targetId={post.id} title={post.title} members={members} dark={dark}/></div>}
         <div className="community-social-summary"><span><span aria-hidden="true">{postReactions.length ? [...new Set(postReactions.map(reaction => reaction.emoji))].slice(0, 3).join('') : '♡'}</span> {postReactions.length} {postReactions.length === 1 ? 'reação' : 'reações'}</span><button type="button" onClick={() => setExpandedComments(previous => ({ ...previous, [post.id]: !previous[post.id] }))} aria-expanded={!!expandedComments[post.id]}>{postComments.length} {postComments.length === 1 ? 'comentário' : 'comentários'}</button></div>
-        <div className="community-social-actions"><button type="button" aria-pressed={liked} disabled={pending[`reaction:${post.id}:👍`]} onClick={() => toggleReaction(post.id, '👍')}><SocialIcon name="like"/>Curtir</button><button type="button" aria-expanded={!!expandedReactions[post.id]} onClick={() => setExpandedReactions(previous => ({ ...previous, [post.id]: !previous[post.id] }))}><span aria-hidden="true">♡</span>Reagir</button><button type="button" aria-expanded={!!expandedComments[post.id]} onClick={() => setExpandedComments(previous => ({ ...previous, [post.id]: !previous[post.id] }))}><SocialIcon name="comment"/>Comentar</button></div>
-        {expandedReactions[post.id] && <div className="community-reactions" aria-label={'Reações de ' + post.title}>{reactionTypes.map(emoji => <button type="button" key={emoji} aria-label={`Reagir com ${emoji} ao aviso ${post.title}`} aria-pressed={postReactions.some(reaction => reaction.member_id === profile.id && reaction.emoji === emoji)} disabled={pending[`reaction:${post.id}:${emoji}`]} onClick={() => toggleReaction(post.id, emoji)}>{emoji}<span>{postReactions.filter(reaction => reaction.emoji === emoji).length || ''}</span></button>)}</div>}
+        <div className="community-social-actions"><button type="button" aria-pressed={liked} disabled={pending[`reaction:${post.id}:👍`]} onClick={() => toggleReaction(post.id, '👍')}><SocialIcon name="like"/>Curtir</button><button type="button" aria-haspopup="menu" aria-controls={reactionMenu?.postId === post.id ? reactionMenuId : undefined} aria-expanded={reactionMenu?.postId === post.id} onClick={event => setReactionMenu(reactionMenu?.postId === post.id ? null : { postId: post.id, anchor: event.currentTarget })}><span aria-hidden="true">♡</span>Reagir</button><button type="button" aria-expanded={!!expandedComments[post.id]} onClick={() => setExpandedComments(previous => ({ ...previous, [post.id]: !previous[post.id] }))}><SocialIcon name="comment"/>Comentar</button></div>
         {!!visibleComments.length && <div className="community-comments">{visibleComments.map(comment => { const member = authorFor(comment.member_id); return <div className="community-comment" key={comment.id}><Avatar member={member} small/><div><strong>{member.name}</strong><p>{comment.text}</p></div></div>; })}</div>}
         {expandedComments[post.id] && <form className="community-comment-form" onSubmit={event => { event.preventDefault(); addComment(post.id); }}><input aria-label={'Escrever comentário em ' + post.title} data-update-blocking={!!commentTexts[post.id]?.trim()} value={commentTexts[post.id] || ''} onChange={event => setCommentTexts(previous => ({ ...previous, [post.id]: event.target.value }))} placeholder="Escreva um comentário..." required/><button type="submit" disabled={pending[`comment:${post.id}`] || !commentTexts[post.id]?.trim()}>{pending[`comment:${post.id}`] ? 'Enviando…' : 'Enviar'}</button></form>}
         {actionErrors[post.id] && <p className="community-post-error" role="alert">{actionErrors[post.id]}</p>}
       </ObservedPost>;
     })}{!filteredPosts.length && !loading && <div className="community-empty"><Icon name="note" size={28}/><strong>{filter === 'saved' ? 'Nenhum aviso salvo' : filter === 'rehearsal' ? 'Nenhum aviso de ensaio' : 'Nenhum comunicado no mural'}</strong><p>{filter === 'saved' ? 'Use o marcador no aviso para encontrá-lo aqui.' : 'Os comunicados da equipe aparecerão aqui.'}</p></div>}</div>}
+    {reactionPost && <ReactionPicker id={reactionMenuId} anchor={reactionMenu.anchor} postTitle={reactionPost.title} dark={dark} selected={reactions.filter(reaction => reaction.post_id === reactionPost.id && reaction.member_id === profile.id).map(reaction => reaction.emoji)} pending={['👍', '🙏', '🎵', '🔥'].filter(emoji => pending[`reaction:${reactionPost.id}:${emoji}`])} onSelect={emoji => toggleReaction(reactionPost.id, emoji)} onClose={closeReactions}/>}
     {newPostOpen && <Dialog dark={dark} icon="note" title="Novo Comunicado" description="Publique um aviso para a equipe." closeLabel="Fechar novo comunicado" busy={posting} onClose={() => setNewPostOpen(false)} footer={<>{postError && <p className="ui-message ui-error" role="alert">{postError}</p>}<div className="ui-dialog-buttons"><button type="button" className="ui-button" disabled={posting} onClick={() => setNewPostOpen(false)}>Cancelar</button><button type="submit" form={formId} className="ui-button ui-button-primary" disabled={posting}>{posting ? 'Publicando…' : 'Publicar'}</button></div></>}>
       <form id={formId} onSubmit={createPost}><label className="ui-field">Título do aviso<input autoFocus placeholder="Título do post *" value={newTitle} onChange={event => setNewTitle(event.target.value)} required disabled={posting}/></label><label className="ui-field">Comunicado<textarea placeholder="Escreva o comunicado aqui..." value={newContent} onChange={event => setNewContent(event.target.value)} rows={7} required disabled={posting}/></label></form>
     </Dialog>}

@@ -800,6 +800,48 @@ test('approved social mural preserves failed drafts and shares comments and reac
   expect(app.failures).toEqual([]);
  }finally{await app.close();}
 });
+for(const [theme,width] of [['light',320],['dark',390]])test(`reaction popup floats without moving posts and supports touch and keyboard in ${theme} mode`,async({browser})=>{
+ const app=await fixture(browser);
+ app.state.posts=[{id:'post-1',title:'Culto de Domingo',content:'Chegar 30 minutos antes do culto.',created_at:'2026-10-24T14:00:00Z',created_by:admin.id},{id:'post-2',title:'Próximo ensaio',content:'Vamos revisar as transições e os tons.',created_at:'2026-10-23T14:00:00Z',created_by:admin.id}];
+ app.state.comments=[{id:'comment-1',post_id:'post-1',member_id:member.id,text:'Estarei lá!',created_at:'2026-10-24T14:10:00Z'}];
+ try{
+  const page=await app.open(member,undefined,{theme,device:{viewport:{width,height:740},hasTouch:true,reducedMotion:'reduce'}});
+  await page.addStyleTag({content:'*,*::before,*::after{animation:none!important;transition:none!important}'});
+  await page.getByRole('button',{name:'Mural',exact:true}).click();
+  const post=page.locator('.community-post').first(),nextPost=page.locator('.community-post').nth(1);
+  await expect(post.getByText('Estarei lá!',{exact:true})).toBeVisible();
+  const commentBox=await post.locator('.community-comment').boundingBox();
+  expect((await post.boundingBox()).y+(await post.boundingBox()).height-commentBox.y-commentBox.height).toBeGreaterThanOrEqual(18);
+  const before=await post.boundingBox(),nextBefore=await nextPost.boundingBox();
+  const react=post.getByRole('button',{name:'Reagir',exact:true});
+  await react.tap();
+  const popup=page.getByRole('menu',{name:'Reações de Culto de Domingo',exact:true});
+  await expect(popup).toBeVisible();
+  expect(await popup.evaluate(element=>element.parentElement===document.body)).toBe(true);
+  expect((await post.boundingBox()).height).toBeCloseTo(before.height,1);
+  expect((await nextPost.boundingBox()).y).toBeCloseTo(nextBefore.y,1);
+  const bounds=await popup.boundingBox(),header=await page.locator('.app-header').boundingBox(),nav=await page.locator('.app-nav').boundingBox();
+  expect(bounds.x).toBeGreaterThanOrEqual(12);expect(bounds.x+bounds.width).toBeLessThanOrEqual(width-12);
+  expect(bounds.y).toBeGreaterThanOrEqual(header.y+header.height);expect(bounds.y+bounds.height).toBeLessThanOrEqual(nav.y);
+  const fire=popup.getByRole('menuitemcheckbox',{name:'Reagir com 🔥 ao aviso Culto de Domingo',exact:true});
+  await fire.tap();await expect(popup).toHaveCount(0);await expect(react).toBeFocused();
+  await expect.poll(()=>app.state.reactions?.filter(row=>row.post_id==='post-1'&&row.emoji==='🔥').length).toBe(1);
+  await expect(post.locator('.community-social-summary')).toContainText('1 reação');
+  await react.click();await expect(fire).toHaveAttribute('aria-checked','true');await expect(fire).toBeFocused();
+  await page.keyboard.press('Home');await expect(popup.getByRole('menuitemcheckbox').first()).toBeFocused();
+  await page.keyboard.press('ArrowRight');await expect(popup.getByRole('menuitemcheckbox').nth(1)).toBeFocused();
+  await page.keyboard.press('Enter');await expect(popup).toHaveCount(0);
+  await expect.poll(()=>app.state.reactions?.filter(row=>row.post_id==='post-1').length).toBe(2);
+  await react.click();await page.keyboard.press('Escape');await expect(popup).toHaveCount(0);await expect(react).toBeFocused();
+  await react.click();await page.keyboard.press('Tab');await expect(popup).toHaveCount(0);await expect(post.getByRole('button',{name:'Comentar',exact:true})).toBeFocused();
+  await react.click();await post.getByRole('heading',{name:'Culto de Domingo',exact:true}).click();await expect(popup).toHaveCount(0);
+  await react.click();await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop+=20;});await expect(popup).toHaveCount(0);
+  await post.getByRole('button',{name:'Comentar',exact:true}).click();
+  const form=post.locator('.community-comment-form');
+  expect((await post.boundingBox()).y+(await post.boundingBox()).height-(await form.getByRole('button',{name:'Enviar',exact:true}).boundingBox()).y-(await form.getByRole('button',{name:'Enviar',exact:true}).boundingBox()).height).toBeGreaterThanOrEqual(18);
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
 test('practical training changes instruments and runs its timer and real metronome',async({browser})=>{
  const app=await fixture(browser);
  try{

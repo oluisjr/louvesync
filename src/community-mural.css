@@ -59,15 +59,13 @@
 .community-social-actions button { display:flex; justify-content:center; align-items:center; gap:5px; min-height:38px; padding:5px 2px; border:0; border-radius:8px; background:transparent; color:var(--community-muted); font:700 11px/1.4 'Nunito',sans-serif; cursor:pointer; }
 .community-social-actions button > span { font-size:19px; line-height:1; }
 .community-mural .community-social-actions button[aria-pressed="true"] { outline:none; background:var(--community-accent-soft)!important; color:var(--community-accent); }
-.community-reactions { display:flex; flex-wrap:wrap; gap:7px; padding:10px 14px 2px; }
-.community-reactions button { display:flex; gap:4px; align-items:center; justify-content:center; min-width:44px; min-height:34px; padding:5px 8px; border:1px solid var(--community-line); border-radius:100px; background:var(--community-field); color:var(--community-text); font:700 12px/1.4 'Nunito',sans-serif; cursor:pointer; }
-.community-mural .community-reactions button[aria-pressed="true"] { outline:none; background:var(--community-accent-soft)!important; border-color:var(--community-accent); }
-.community-comments { display:flex; flex-direction:column; gap:8px; padding:12px 14px 2px; }
+.community-comments { display:flex; flex-direction:column; gap:8px; padding:14px 14px 18px; }
+.community-comments:has(+ .community-comment-form) { padding-bottom:2px; }
 .community-comment { display:flex; align-items:flex-start; gap:8px; }
 .community-comment > div { flex:1; min-width:0; padding:8px 11px; background:var(--community-accent-soft); border-radius:13px; }
 .community-comment strong { display:block; font-size:11px; font-weight:900; color:var(--community-text); overflow-wrap:anywhere; }
 .community-comment p { margin:2px 0 0; color:var(--community-text); font-size:12px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
-.community-comment-form { display:flex; align-items:center; gap:6px; padding:11px 14px 13px; }
+.community-comment-form { display:flex; align-items:center; gap:6px; padding:12px 14px 18px; }
 .community-comment-form input { flex:1; min-width:0; min-height:40px; padding:9px 11px; border:1px solid var(--community-line); border-radius:100px; background:var(--community-field); color:var(--community-text); font:500 16px/1.4 'Nunito',sans-serif; }
 .community-comment-form input::placeholder { color:var(--community-muted); font-size:12px; opacity:1; }
 .community-comment-form button { min-height:40px; padding:8px 10px; border:0; border-radius:12px; background:var(--community-accent-soft); color:var(--community-accent); font:800 11px/1.4 'Nunito',sans-serif; cursor:pointer; }

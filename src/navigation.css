@@ -65,12 +65,14 @@
 .app-navigation-emblem img { display:block; width:38px; height:38px; max-width:78%; object-fit:contain; }
 .app-navigation-church.on::after { content:''; position:absolute; bottom:3px; left:50%; transform:translateX(-50%); width:22px; height:3px; border-radius:10px; background:var(--navigation-underline); }
 .app-navigation[data-theme="dark"] .app-navigation-emblem img { filter:drop-shadow(0 0 1px #ffffffa6); }
-.ui-dialog-layer[data-theme="light"]:has(.app-more-menu) { --ui-text:#162c42; --ui-muted:#496477; --ui-accent:#007fa8; --ui-accent-soft:#ceeff8; --ui-surface:#edfaff; --ui-panel:#e9f7fc; --ui-line:#c1e5ef; --ui-row:#f6fdff; --more-art:url('/images/home/devotional-ribbons.webp'); --more-scrim:#edfaffed; }
-.ui-dialog-layer[data-theme="dark"]:has(.app-more-menu) { --more-art:url('/images/home/devotional-ribbons-dark.webp'); --more-scrim:#34244feb; }
+.ui-dialog-layer[data-theme="light"]:has(.app-more-menu) { --ui-text:#162c42; --ui-muted:#496477; --ui-accent:#007fa8; --ui-accent-soft:#ceeff8; --ui-surface:#edfaff; --ui-panel:#e9f7fc; --ui-line:#c1e5ef; --ui-row:#f6fdff; --more-art:url('/images/home/devotional-ribbons.webp'); --more-scrim:#edfaffed; --more-art-highlight:#fff; --more-art-color:#62bdd8; }
+.ui-dialog-layer[data-theme="dark"]:has(.app-more-menu) { --more-art:url('/images/home/devotional-ribbons-dark.webp'); --more-scrim:#34244feb; --more-art-highlight:#cdaaf2; --more-art-color:#8961c9; }
 .ui-dialog:has(.app-more-menu) { border-color:var(--ui-line); }
 .app-more-menu { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-.app-more-destination { text-align:left; justify-content:flex-start; min-height:76px; padding:12px; gap:9px; border-radius:16px; position:relative; overflow:hidden; background-color:var(--ui-row); }
-.app-more-destination:is(.app-more-repertorio,.app-more-devocional,.app-more-ensaio,.app-more-ia,.app-more-membros,.app-more-admin) { background-image:linear-gradient(90deg,var(--more-scrim),var(--more-scrim) 50%,transparent),var(--more-art); background-size:cover; background-position:right bottom; }
+.app-more-destination { text-align:left; justify-content:flex-start; min-height:76px; padding:12px; gap:9px; border-radius:16px; position:relative; overflow:hidden; background-color:var(--ui-row); background-image:linear-gradient(115deg,transparent 35%,var(--ui-accent-soft)); isolation:isolate; }
+.app-more-destination > span { position:relative; z-index:1; }
+.app-more-artwork { position:absolute; z-index:0; pointer-events:none; right:-8px; bottom:-9px; width:110px; height:84px; color:var(--ui-accent); opacity:.38; mask-image:linear-gradient(90deg,transparent,#000 45%); }
+.app-more-destination.app-more-devocional { background-image:linear-gradient(90deg,var(--more-scrim),var(--more-scrim) 50%,transparent),var(--more-art); background-size:cover; background-position:right bottom; }
 .app-more-destination.app-more-treinamento { background-image:linear-gradient(90deg,var(--more-scrim),transparent),url('/images/training/practice.webp'); background-size:cover; background-position:right bottom; }
 .ui-dialog-layer[data-theme="dark"] .app-more-treinamento { background-image:linear-gradient(90deg,var(--more-scrim),transparent),url('/images/training/practice-dark.webp'); }
 .app-more-destination:hover { border-color:var(--ui-accent); }
