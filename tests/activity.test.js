@@ -47,6 +47,43 @@ test('activity API delegates existing-PIN authorization to the database and repo
   }
 });
 
+test('activity configuration names missing production settings and accepts trimmed public-key aliases', async () => {
+  const names = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];
+  const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  const request = { method: 'POST', headers: {}, body: { ...credentials, action: 'online' } };
+  try {
+    for (const [settings, missing] of [
+      [{}, ['SUPABASE_URL', 'SUPABASE_ANON_KEY']],
+      [{ SUPABASE_URL: 'https://fixture.supabase.co' }, ['SUPABASE_ANON_KEY']],
+      [{ VITE_SUPABASE_ANON_KEY: 'fixture-public-key' }, ['SUPABASE_URL']],
+      [{ SUPABASE_URL: ' ', SUPABASE_ANON_KEY: '\n' }, ['SUPABASE_URL', 'SUPABASE_ANON_KEY']],
+      [{ SUPABASE_URL: ' ', SUPABASE_ANON_KEY: '\n', VITE_SUPABASE_URL: ' https://fixture.supabase.co ', VITE_SUPABASE_ANON_KEY: ' fixture-public-key ' }, []],
+    ]) {
+      for (const name of names) delete process.env[name];
+      Object.assign(process.env, settings);
+      let clientCalls = 0;
+      const handler = createActivityHandler((url, key) => {
+        clientCalls++;
+        assert.equal(url, 'https://fixture.supabase.co');
+        assert.equal(key, 'fixture-public-key');
+        return { rpc: () => ({ abortSignal: async () => ({ data: { members: [], serverTime: '2026-11-13T12:00:00Z' }, error: null }) }) };
+      });
+      const res = response();
+      await handler(request, res);
+      assert.equal(res.code, missing.length ? 503 : 200);
+      assert.equal(clientCalls, missing.length ? 0 : 1);
+      if (missing.length) {
+        assert.deepEqual(res.body.missing, missing);
+        assert.match(res.body.error, /Production.*Redeploy/);
+        for (const name of missing) assert.ok(res.body.error.includes(name));
+        assert.ok(!JSON.stringify(res.body).includes('fixture-public-key'));
+      }
+    }
+  } finally {
+    for (const name of names) if (previous[name] === undefined) delete process.env[name]; else process.env[name] = previous[name];
+  }
+});
+
 test('offline views survive reopening, keep their original time, and retry with the same ID without storing PINs', async () => {
   const storage = new Storage(), calls = [];
   const offline = createViewRecorder({ storage, send: async () => { throw new Error('Offline'); } });

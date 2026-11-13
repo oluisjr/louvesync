@@ -16,6 +16,8 @@ O SQL cria somente `louvesync_activity_sessions`, `louvesync_content_views`, seu
 
 A API `/api/activity` reutiliza `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` da Vercel (ou os equivalentes `SUPABASE_URL` e `SUPABASE_ANON_KEY`). Não precisa de uma chave de serviço nova. Se o SQL ou a configuração ainda não existir, o painel mostra a indisponibilidade; não informa falsamente que todos estão offline ou sem visualizações.
 
+Se aparecer erro de configuração do servidor após alterar as variáveis, confira essas duas configurações em **Settings → Environment Variables → Production** e faça **Redeploy**. Elas precisam estar disponíveis para as funções da API, além do build do site. As variáveis VAPID e `SUPABASE_SERVICE_ROLE_KEY` das notificações são adicionais e não substituem a URL e a chave pública. Nunca coloque a chave `service_role` em `VITE_SUPABASE_ANON_KEY`. A API identifica no erro qual configuração está faltando; não é necessário reinstalar o SQL nem apagar o histórico para corrigir esse caso.
+
 ## Regras de registro
 
 - On-line significa app em primeiro plano e conectado. Cada aparelho tem sua própria sessão e envia um sinal a cada 25 segundos. Minimizar, sair ou fechar tenta encerrar a sessão imediatamente. Sem esse sinal, ela expira após 75 segundos. Uma pessoa em dois aparelhos aparece uma vez; fechar um deles não desconecta o outro. Versões de sessão impedem que um sinal atrasado ressuscite uma sessão encerrada.

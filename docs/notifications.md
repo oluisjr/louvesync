@@ -19,6 +19,8 @@ O banco calcula os destinatários, compara a versão final do evento e agrupa as
 
 Além das variáveis Supabase já usadas pelo app, configure na Vercel, em Production:
 
+Mantenha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` existentes, também disponíveis em Production. A API aceita os equivalentes `SUPABASE_URL` e `SUPABASE_ANON_KEY`; os valores são a URL do mesmo projeto e sua chave pública anon, respectivamente. Importar as novas configurações não deve remover essas variáveis. A chave de serviço abaixo não substitui a chave pública do app.
+
 - `SUPABASE_SERVICE_ROLE_KEY`: chave de servidor do projeto Supabase. Não use prefixo `VITE_`.
 - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`: gere o conjunto uma vez com `node scripts/generate_push_keys.js /tmp/louvesync-push.env` e importe o arquivo nas variáveis do projeto. O comando não imprime as chaves e não sobrescreve um arquivo existente.
 - Faça Redeploy depois de salvar as variáveis.

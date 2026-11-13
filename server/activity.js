@@ -33,9 +33,16 @@ export function createActivityHandler(clientFactory = createClient) {
     }
     const payload = activityPayload(req.body);
     if (!payload) return res.status(400).json({ error: 'Solicitação de atividade inválida.' });
-    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-    if (!url || !key) return res.status(503).json({ code: 'ACTIVITY_UNAVAILABLE', error: 'O monitoramento ainda não está configurado no servidor.' });
+    const url = process.env.SUPABASE_URL?.trim() || process.env.VITE_SUPABASE_URL?.trim();
+    const key = process.env.SUPABASE_ANON_KEY?.trim() || process.env.VITE_SUPABASE_ANON_KEY?.trim();
+    const missing = [];
+    if (!url) missing.push('SUPABASE_URL');
+    if (!key) missing.push('SUPABASE_ANON_KEY');
+    if (missing.length) return res.status(503).json({
+      code: 'ACTIVITY_UNAVAILABLE',
+      missing,
+      error: `Configure ${missing.map(name => `${name} (ou VITE_${name})`).join(' e ')} na Vercel em Production. Salve e faça Redeploy.`,
+    });
     try {
       const client = clientFactory(url.trim(), key.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
       const { data, error } = await client.rpc('louvesync_activity', { p_payload: payload }).abortSignal(AbortSignal.timeout(8000));
