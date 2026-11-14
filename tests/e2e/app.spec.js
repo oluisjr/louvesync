@@ -14,7 +14,7 @@ async function navigate(page, name) {
     return;
   }
   await page.getByRole('button',{name:'Mais',exact:true}).click();
-  const menu=page.getByRole('dialog',{name:'Mais',exact:true});
+  const menu=page.getByRole('region',{name:'Mais',exact:true});
   await menu.getByRole('button',{name,exact:true}).click();
   await expect(menu).toHaveCount(0);
 }
@@ -484,9 +484,14 @@ test('five fixed destinations keep secondary screens reachable and respect membe
     expect(await nav.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
     await expect.poll(()=>nav.getByRole('button',{name:'Mural',exact:true}).locator('img').evaluate(image=>image.complete&&image.naturalWidth>0)).toBe(true);
     await nav.getByRole('button',{name:'Mais',exact:true}).click();
-    const menu=page.getByRole('dialog',{name:'Mais',exact:true});
+    const menu=page.getByRole('region',{name:'Mais',exact:true});
     await expect(menu).toBeVisible();
-    expect(await page.locator('#root').evaluate(root=>root.inert)).toBe(true);
+    expect(await page.locator('#root').evaluate(root=>root.inert)).toBe(false);
+    await expect(nav.getByRole('button',{name:'Mais',exact:true})).toHaveAttribute('aria-current','page');
+    await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
+    await expect(nav.getByRole('button',{name:'Mural',exact:true}).locator('img')).toHaveAttribute('src','/brand/church-emblem-3d.webp');
+    await expect(menu.locator('.app-more-artwork')).toHaveCount(6);
+    await expect.poll(()=>menu.locator('.app-more-artwork').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0))).toBe(true);
     for(const label of ['Músicas','Patrimônio','Ensaio','Treinar','Admin'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
@@ -508,7 +513,7 @@ test('five fixed destinations keep secondary screens reachable and respect membe
     await expect(limitedNav.getByRole('button',{name:'Escala',exact:true})).toBeDisabled();
     await expect(limitedNav.getByRole('button',{name:'Mural',exact:true})).toBeDisabled();
     await limitedNav.getByRole('button',{name:'Mais',exact:true}).click();
-    const limitedMenu=restricted.getByRole('dialog',{name:'Mais',exact:true});
+    const limitedMenu=restricted.getByRole('region',{name:'Mais',exact:true});
     await expect(limitedMenu.getByRole('button',{name:'Músicas',exact:true})).toBeVisible();
     for(const label of ['Admin','Membros','Patrimônio','Treinar'])await expect(limitedMenu.getByRole('button',{name:label,exact:true})).toHaveCount(0);
     await limitedMenu.getByRole('button',{name:'Fechar',exact:true}).click();
@@ -518,6 +523,51 @@ test('five fixed destinations keep secondary screens reachable and respect membe
 });
 
 for(const theme of ['light','dark']){
+  test(`More uses the approved 3D grid and keeps navigation usable in ${theme} mode`,async({browser})=>{
+    const app=await fixture(browser);
+    try{
+      const page=await app.open(admin,undefined,{theme,device:{...devices['iPhone 13'],viewport:{width:390,height:844}},standalone:true});
+      await page.addStyleTag({content:':root { --app-safe-top:47px; --app-safe-bottom:34px; } *,*::before,*::after { animation:none!important; transition:none!important; }'});
+      const nav=page.getByRole('navigation',{name:'Navegação principal'}),main=page.locator('[data-main-scroll]');
+      await main.evaluate(element=>{element.scrollTop=180;});
+      const previousScroll=await main.evaluate(element=>element.scrollTop);
+      await nav.getByRole('button',{name:'Mais',exact:true}).click();
+      const menu=page.getByRole('region',{name:'Mais',exact:true});
+      const menuScroll=page.locator('.app-more-scroll');
+      await expect(menu).toBeVisible();
+      await expect(menu.getByRole('heading',{name:'Mais',exact:true})).toBeFocused();
+      await expect(main).toHaveJSProperty('inert',true);
+      expect(await main.evaluate(element=>element.scrollTop)).toBe(previousScroll);
+      await expect.poll(()=>menu.locator('img').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0))).toBe(true);
+      await expect.poll(()=>nav.locator('img').evaluate(image=>image.complete&&image.naturalWidth>0)).toBe(true);
+      for(const width of [390,320]){
+        await page.setViewportSize({width,height:844});
+        expect(await menuScroll.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+        expect(await menu.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+        const firstCard=await menu.locator('.app-more-destination').nth(0).boundingBox(),secondCard=await menu.locator('.app-more-destination').nth(1).boundingBox();
+        expect(secondCard.x-firstCard.x-firstCard.width).toBeGreaterThanOrEqual(8);
+        await menuScroll.evaluate(element=>{element.scrollTop=element.scrollHeight;});
+        const end=await menu.locator('.app-more-secondary').boundingBox(),bar=await nav.boundingBox();
+        expect(bar.y-end.y-end.height).toBeGreaterThanOrEqual(10);
+        await menuScroll.evaluate(element=>{element.scrollTop=0;});
+        await page.screenshot({path:test.info().outputPath(`more-${theme}-${width}.png`),scale:'css'});
+      }
+      const backgroundScroll=await main.evaluate(element=>element.scrollTop);
+      await page.keyboard.press('Escape');
+      await expect(menu).toHaveCount(0);
+      await expect(page.locator('.home-page')).toBeVisible();
+      await expect(main).toHaveJSProperty('inert',false);
+      await expect.poll(()=>main.evaluate(element=>element.scrollTop)).toBe(backgroundScroll);
+      await nav.getByRole('button',{name:'Mais',exact:true}).click();
+      await nav.getByRole('button',{name:'Escala',exact:true}).click();
+      await expect(menu).toHaveCount(0);
+      await expect(nav.getByRole('button',{name:'Escala',exact:true})).toHaveAttribute('aria-current','page');
+      await nav.getByRole('button',{name:'Mais',exact:true}).click();
+      await page.getByRole('region',{name:'Mais',exact:true}).getByRole('button',{name:'Devocional',exact:true}).click();
+      await expect(menu).toHaveCount(0);
+      expect(app.failures).toEqual([]);
+    }finally{await app.close();}
+  });
   test(`Home preserves live stats, study and pending confirmations while its theme stays scoped in ${theme} mode`,async({browser})=>{
     const app=await fixture(browser);
     app.state.songs[1]={...app.state.songs[1],featured_week:true,featured_note:'Pratique a transição'};

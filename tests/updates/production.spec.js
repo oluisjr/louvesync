@@ -57,7 +57,7 @@ test('actual production app applies a changed JS build after saving a draft and 
     await expect.poll(async () => Math.round((await page.locator('[data-main-scroll]').boundingBox()).y + (await page.locator('[data-main-scroll]').boundingBox()).height)).toBe(915);
     await page.waitForFunction(async () => (await navigator.serviceWorker.getRegistration())?.active?.state === 'activated');
     await page.getByRole('button', { name: 'Mais', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Mais', exact: true }).getByRole('button', { name: 'Músicas', exact: true }).click();
+    await page.getByRole('region', { name: 'Mais', exact: true }).getByRole('button', { name: 'Músicas', exact: true }).click();
     await page.getByRole('button', { name: 'Adicionar', exact: true }).click();
     await page.getByRole('button', { name: '⌨️ Digitar cifra manualmente', exact: true }).click();
     await page.getByPlaceholder('Título da música *').fill('Cifra preservada durante atualização');
@@ -79,7 +79,7 @@ test('actual production app applies a changed JS build after saving a draft and 
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(29, 27, 45)');
     await expect.poll(async () => Math.round((await page.locator('#root').boundingBox()).height)).toBe(915);
     await page.getByRole('button', { name: 'Mais', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Mais', exact: true }).getByRole('button', { name: 'Músicas', exact: true }).click();
+    await page.getByRole('region', { name: 'Mais', exact: true }).getByRole('button', { name: 'Músicas', exact: true }).click();
     await expect(page.getByText('Cifra preservada durante atualização', { exact: true })).toBeVisible();
     expect(errors).toEqual([]);
   } finally {

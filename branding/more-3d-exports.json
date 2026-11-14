@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "generation": "Native ImageGen; approved objects isolated with real transparency.",
+  "export": "Transparent margins trimmed with padding; proportional resize; WebP quality 90, alpha quality 100. No recoloring or redrawing.",
+  "assets": [
+    {
+      "path": "/images/more/music.webp",
+      "sourceConcept": "06-mais-escuro.png",
+      "sourceCutout": "more-music.png",
+      "width": 512,
+      "height": 465,
+      "bytes": 50234,
+      "sha256": "4893dc798c89e89f7c988064663206f94e5b8ae69b8f72173e63a7644c4d3362"
+    },
+    {
+      "path": "/images/more/training.webp",
+      "sourceConcept": "06-mais-escuro.png",
+      "sourceCutout": "more-training.png",
+      "width": 512,
+      "height": 493,
+      "bytes": 41378,
+      "sha256": "8488613bd79ed15018256a04a23ac237ba8206735c949e3f34afbc42b4a97211"
+    },
+    {
+      "path": "/images/more/rehearsal.webp",
+      "sourceConcept": "06-mais-escuro.png",
+      "sourceCutout": "more-rehearsal.png",
+      "width": 512,
+      "height": 384,
+      "bytes": 46104,
+      "sha256": "4772e6946635ba66cd3c8c6457c7dc5ba287f9042183f74a731705e16070dcef"
+    },
+    {
+      "path": "/images/more/equipment.webp",
+      "sourceConcept": "06-mais-escuro.png",
+      "sourceCutout": "more-equipment.png",
+      "width": 512,
+      "height": 392,
+      "bytes": 40496,
+      "sha256": "7faa85d49075d2a9d133e27c0cb65bbba158688f67839ff6f5f856849f54f60b"
+    },
+    {
+      "path": "/images/more/members.webp",
+      "sourceConcept": "06-mais-escuro.png",
+      "sourceCutout": "more-members-clean.png",
+      "width": 512,
+      "height": 293,
+      "bytes": 19556,
+      "sha256": "285d6eae5b7c2274c7bb88fa02295e360cef8a71509c30fae76ad2212b2e2e52"
+    },
+    {
+      "path": "/images/more/settings.webp",
+      "sourceConcept": "06-mais-escuro.png",
+      "sourceCutout": "more-settings.png",
+      "width": 512,
+      "height": 295,
+      "bytes": 30650,
+      "sha256": "7e7246c78dd5963b80bce7cf08e7d82e44f72d39bed71f4070529d4be5190408"
+    },
+    {
+      "path": "/brand/church-emblem-3d.webp",
+      "sourceConcept": "08-logo-igreja-miniatura.png",
+      "sourceCutout": "church-emblem-3d.png",
+      "width": 166,
+      "height": 192,
+      "bytes": 9058,
+      "sha256": "9679cac9d6176fa610c229caa6107cf37dc70957bd7daf6a75798c896b66677b"
+    }
+  ]
+}

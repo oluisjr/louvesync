@@ -14,6 +14,7 @@ import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
 import EquipmentEditor from './components/EquipmentEditor.jsx';
 import AppNavigation from './components/AppNavigation.jsx';
+import MoreMenu from './components/MoreMenu.jsx';
 import CommunityMural from './components/CommunityMural.jsx';
 import PracticalTraining from './components/PracticalTraining.jsx';
 import NotificationInbox from './components/NotificationInbox.jsx';
@@ -3047,6 +3048,8 @@ export default function LouveSync() {
   });
   const navigationRef=useNavigationClearance();
   const [tab,setTab]=useState('home');
+  const [moreOpen,setMoreOpen]=useState(false);
+  const closeMore=useCallback(()=>setMoreOpen(false),[]);
   const [selectedSong,setSelSong]=useState(null);
   const selSong = songs.find(song=>song.id===selectedSong?.id) || selectedSong;
   const metronome = useMetronome(selSong?.id, selSong?.bpm, selSong?.time_signature);
@@ -3202,14 +3205,14 @@ export default function LouveSync() {
   const [keyF,setKeyF]=useState('');
   // inCifra: qualquer tab pode abrir a cifra de uma música
   const inCifra = !!selSong;
-  const homeTheme = !!profile && ['home','mural','treinamento','ensaio'].includes(tab) && !inCifra;
+  const homeTheme = !!profile && (moreOpen || ['home','mural','treinamento','ensaio'].includes(tab)) && !inCifra;
   useAppDisplay(dark,homeTheme);
   const unread=notifications.items.filter(item=>!item.read_at).length;
   const [pushLink,setPushLink]=useState(()=>new URL(window.location.href).searchParams.has('tab')?window.location.href:null);
   const openNotificationTarget=useCallback(item=>{
     const target=notificationDestination(item,window.location.origin);
     if(!profile||!target||profile.permissions&&!profile.permissions.includes(target.tab))return;
-    stopMetronome();setTab(target.tab);setSelEvent(null);setNotifsOpen(false);
+    stopMetronome();setMoreOpen(false);setTab(target.tab);setSelEvent(null);setNotifsOpen(false);
     if(target.tab==='repertorio')setSelSong(songs.find(song=>song.id===target.songId)||null);
     else{setSelSong(null);setEvSheet(target.eventId?events.find(event=>event.id===target.eventId)||null:null);}
   },[profile,songs,events,stopMetronome]);
@@ -3358,9 +3361,12 @@ export default function LouveSync() {
     void notifications.detach();
     localStorage.removeItem('ls_profile');
     localStorage.removeItem('ls_last_activity');
-    setProfile(null); setSelSong(null); setSelEvent(null); setTab('home');
+    setProfile(null); setMoreOpen(false); setSelSong(null); setSelEvent(null); setTab('home');
   }
-  function navTo(t){vib();setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}}
+  function navTo(t){
+    if(moreOpen){setMoreOpen(false);requestAnimationFrame(()=>mainScrollRef.current?.scrollTo({top:0}));}
+    vib();setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}
+  }
   function selectSong(s,ev=null,activeKey=null){
     if(!s) return alert('Ops! Esta música ainda não foi adicionada no Repertório.');
     console.log('🎵 selectSong called with:', {title: s.title, artist: s.artist, id: s.id});
@@ -3601,7 +3607,8 @@ export default function LouveSync() {
         </div>
 
         {/* MAIN SCROLL */}
-        <div ref={mainScrollRef} className="app-main" data-main-scroll data-song-open={inCifra}>
+        <div className="app-content">
+        <div ref={mainScrollRef} className="app-main" data-main-scroll data-song-open={inCifra} inert={moreOpen&&!inCifra} aria-hidden={moreOpen&&!inCifra ? true : undefined}>
           {dataLoading&&!inCifra?<Skeleton dark={dark} count={6}/>:<>
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
@@ -3619,9 +3626,11 @@ export default function LouveSync() {
             {profile?.is_admin&&tab==='admin'&&!inCifra&&<PainelAdmin dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState} setMembers={setAllMembers} activity={activity}/>}
           </>}
         </div>
+          {moreOpen&&!inCifra&&<div className="app-more-scroll"><MoreMenu tabs={TABS} currentTab={tab} onNavigate={navTo} onClose={closeMore} dark={dark}/></div>}
+        </div>
 
         {/* BOTTOM NAV — hidden in Cifra */}
-        {!inCifra&&<AppNavigation ref={navigationRef} tabs={TABS} currentTab={tab} onNavigate={navTo} dark={dark} homeTheme={homeTheme}/>}
+        {!inCifra&&<AppNavigation ref={navigationRef} tabs={TABS} currentTab={tab} onNavigate={navTo} dark={dark} homeTheme={homeTheme} moreOpen={moreOpen} onMoreOpen={setMoreOpen}/>}
       </>}
 
       {/* OVERLAYS */}
