@@ -1,7 +1,14 @@
 .app-nav .app-navigation.gNav {
-  --navigation-ink:#514064;
-  --navigation-accent:#7130e5;
-  --navigation-underline:linear-gradient(90deg,#7b3ff2,#ff6b35);
+  --navigation-ink:#174f55;
+  --navigation-accent:#083e48;
+  --navigation-underline:linear-gradient(90deg,#147d8e,#53ab9d);
+  --navigation-glass-top:#d4faf3c7;
+  --navigation-glass-middle:#97e5d9ad;
+  --navigation-glass-bottom:#49c8bfc9;
+  --navigation-rim:#e1fff9c7;
+  --navigation-highlight:#ffffffb3;
+  --navigation-reflection:#c4fff085;
+  --navigation-shadow:#12656e30;
   display:grid;
   grid-template-columns:repeat(5,minmax(0,1fr));
   align-items:center;
@@ -12,27 +19,23 @@
   border-radius:100px;
   pointer-events:auto;
   overflow:hidden;
-  background:linear-gradient(135deg,#ffffffb0,#f7ebff66 50%,#ffffff94);
-  border:1px solid #ffffffc2;
-  box-shadow:inset 0 2px 2px #ffffffd9,inset 0 -1px 2px #ffffff80,0 8px 32px #5420ac26;
-  backdrop-filter:blur(18px) saturate(200%) contrast(108%);
-  -webkit-backdrop-filter:blur(18px) saturate(200%) contrast(108%);
-}
-.app-nav .app-navigation[data-home-theme="true"][data-theme="light"] {
-  --navigation-ink:#425a6c;
-  --navigation-accent:#0089b3;
-  --navigation-underline:linear-gradient(90deg,#059fc0,#7ab7c5);
-  background:linear-gradient(135deg,#ffffffb8,#edfaff73 50%,#ffffffa3);
-  border-color:#ffffffd9;
-  box-shadow:inset 0 2px 2px #ffffffe6,inset 0 -1px 2px #ffffff80,0 8px 30px #3d869e24;
+  background:linear-gradient(180deg,#ffffff1a,transparent 24%,transparent 70%,#ffffff0d),linear-gradient(180deg,var(--navigation-glass-top),var(--navigation-glass-middle) 48%,var(--navigation-glass-bottom));
+  border:1px solid var(--navigation-rim);
+  box-shadow:inset 0 2px 3px var(--navigation-highlight),inset 0 -2px 4px var(--navigation-reflection),inset 2px 0 5px #ffffff24,inset -2px 0 5px #ffffff24,0 8px 28px var(--navigation-shadow);
+  backdrop-filter:blur(22px) saturate(180%) contrast(108%);
+  -webkit-backdrop-filter:blur(22px) saturate(180%) contrast(108%);
 }
 .app-nav .app-navigation[data-theme="dark"] {
-  --navigation-ink:#e9dcf9;
-  --navigation-accent:#d5a8ff;
-  --navigation-underline:linear-gradient(90deg,#c893ff,#ffb38b);
-  background:linear-gradient(135deg,#643b9899,#2917426b 50%,#49287194);
-  border-color:#d8b4ff66;
-  box-shadow:inset 0 2px 2px #eddbff4d,inset 0 -1px 2px #bb82ff33,0 8px 32px #14072559;
+  --navigation-ink:#efdafa;
+  --navigation-accent:#fff0e4;
+  --navigation-underline:linear-gradient(90deg,#dfa2ff,#ffc18d);
+  --navigation-glass-top:#4a1f72d4;
+  --navigation-glass-middle:#712baabf;
+  --navigation-glass-bottom:#b54ae1d9;
+  --navigation-rim:#d7a5fa80;
+  --navigation-highlight:#e9c5ff66;
+  --navigation-reflection:#dc9aff73;
+  --navigation-shadow:#20092f66;
 }
 .app-nav .app-navigation .app-navigation-item {
   min-width:0;
