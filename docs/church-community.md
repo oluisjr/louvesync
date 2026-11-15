@@ -41,3 +41,5 @@ As mensagens do usuário têm balões roxos à direita; as do Maestro têm avata
 As capturas foram conferidas nos temas claro/escuro em 320 e 390 pixels. Gestos e teclado de Safari/PWA ou Android físicos ainda dependem de conferência em aparelho.
 
 As três migrações hospedadas foram aplicadas e verificadas, com os arquivos locais alinhados ao registro do Supabase: `20261115180407_church_member_classification.sql`, `20261115180424_church_public_intake.sql` e `20261115180436_church_administration.sql`.
+
+A entrada obrigatória como visitante e as marcações do ministério foram verificadas com 165 testes unitários, 25 cenários únicos de navegador e as suítes SQL de comunidade, preferências, solicitações e marcações. A migração hospedada de marcações é `20261115200859_ministry_mentions_inbox.sql`: colunas, seis gatilhos, restrições e permissões conferidos após a aplicação, sem criar avisos retroativos.
