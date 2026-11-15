@@ -44,7 +44,7 @@ export function encodeSequence(text, key) {
   return key ? sequencePrefix + JSON.stringify({ text: text || '', key }) : text || null;
 }
 export function normalizeEvent(ev) {
-  const sorted = [...(ev.event_songs || [])].filter(Boolean).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+  const sorted = [...(ev.event_songs || [])].filter(Boolean).sort((a, b) => (a.order_index || 0) - (b.order_index || 0) || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
   const internal = sorted.filter(row => decodeEventPreferences(row));
   const preferences = internal.length ? decodeEventPreferences(internal.at(-1)) : eventPreferences(ev);
   const visible = sorted.filter(row => !internal.includes(row));

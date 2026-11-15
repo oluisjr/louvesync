@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { strFromU8, unzipSync } from 'fflate';
 import { setlistExportRows, setlistWhatsAppText, setlistWorkbook } from '../src/lib/setlist-export.js';
+import { setlistSnapshot } from '../src/lib/setlist-confirmation.js';
 
 const songs = [
   { id: 'praise', title: 'Grande é o Senhor', cat: 'jubilo', artist: 'Artista da gravação', key: 'G', vocal_keys: { ana: 'A' } },
@@ -37,6 +38,19 @@ test('WhatsApp uses category prefixes and ministry vocalists instead of numberin
   assert.doesNotMatch(text, /Artista da gravação|Outro artista|Terceiro artista|^\d+\./m);
 });
 
+test('shared text and Excel explicitly distinguish a confirmed repertoire from a draft and an edited version', () => {
+  const service = { ...event, id: 'event', items: event.items.filter(item => item.song_id !== 'deleted') };
+  const confirmed = { ...service, setlist_confirmation: { version: 1, snapshot: setlistSnapshot(service, songs), confirmed_by: 'ana', confirmed_at: '2026-11-15T12:00:00Z' } };
+  const status = value => strFromU8(unzipSync(setlistWorkbook(value, songs, members))['xl/worksheets/sheet1.xml']);
+  assert.match(setlistWhatsAppText(service, songs, members), /Repertório: NÃO CONFIRMADO/);
+  assert.match(status(service), /NÃO CONFIRMADO/);
+  assert.match(setlistWhatsAppText(confirmed, songs, members), /Repertório: CONFIRMADO/);
+  assert.doesNotMatch(status(confirmed), /NÃO CONFIRMADO/); assert.match(status(confirmed), /CONFIRMADO/);
+  const edited = { ...confirmed, keyBySong: { praise: 'E' } };
+  assert.match(setlistWhatsAppText(edited, songs, members), /Repertório: NÃO CONFIRMADO/);
+  assert.match(status(edited), /NÃO CONFIRMADO/);
+});
+
 test('Sunday WhatsApp regression matches category/title/vocalist/key for the reported setlist', () => {
   const reported = [
     ['Celebrarei', 'jubilo', 'Frutos do Espirito II Frutos do Espirito II', 'ana'],
@@ -49,7 +63,7 @@ test('Sunday WhatsApp regression matches category/title/vocalist/key for the rep
   const ministry = [{ id: 'ana', name: 'Ana Martins' }, { id: 'lucas', name: 'Lucas Oliveira' }];
   const sunday = { label: 'Culto de Domingo', date: '2026-10-25', time: '18:00', songs: catalog.map(song => song.id), singerBySong: Object.fromEntries(reported.map((row, index) => [String(index), row[3]])) };
   assert.equal(setlistWhatsAppText(sunday, catalog, ministry), [
-    '🎵 *Culto de Domingo* — dom., 25 de out. · 18:00', '', '*Setlist:*',
+    '🎵 *Culto de Domingo* — dom., 25 de out. · 18:00', '*Repertório: NÃO CONFIRMADO*', '', '*Setlist:*',
     '*Júbilo:* Celebrarei (Ana Martins) — C',
     '*Hinário:* A Face Adorada (Lucas Oliveira) — C',
     '*Adoração:* Deus que sara (Ana Martins) — C',

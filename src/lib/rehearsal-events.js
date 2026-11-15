@@ -11,6 +11,7 @@ export function withoutRehearsalSongs(event) {
     keyBySong: {},
     requested_songs: [],
     santa_ceia_song: null,
+    setlist_confirmation: null,
   };
 }
 

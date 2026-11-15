@@ -1,4 +1,4 @@
-import { updateEventItems, upsertEventRecord } from './event-storage.js';
+import { updateEventItems, updateSetlistConfirmation, upsertEventRecord } from './event-storage.js';
 import { createClient } from '@supabase/supabase-js';
 import { decodeSequence, encodeSequence } from './domain.js';
 import { deleteAdminContent } from './admin-delete-client.js';
@@ -156,6 +156,10 @@ export async function rejectDeleteEvent(eventId) {
     .update({ delete_requested_by: null })
     .eq('id', eventId);
   if (error) throw error;
+}
+
+export async function setSetlistConfirmation(eventId, snapshot, memberId, confirmed) {
+  return updateSetlistConfirmation(supabase, eventId, snapshot, memberId, confirmed);
 }
 
 export async function setEventItems(eventId, items, memberIds, preferences) {

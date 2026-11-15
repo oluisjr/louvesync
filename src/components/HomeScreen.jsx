@@ -4,6 +4,7 @@ import { performanceKey } from '../lib/chords.js';
 import { homeMonthDates, homeView, homeVocalCategories } from '../lib/home-view.js';
 import { Icon } from './Interface.jsx';
 import InteractiveArtwork from './InteractiveArtwork.jsx';
+import { SetlistBadge } from './SetlistConfirmation.jsx';
 import '../home.css';
 
 const eventTypes = {culto:'Culto',ensaio:'Ensaio',ebd:'EBD',consagracao:'Consagração',outro:'Evento'};
@@ -86,7 +87,7 @@ export default memo(function HomeScreen({ profile, dark, songs, events, members,
       </div>
     </section>
 
-    {primary&&primary.type!=='ensaio'&&<section className="gL1 home-setlist" aria-label="Repertório do evento"><div className="home-section-heading"><h2><Icon name="music" size={18}/>{primary.type==='culto'?'Setlist do culto':'Setlist do evento'}</h2><span>{view.eventSongs.length} música{view.eventSongs.length===1?'':'s'}</span></div>{view.eventSongs.length?<SongList songs={view.eventSongs} event={primary} onSelectSong={onSelectSong}/>:<p className="home-helper">Nenhuma música definida para este evento.</p>}</section>}
+    {primary&&primary.type!=='ensaio'&&<section className="gL1 home-setlist" aria-label="Repertório do evento"><div className="home-section-heading"><h2><Icon name="music" size={18}/>{primary.type==='culto'?'Setlist do culto':'Setlist do evento'}</h2><span>{view.eventSongs.length} música{view.eventSongs.length===1?'':'s'}</span></div><SetlistBadge event={primary} songs={songs}/>{view.eventSongs.length?<SongList songs={view.eventSongs} event={primary} onSelectSong={onSelectSong}/>:<p className="home-helper">Nenhuma música definida para este evento.</p>}</section>}
 
     {!!view.additional.length&&<section className="home-additional" aria-label="Outros eventos do dia">{view.additional.map(event=>{
       const eventSongs=event.type==='ensaio'?[]:(event.songs||[]).map(id=>songs.find(song=>song.id===id)).filter(Boolean);

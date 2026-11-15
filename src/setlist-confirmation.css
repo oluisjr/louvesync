@@ -1,0 +1,18 @@
+.setlist-badge { display:inline-flex; align-items:center; gap:5px; width:fit-content; max-width:100%; padding:5px 8px; border:1px solid #e9cc8b; border-radius:9px; background:#fff7e5; color:#855300; font:800 10px/1.4 'Nunito',sans-serif; }
+.setlist-badge svg { flex-shrink:0; }
+.setlist-badge[data-confirmed="true"] { border-color:#9bd8bc; background:#eaf8f0; color:#106747; }
+:root[data-theme="dark"] .setlist-badge { border-color:#806237; background:#483923; color:#ffce79; }
+:root[data-theme="dark"] .setlist-badge[data-confirmed="true"] { border-color:#3b8066; background:#253e35; color:#92edbc; }
+.setlist-approval { margin:8px 0 14px; padding:11px; border:1px solid color-mix(in srgb,var(--app-link) 18%,transparent); border-radius:13px; background:color-mix(in srgb,var(--app-link) 5%,transparent); }
+.setlist-approval p { margin:7px 0; color:var(--app-muted,#596579); font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
+.setlist-approval button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:38px; max-width:100%; padding:8px 11px; border:1px solid transparent; border-radius:10px; background:#176a4c; color:#fff; font:800 11px/1.4 'Nunito',sans-serif; cursor:pointer; }
+.setlist-approval .setlist-unconfirm { background:transparent; border-color:currentColor; color:var(--app-link); }
+.setlist-approval button:disabled { opacity:.55; cursor:default; }
+.setlist-approval button:focus-visible { outline:3px solid var(--app-link); outline-offset:3px; }
+.setlist-approval .setlist-approval-error { color:var(--app-danger); font-weight:800; }
+:root[data-theme="dark"] .setlist-approval p { color:#c9c3dd; }
+:root[data-theme="dark"] .setlist-approval .setlist-confirm { background:#9ae5bf; color:#173628; }
+.schedule-setlist-status { margin:9px 0 3px; }
+.schedule-music .setlist-approval { margin-bottom:5px; }
+.home-setlist > .setlist-badge { margin:0 0 12px; }
+.rehearsal-studio > .setlist-badge { margin:7px 0 12px; }

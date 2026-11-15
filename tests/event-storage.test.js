@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { createClient } from '@supabase/supabase-js';
 import { encodeSequence, normalizeEvent } from '../src/lib/domain.js';
 import { decodeEventPreferences, encodeEventPreferences } from '../src/lib/event-preferences.js';
-import { upsertEventRecord, updateEventItems } from '../src/lib/event-storage.js';
+import { isSetlistConfirmed, setlistSnapshot } from '../src/lib/setlist-confirmation.js';
+import { upsertEventRecord, updateEventItems, updateSetlistConfirmation } from '../src/lib/event-storage.js';
 
 test('real PostgREST client saves an event against a schema without optional UI columns', async () => {
   const allowed = new Set(['id', 'date', 'time', 'type', 'label', 'theme']);
@@ -32,6 +33,8 @@ test('real PostgREST client saves an event against a schema without optional UI 
 function database() {
   const calls = [];
   const tables = {
+    events: [{ id: 'event', type: 'culto' }],
+    songs: [{ id: 'song-a', key: 'C', vocal_keys: {} }, { id: 'song-b', key: 'G', vocal_keys: {} }],
     event_songs: [
       { id: 101, event_id: 'event', song_id: 'song-a', item_type: 'song', order_index: 1, singer_member_id: 'member', sequence: encodeSequence('Intro, refrão', 'Eb') },
       { id: 102, event_id: 'event', song_id: null, item_type: 'note', note_text: 'Oração inicial', order_index: 2 },
@@ -40,11 +43,14 @@ function database() {
     event_members: [{ event_id: 'event', member_id: 'member', confirmed: true }],
   };
   let fail = false;
+  let intercept = () => {};
   let nextId = 104;
   const client = { from(table) {
     const query = { table, operation: 'select', filters: [] };
     return {
       select() { return this; },
+      maybeSingle() { query.single = true; return this; },
+      update(row) { query.operation = 'update'; query.row = row; return this; },
       eq(key, value) { query.filters.push(row => row[key] === value); return this; },
       in(key, values) { query.filters.push(row => values.includes(row[key])); return this; },
       upsert(rows) { query.operation = 'upsert'; query.rows = rows; return this; },
@@ -52,9 +58,11 @@ function database() {
       delete() { query.operation = 'delete'; return this; },
       then(resolve, reject) {
         calls.push(query);
-        const writing = ['upsert', 'insert'].includes(query.operation);
+        const overridden = intercept(query, tables);
+        if (overridden) return Promise.resolve(overridden).then(resolve, reject);
+        const writing = ['upsert', 'insert', 'update'].includes(query.operation);
         if (writing && (fail === true || fail === query.operation)) return Promise.resolve({ data: null, error: new Error('write failed') }).then(resolve, reject);
-        if (table === 'event_songs' && writing) {
+        if (table === 'event_songs' && writing && query.rows) {
           const invalid = query.rows.find(row => Object.hasOwn(row, 'id') && !Number.isSafeInteger(row.id));
           if (invalid) return Promise.resolve({ data: null, error: new Error(`invalid input syntax for type bigint: "${invalid.id}"`) }).then(resolve, reject);
         }
@@ -65,12 +73,104 @@ function database() {
         }
         if (query.operation === 'insert') tables[table].push(...query.rows.map(row => table === 'event_songs' ? { id: nextId++, ...structuredClone(row) } : structuredClone(row)));
         if (query.operation === 'delete') tables[table] = tables[table].filter(row => !query.filters.every(filter => filter(row)));
-        return Promise.resolve({ data: structuredClone(tables[table].filter(row => query.filters.every(filter => filter(row)))), error: null }).then(resolve, reject);
+        const matched = tables[table].filter(row => query.filters.every(filter => filter(row)));
+        if (query.operation === 'update') for (const row of matched) Object.assign(row, structuredClone(query.row));
+        return Promise.resolve({ data: structuredClone(query.single ? matched[0] || null : matched), error: null }).then(resolve, reject);
       },
     };
   } };
-  return { client, calls, tables, failWrites(operation = true) { fail = operation; } };
+  return { client, calls, tables, onQuery(fn) { intercept = fn; }, failWrites(operation = true) { fail = operation; } };
 }
+
+function storedEvent(db) {
+  return normalizeEvent({ ...db.tables.events[0], event_songs: db.tables.event_songs, event_members: db.tables.event_members });
+}
+
+test('confirming and withdrawing a setlist only writes hidden metadata and retains requested songs and attendance', async () => {
+  const db = database();
+  const before = storedEvent(db);
+  await updateEventItems(db.client, 'event', before.items, before.members, { requested_songs: ['song-b'], santa_ceia_song: 'song-a' });
+  const originalMusic = structuredClone(db.tables.event_songs.filter(row => !decodeEventPreferences(row)));
+  const metadataId = db.tables.event_songs.find(decodeEventPreferences).id;
+  const snapshot = setlistSnapshot(storedEvent(db), db.tables.songs);
+  const preferences = await updateSetlistConfirmation(db.client, 'event', snapshot, 'member', true);
+  assert.equal(preferences.setlist_confirmation.confirmed_by, 'member');
+  assert.equal(isSetlistConfirmed(storedEvent(db), db.tables.songs), true);
+  assert.equal(db.tables.event_songs.find(decodeEventPreferences).id, metadataId);
+  assert.deepEqual(db.tables.event_songs.filter(row => !decodeEventPreferences(row)), originalMusic);
+  assert.deepEqual(db.tables.event_members, [{ event_id: 'event', member_id: 'member', confirmed: true }]);
+  assert.deepEqual(storedEvent(db).requested_songs, ['song-b']); assert.equal(storedEvent(db).santa_ceia_song, 'song-a');
+  await updateSetlistConfirmation(db.client, 'event', snapshot, 'member', false);
+  assert.equal(storedEvent(db).setlist_confirmation, null);
+  assert.equal(isSetlistConfirmed(storedEvent(db), db.tables.songs), false);
+  assert.deepEqual(db.tables.event_songs.filter(row => !decodeEventPreferences(row)), originalMusic);
+});
+
+test('confirmation rejects stale selections, missing events, empty repertoires and rehearsals before writing', async () => {
+  const db = database(), snapshot = setlistSnapshot(storedEvent(db), db.tables.songs);
+  db.tables.event_songs[0].singer_member_id = 'another-member';
+  await assert.rejects(updateSetlistConfirmation(db.client, 'event', snapshot, 'member', true), /repertório mudou/);
+  await assert.rejects(updateSetlistConfirmation(db.client, 'missing-event', snapshot, 'member', true), /Evento não encontrado/);
+  db.tables.events[0].type = 'ensaio';
+  await assert.rejects(updateSetlistConfirmation(db.client, 'event', snapshot, 'member', true), /ensaio usa o repertório/);
+  db.tables.events[0].type = 'culto'; db.tables.event_songs = [];
+  await assert.rejects(updateSetlistConfirmation(db.client, 'event', snapshot, 'member', true), /Adicione músicas/);
+  assert.equal(db.calls.filter(call => call.operation !== 'select').length, 0);
+});
+
+test('a failed write or readback never returns a successful setlist confirmation', async () => {
+  const db = database(), snapshot = setlistSnapshot(storedEvent(db), db.tables.songs);
+  db.failWrites();
+  await assert.rejects(updateSetlistConfirmation(db.client, 'event', snapshot, 'member', true), /write failed/);
+  assert.equal(storedEvent(db).setlist_confirmation, null);
+  db.failWrites(false);
+  db.onQuery(query => query.operation === 'select' && db.calls.some(call => call.operation === 'insert') && query.table === 'songs' ? { data: null, error: new Error('readback failed') } : null);
+  // Reset call history so the failed initial insert does not trigger the readback error early.
+  db.calls.length = 0;
+  await assert.rejects(updateSetlistConfirmation(db.client, 'event', snapshot, 'member', true), /readback failed/);
+});
+
+test('concurrent preferences and repertoire changes cannot silently approve stale choices', async () => {
+  const db = database(), before = storedEvent(db);
+  await updateEventItems(db.client, 'event', before.items, before.members, { requested_songs: ['song-a'] });
+  const snapshot = setlistSnapshot(storedEvent(db), db.tables.songs);
+  db.onQuery(query => {
+    if (query.operation === 'update') db.tables.event_songs.find(decodeEventPreferences).note_text = encodeEventPreferences({ requested_songs: ['song-b'] });
+  });
+  await assert.rejects(updateSetlistConfirmation(db.client, 'event', snapshot, 'member', true), /alterado por outra pessoa/);
+  assert.deepEqual(storedEvent(db).requested_songs, ['song-b']); assert.equal(storedEvent(db).setlist_confirmation, null);
+  db.onQuery(query => { if (query.operation === 'update') db.tables.event_songs[0].sequence = encodeSequence('Outra entrada', 'F'); });
+  await assert.rejects(updateSetlistConfirmation(db.client, 'event', snapshot, 'member', true), /mudou durante a confirmação/);
+  assert.equal(isSetlistConfirmed(storedEvent(db), db.tables.songs), false);
+});
+
+test('real PostgREST confirmation uses a filtered PATCH with representation and no optional event columns', async () => {
+  const db = database(), before = storedEvent(db), requests = [];
+  await updateEventItems(db.client, 'event', before.items, before.members, { requested_songs: ['song-a'] });
+  const client = createClient('https://fixture.supabase.co', 'fixture-anon-key', {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: async (url, options) => {
+      const endpoint = new URL(url), table = endpoint.pathname.split('/').at(-1);
+      const body = options.body ? JSON.parse(options.body) : null;
+      requests.push({ table, method: options.method, body, params: endpoint.searchParams, headers: new Headers(options.headers) });
+      let query = db.client.from(table);
+      if (options.method === 'PATCH') query = query.update(body);
+      for (const [field, filter] of endpoint.searchParams) {
+        if (filter.startsWith('eq.')) query = query.eq(field, field === 'id' && table === 'event_songs' ? Number(filter.slice(3)) : filter.slice(3));
+        if (filter.startsWith('in.')) query = query.in(field, filter.slice(4, -1).split(','));
+      }
+      const result = await query;
+      return new Response(JSON.stringify(result.data), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    } },
+  });
+  await updateSetlistConfirmation(client, 'event', setlistSnapshot(storedEvent(db), db.tables.songs), 'member', true);
+  const writes = requests.filter(request => request.method !== 'GET');
+  assert.equal(writes.length, 1); assert.equal(writes[0].table, 'event_songs'); assert.equal(writes[0].method, 'PATCH');
+  assert.deepEqual(Object.keys(writes[0].body), ['note_text']);
+  assert.equal(writes[0].params.get('event_id'), 'eq.event'); assert.ok(writes[0].params.get('note_text').startsWith('eq.louvesync:event-preferences:v1:'));
+  assert.ok(writes[0].headers.get('Prefer').includes('return=representation'));
+  assert.equal(isSetlistConfirmed(storedEvent(db), db.tables.songs), true);
+});
 
 test('requested and Communion selections survive a database reload without optional events columns', async () => {
   const db = database();

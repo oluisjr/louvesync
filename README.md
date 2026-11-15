@@ -57,6 +57,10 @@ Bíblia, Ensaio e controles de cifra compartilham cores, campos, botões, ícone
 
 ## Exportação do setlist
 
+O repertório começa com o status **Setlist não confirmado**, inclusive quando é gerado automaticamente. Um admin pode usar **Confirmar setlist** na lista de músicas do card da Escala ou nos detalhes do evento. Depois de verificar a gravação no banco, o card passa a mostrar **Setlist definido** para toda a equipe; **Retirar confirmação** devolve o repertório ao estado provisório. Essa ação é independente da confirmação de presença.
+
+A confirmação vale para as músicas, sua ordem, notas, vocal, tom e arranjo daquela versão. Alterações nessas escolhas exigem nova confirmação. Home, Ensaio, texto do WhatsApp e Excel mostram o mesmo status. A definição usa a nota interna de preferências de `event_songs`, sem novas colunas ou migração, e precisa de conexão para ser salva. Erros mantêm o controle disponível para nova tentativa, sem exibir uma confirmação local como se já estivesse compartilhada.
+
 Nos detalhes do evento, **Exportar para Excel** baixa uma planilha `.xlsx` com categoria, música, vocalista escalado e tom. **Copiar setlist para WhatsApp** usa os mesmos dados, com a categoria no lugar da numeração. Ambos preservam a sequência do evento e priorizam seu tom específico; sem vocalista vinculado, exibem “Vocalista não definido”. No APK 1.0.2, o Android oferece seu diálogo de salvamento para escolher a pasta, sem solicitar acesso geral ao armazenamento. APKs anteriores orientam a atualizar ou exportar pelo navegador. O salvamento nativo ainda precisa de conferência em um Android físico.
 
 ## Cifras dos PDFs e tons por ministro

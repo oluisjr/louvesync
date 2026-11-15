@@ -1,7 +1,9 @@
 import { test, expect, devices } from '@playwright/test';
 import fs from 'node:fs';
 import { strFromU8, unzipSync } from 'fflate';
-import { encodeSequence } from '../../src/lib/domain.js';
+import { encodeSequence, normalizeEvent } from '../../src/lib/domain.js';
+import { decodeEventPreferences, encodeEventPreferences } from '../../src/lib/event-preferences.js';
+import { isSetlistConfirmed, setlistSnapshot } from '../../src/lib/setlist-confirmation.js';
 import { BIBLE_EDITION, bibleCacheKey } from '../../src/lib/bible-edition.js';
 import { createBibleHandler } from '../../api/bible.js';
 const names = [...fs.readFileSync('src/lib/supabase.js','utf8').matchAll(/export async function (\w+)/g)].map(match => match[1]);
@@ -519,14 +521,15 @@ async function fixture(browser) {
   const pages = [], contexts = [], failures = [];
   const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), members: structuredClone([admin,member]), memberRequests: [], session: null, notes: {}, nextItemId: 100, posts: [], activitySessions:new Map(), activityViews:new Map(), activityRequests:[], activityNow:Date.parse('2026-10-24T15:00:00Z'), activityFailure:null };
   const code = `
-    import { updateEventItems } from '/src/lib/event-storage.js';
+    import { updateEventItems, updateSetlistConfirmation } from '/src/lib/event-storage.js';
     const clone=value=>structuredClone(value);
     const channels=[];
     export const publicSupabaseConfig=window.__testActivityConnection||null;
     window.__testDeliver=(name,message)=>channels.filter(c=>c.topic===name).forEach(c=>c.handlers.filter(h=>h.type==='broadcast'&&h.filter.event===message.event).forEach(h=>h.fn({payload:message.payload})));
     export const supabase={channel(name){const c={topic:name,state:'joined',handlers:[],on(type,filter,fn){this.handlers.push({type,filter,fn});return this;},subscribe(fn){queueMicrotask(()=>fn?.('SUBSCRIBED'));return this;},unsubscribe(){},send(message){return window.__testBroadcast(name,message).then(()=> 'ok');}};channels.push(c);return c;},removeChannel(c){const i=channels.indexOf(c);if(i>=0)channels.splice(i,1);},from(table){const query={table,op:'select',filters:{},inFilters:{}};return {select(){return this;},eq(k,v){query.filters[k]=v;return this;},match(values){Object.assign(query.filters,values);return this;},in(k,v){query.inFilters[k]=v;return this;},order(){return this;},single(){query.single=true;return this;},maybeSingle(){query.single=true;return this;},upsert(data){query.op='upsert';query.data=data;return this;},insert(data){query.op='insert';query.data=data;return this;},delete(){query.op='delete';return this;},update(data){query.op='update';query.data=data;return this;},then(resolve,reject){return window.__testDb('query',[query]).then(resolve,reject);}};}};
     export async function setEventItems(...args){return updateEventItems(supabase,...args);}
-    ${names.filter(name=>name!=='setEventItems').map(name=>`export async function ${name}(...args){return window.__testDb('${name}',args);}`).join('\n')}
+    export async function setSetlistConfirmation(...args){return updateSetlistConfirmation(supabase,...args);}
+    ${names.filter(name=>!['setEventItems','setSetlistConfirmation'].includes(name)).map(name=>`export async function ${name}(...args){return window.__testDb('${name}',args);}`).join('\n')}
   `;
   const storageCode=`
     const audioFiles=new Map();
@@ -588,6 +591,7 @@ async function fixture(browser) {
         return {error:state.audioUploadError?{message:state.audioUploadError}:null};
       }
       if (action === 'upsertSong') { const index = state.songs.findIndex(song => song.id === args[0].id); if(index<0)state.songs.push(args[0]);else state.songs[index]=args[0];return args[0]; }
+      if (action === 'setSequenceForSong') { const row=state.events.find(event=>event.id===args[0]).event_songs.find(row=>row.song_id===args[1]);const previous=row.sequence?.startsWith('louvesync:v1:')?JSON.parse(row.sequence.slice(13)):{text:row.sequence||'',key:null};row.sequence=encodeSequence(args[2]===undefined?previous.text:args[2],args[3]===undefined?previous.key:args[3]);return; }
       if (action === 'saveVocalKey') { const song=state.songs.find(song=>song.id===args[0]);song.vocal_keys[args[1]]=args[2];return song.vocal_keys; }
       if (action === 'setSingerForSong') { const event=state.events.find(event=>event.id===args[0]);event.event_songs.filter(row=>row.song_id===args[1]).forEach(row=>{row.singer_member_id=args[2];});return; }
       if (action === 'upsertEvent') {
@@ -625,12 +629,29 @@ async function fixture(browser) {
           if(query.op==='delete')state.equipment=state.equipment.filter(row=>row.id!==query.filters.id);
           return {data:structuredClone(state.equipment),error:null};
         }
+        if(query.table==='events' && query.op==='select') {const rows=state.events.filter(event=>!query.filters.id||event.id===query.filters.id);return {data:structuredClone(query.single?rows[0]||null:rows),error:null};}
+        if(query.table==='songs') {
+          const rows=state.songs.filter(song=>Object.entries(query.filters).every(([field,value])=>song[field]===value)&&Object.entries(query.inFilters).every(([field,values])=>values.includes(song[field])));
+          if(query.op==='update')for(const row of rows)Object.assign(row,query.data);
+          return {data:structuredClone(query.single?rows[0]||null:rows),error:null};
+        }
         if (['event_songs', 'event_members'].includes(query.table)) {
           const eventId=query.filters.event_id||query.data?.[0]?.event_id;
           const event=state.events.find(event=>event.id===eventId);
           if(!event)return {data:null,error:{message:'Event not found'}};
           const rows=event[query.table]||[];
           const matches=row=>Object.entries(query.filters).every(([key,value])=>key==='event_id'||row[key]===value)&&Object.entries(query.inFilters).every(([key,values])=>values.includes(row[key]));
+          const confirmationWrite=query.table==='event_songs' && ['insert','update'].includes(query.op) && (query.data?.note_text||query.data?.[0]?.note_text||'').startsWith('louvesync:event-preferences:v1:');
+          if(confirmationWrite){
+            (state.setlistRequests||=[]).push(structuredClone(query));
+            await state.setlistSaveGate;
+            if(state.setlistSaveError)return {data:null,error:{message:state.setlistSaveError}};
+          }
+          if(query.table==='event_songs'&&query.op==='select'&&state.setlistReadbackError&&state.setlistRequests?.length)return {data:null,error:{message:state.setlistReadbackError}};
+          if(query.op==='update'){
+            const matched=rows.filter(matches);for(const row of matched)Object.assign(row,query.data);
+            return {data:structuredClone(matched),error:null};
+          }
           if(['insert','upsert'].includes(query.op)) {
             if(query.table==='event_songs') {
               const invalid=query.data.find(row=>Object.hasOwn(row,'id')&&!Number.isSafeInteger(row.id));
@@ -1210,6 +1231,153 @@ test('event presence updates both open event panels and returning from a song re
     expect(app.failures).toEqual([]);
   } finally {await app.close();}
 });
+async function openSetlistCard(page, label = 'Culto de Teste') {
+  await page.getByRole('button', { name: 'Escala', exact: true }).click();
+  const card = page.getByRole('article', { name: label, exact: true });
+  await card.locator('.schedule-music > summary').evaluate(element => element.scrollIntoView({ block: 'center' }));
+  await card.locator('.schedule-music > summary').click();
+  return card;
+}
+
+test('setlist approval persists across devices and reloads without confirming attendance, and admins can withdraw it', async ({ browser }) => {
+  const app = await fixture(browser); let finishSave;
+  try {
+    app.state.setlistSaveGate = new Promise(resolve => { finishSave = resolve; });
+    const page = await app.open(), teammate = await app.open(member);
+    const card = await openSetlistCard(page), teamCard = await openSetlistCard(teammate);
+    await expect(card.locator('.setlist-badge')).toHaveText('Setlist não confirmado');
+    await expect(teamCard.getByRole('button', { name: 'Confirmar setlist', exact: true })).toHaveCount(0);
+    await card.getByRole('button', { name: 'Confirmar setlist', exact: true }).click();
+    await expect(card.getByRole('button', { name: 'Salvando…', exact: true })).toBeDisabled();
+    await expect(card.locator('.setlist-badge')).toHaveText('Setlist não confirmado');
+    expect(app.state.events[0].event_songs.filter(decodeEventPreferences)).toHaveLength(0);
+    finishSave();
+    await expect(card.locator('.setlist-badge')).toHaveText('Setlist definido');
+    await expect(teamCard.locator('.setlist-badge')).toHaveText('Setlist definido');
+    expect(app.state.events[0].event_members.map(row => row.confirmed)).toEqual([null, null]);
+    expect(app.state.presenceRequests || []).toEqual([]);
+    await expect(card).toContainText('Confirmado por Admin Teste');
+    await page.reload(); await page.getByRole('button', { name: 'Escala', exact: true }).click();
+    await expect(page.getByRole('article', { name: 'Culto de Teste', exact: true }).locator('.setlist-badge')).toHaveText('Setlist definido');
+    await page.getByRole('button', { name: 'Ver detalhes →', exact: true }).evaluate(element => element.scrollIntoView({ block: 'center' }));
+    await page.getByRole('button', { name: 'Ver detalhes →', exact: true }).click();
+    const sheet = page.locator('.gL2');
+    await expect(sheet.locator('.setlist-badge')).toHaveText('Setlist definido');
+    await sheet.getByRole('button', { name: 'Retirar confirmação', exact: true }).click();
+    await expect(sheet.locator('.setlist-badge')).toHaveText('Setlist não confirmado');
+    await expect(teamCard.locator('.setlist-badge')).toHaveText('Setlist não confirmado');
+    expect(normalizeEvent(app.state.events[0]).setlist_confirmation).toBeNull();
+    expect(app.failures).toEqual([]);
+  } finally { finishSave?.(); await app.close(); }
+});
+
+test('setlist approval becomes pending after song order, vocalist and key edits and can be reconfirmed from event details', async ({ browser }) => {
+  const app = await fixture(browser);
+  try {
+    const page = await app.open(), card = await openSetlistCard(page);
+    await card.getByRole('button', { name: 'Confirmar setlist', exact: true }).click();
+    await expect(card.locator('.setlist-badge')).toHaveText('Setlist definido');
+    await card.getByRole('button', { name: 'Editar evento Culto de Teste', exact: true }).click();
+    const editor = page.getByRole('dialog', { name: 'Editar evento', exact: true });
+    await editor.getByRole('tab', { name: 'Setlist', exact: true }).click();
+    await editor.getByRole('button', { name: 'Descer Teste adoracao', exact: true }).click();
+    await editor.getByRole('button', { name: 'Salvar Alterações', exact: true }).click();
+    await expect(editor).toHaveCount(0); await expect(card.locator('.setlist-badge')).toHaveText('Setlist não confirmado');
+    await card.getByRole('button', { name: 'Ver detalhes →', exact: true }).evaluate(element => element.scrollIntoView({ block: 'center' }));
+    await card.getByRole('button', { name: 'Ver detalhes →', exact: true }).click();
+    const sheet = page.locator('.gL2');
+    await sheet.getByRole('button', { name: 'Confirmar setlist', exact: true }).click();
+    await expect(sheet.locator('.setlist-badge')).toHaveText('Setlist definido');
+    await sheet.getByLabel('Vocal principal de Teste adoracao', { exact: true }).selectOption(member.id);
+    await expect(sheet.locator('.setlist-badge')).toHaveText('Setlist não confirmado');
+    await expect(sheet).toContainText('Alterado após a confirmação');
+    await sheet.getByRole('button', { name: 'Confirmar setlist', exact: true }).click();
+    await expect(sheet.locator('.setlist-badge')).toHaveText('Setlist definido');
+    const song = sheet.locator('.event-setlist-song').filter({ has: page.getByRole('button', { name: 'Abrir cifra de Teste adoracao', exact: true }) });
+    await song.getByRole('button', { name: 'Ajustar', exact: true }).click();
+    await song.locator('#adj-key-song-0').selectOption('D#');
+    await song.getByRole('button', { name: 'Salvar Ajustes', exact: true }).click();
+    await expect(sheet.locator('.setlist-badge')).toHaveText('Setlist não confirmado');
+    await sheet.getByRole('button', { name: 'Confirmar setlist', exact: true }).click();
+    await expect(sheet.locator('.setlist-badge')).toHaveText('Setlist definido');
+    expect(isSetlistConfirmed(normalizeEvent(app.state.events[0]), app.state.songs)).toBe(true);
+    expect(app.state.events[0].event_members.map(row => row.confirmed)).toEqual([null, null]);
+    expect(app.failures).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('setlist approval errors and offline mode retain a pending status and empty sets cannot be confirmed', async ({ browser }) => {
+  const app = await fixture(browser);
+  try {
+    app.state.setlistSaveError = 'Falha ao salvar no banco';
+    const page = await app.open(), card = await openSetlistCard(page);
+    await card.getByRole('button', { name: 'Confirmar setlist', exact: true }).click();
+    await expect(card.getByRole('alert')).toHaveText('Falha ao salvar no banco');
+    await expect(card.locator('.setlist-badge')).toHaveText('Setlist não confirmado');
+    app.state.setlistSaveError = null;
+    await page.context().setOffline(true);
+    await expect(card.getByRole('button', { name: 'Confirmar setlist', exact: true })).toBeDisabled();
+    await expect(card).toContainText('Conecte-se para salvar a confirmação');
+    expect(app.state.setlistRequests).toHaveLength(1);
+    await page.context().setOffline(false);
+    app.state.events[0].event_songs = [];
+    await page.reload(); const empty = await openSetlistCard(page);
+    await expect(empty.getByRole('button', { name: 'Confirmar setlist', exact: true })).toBeDisabled();
+    await expect(empty).toContainText('Adicione músicas antes de confirmar');
+    expect(app.failures).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('setlist approval rejects an out of date screen and a failed database readback without displaying a green badge', async ({ browser }) => {
+  const app = await fixture(browser);
+  try {
+    const page = await app.open(), card = await openSetlistCard(page);
+    app.state.events[0].event_songs[0].singer_member_id = member.id;
+    await card.getByRole('button', { name: 'Confirmar setlist', exact: true }).click();
+    await expect(card.getByRole('alert')).toContainText('O repertório mudou');
+    expect(app.state.setlistRequests || []).toHaveLength(0);
+    await page.reload(); const current = await openSetlistCard(page);
+    app.state.setlistReadbackError = 'Não foi possível verificar a gravação';
+    await current.getByRole('button', { name: 'Confirmar setlist', exact: true }).click();
+    await expect(current.getByRole('alert')).toHaveText('Não foi possível verificar a gravação');
+    await expect(current.locator('.setlist-badge')).toHaveText('Setlist não confirmado');
+    expect(app.failures).toEqual([]);
+  } finally { await app.close(); }
+});
+
+for (const theme of ['light', 'dark']) test(`setlist confirmation badges fit small screens and reach Home and rehearsal in ${theme}`, async ({ browser }) => {
+  const app = await fixture(browser);
+  const event = normalizeEvent(app.state.events[0]);
+  app.state.events[0].event_songs.push({ id: 90, item_type: 'note', song_id: null, order_index: 4, note_text: encodeEventPreferences({ setlist_confirmation: { version: 1, snapshot: setlistSnapshot(event, app.state.songs), confirmed_by: admin.id, confirmed_at: '2026-10-24T15:00:00Z' } }) });
+  app.state.events.push({ ...structuredClone(initialEvents[0]), id: 'draft', label: 'Culto em revisão', time: '19:30:00' });
+  try {
+    const page = await app.open(admin, undefined, { theme, device: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } }, standalone: true });
+    await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;}' });
+    await expect(page.getByRole('region', { name: 'Repertório do evento', exact: true }).locator('.setlist-badge')).toHaveText('Setlist definido');
+    await page.getByRole('button', { name: 'Escala', exact: true }).click();
+    const screen = page.getByRole('region', { name: 'Escala semanal', exact: true });
+    await expect(screen.getByRole('article', { name: 'Culto em revisão', exact: true }).locator('.setlist-badge')).toHaveText('Setlist não confirmado');
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.locator('[data-main-scroll]').evaluate(element => { element.scrollTop = 0; });
+      expect(await screen.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await page.screenshot({ path: test.info().outputPath(`setlist-confirmation-${theme}-${width}.png`), scale: 'css' });
+      const draft = screen.getByRole('article', { name: 'Culto em revisão', exact: true });
+      await draft.locator('.schedule-music > summary').evaluate(element => element.scrollIntoView({ block: 'center' }));
+      await draft.locator('.schedule-music > summary').click();
+      await draft.evaluate(element => element.scrollIntoView({ block: 'center' }));
+      expect(await draft.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await expect(draft.getByRole('button', { name: 'Confirmar setlist', exact: true })).toBeVisible();
+      await page.screenshot({ path: test.info().outputPath(`setlist-confirmation-draft-${theme}-${width}.png`), scale: 'css' });
+      await draft.locator('.schedule-music > summary').click();
+    }
+    await page.getByRole('button', { name: 'Mais', exact: true }).click();
+    await page.getByRole('button', { name: 'Ensaio', exact: true }).click();
+    await expect(page.locator('.rehearsal-studio > .setlist-badge')).toHaveText('Setlist definido');
+    expect(app.failures).toEqual([]);
+  } finally { await app.close(); }
+});
+
 function scheduleFixtures(app) {
   app.state.events[0].event_songs[0].sequence=encodeSequence('Intro','Eb');
   app.state.events.unshift({...structuredClone(initialEvents[0]),id:'tuesday',date:'2026-10-20',time:'19:30:00',type:'ebd',label:'Estudo bíblico',theme:'Crescendo na Palavra',event_songs:[],event_members:[{member_id:admin.id,confirmed:true}]},

@@ -1,6 +1,7 @@
 import { strToU8, zipSync } from 'fflate';
 import { escapeHtml } from './domain.js';
 import { saveExcelFile } from './native.js';
+import { isSetlistConfirmed } from './setlist-confirmation.js';
 
 const categories = {
   jubilo: 'Júbilo', hinario: 'Hinário', adoracao: 'Adoração',
@@ -35,7 +36,7 @@ export function setlistWhatsAppText(event, songs, members) {
   const heading = `🎵 *${event.label}* — ${date} · ${(event.time || '').slice(0, 5)}`;
   const theme = event.theme ? `\n📖 ${event.theme}` : '';
   const list = rows.map(row => `*${row.category}:* ${row.title} (${row.vocalist}) — ${row.key}`).join('\n');
-  return `${heading}${theme}\n\n*Setlist:*\n${list}\n\n_Via LouveSync · IMWAL_`;
+  return `${heading}${theme}\n*Repertório: ${isSetlistConfirmed(event, songs) ? 'CONFIRMADO' : 'NÃO CONFIRMADO'}*\n\n*Setlist:*\n${list}\n\n_Via LouveSync · IMWAL_`;
 }
 
 function xml(value) {
@@ -51,7 +52,7 @@ export function setlistWorkbook(event, songs, members) {
     [event.label || 'Setlist'],
     ['Data', eventDate(event.date), 'Horário', (event.time || '').slice(0, 5)],
     [event.theme ? `Tema: ${event.theme}` : ''],
-    [], ['Categoria', 'Música', 'Vocalista', 'Tom'],
+    ['Repertório', isSetlistConfirmed(event, songs) ? 'CONFIRMADO' : 'NÃO CONFIRMADO'], ['Categoria', 'Música', 'Vocalista', 'Tom'],
     ...rows.map(row => [`${row.category}:`, row.title, row.vocalist, row.key]),
   ];
   const lastRow = values.length;

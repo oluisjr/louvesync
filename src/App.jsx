@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useId, memo, useCallback, Component } from 'react';
-import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, deleteEvent as dbDelEvent, rejectDeleteEvent, setEventItems, setSingerForSong, saveVocalKey } from './lib/supabase';
+import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, deleteEvent as dbDelEvent, rejectDeleteEvent, setEventItems, setSingerForSong, saveVocalKey, setSetlistConfirmation } from './lib/supabase';
 import {  searchSongCandidates, fetchCifraClubContent } from './lib/scraper';
 import { createPortal } from 'react-dom';
 import { printCifra } from './lib/native.js';
@@ -17,6 +17,8 @@ import EquipmentInventory from './components/EquipmentInventory.jsx';
 import Repertorio from './components/Repertoire.jsx';
 import Home from './components/HomeScreen.jsx';
 import ScheduleScreen from './components/ScheduleScreen.jsx';
+import SetlistConfirmation, { SetlistBadge } from './components/SetlistConfirmation.jsx';
+import { isSetlistConfirmed } from './lib/setlist-confirmation.js';
 import AppNavigation from './components/AppNavigation.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import CommunityMural from './components/CommunityMural.jsx';
@@ -2168,7 +2170,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
          text: ''
        }));
        (editEvent?.items||[]).forEach((item,index)=>{if(item.type!=='song')itemsToUse.splice(Math.min(index,itemsToUse.length),0,item);});
-       const newEv = withoutRehearsalSongs({id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:editEvent?editEvent.confirmations:{},singerBySong:sbsToUse,sequenceBySong:editEvent?editEvent.sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong,items:itemsToUse});
+       const newEv = withoutRehearsalSongs({id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:editEvent?editEvent.confirmations:{},singerBySong:sbsToUse,sequenceBySong:editEvent?editEvent.sequenceBySong:{},keyBySong:editEvent?.keyBySong||{},setlist_confirmation:editEvent?.setlist_confirmation||null,requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong,items:itemsToUse});
        evs.push(newEv);
 
        // Criar ensaio de sábado automaticamente se for domingo (apenas na criação)
@@ -2270,7 +2272,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
 });
 
 /* ─── EVENT SHEET ───────────────────────────────────────────── */
-const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,onReqDelEv,onSetSinger,onUpdateSongOptions,spawnConfetti,activity})=>{
+const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,onReqDelEv,onSetSinger,onUpdateSongOptions,spawnConfetti,activity,setlistOnline,setlistSavingId,onSetlistConfirmation})=>{
   useVisibleView(() => activity.recordView('event', ev.id), ev?.id, { immediate:true, enabled:!!ev?.id });
   const [expandSong, setExpandSong] = useState(null);
   const [exporting,setExporting]=useState(false);
@@ -2326,7 +2328,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           {profile?.is_admin&&<button onClick={()=>onEditEv&&onEditEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(245,158,11,.15)',color:"var(--app-warning, #D97706)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoEdit s={14}/>Editar</button>}
           {profile?.is_admin&&<button onClick={()=>onReqDelEv&&onReqDelEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.15)',color:"var(--app-negative, #DC2626)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX s={14}/>Excluir</button>}
         </div>}
-        {ev.type !== 'ebd' && ev.type !== 'consagracao' && <>
+        {ev.type !== 'ensaio' && (!['ebd','consagracao'].includes(ev.type)||evS.length>0) && <>{profile?.is_admin?<SetlistConfirmation event={ev} songs={songs} members={members} online={setlistOnline} savingId={setlistSavingId} onConfirm={onSetlistConfirmation}/>:<div style={{marginBottom:14}}><SetlistBadge event={ev} songs={songs}/></div>}
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Setlist</div>
           {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map(it=>{
             if(it.type==='note' || it.type==='text') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:"var(--app-warning, #D97706)", borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
@@ -2445,6 +2447,8 @@ export default function LouveSync() {
   const previousScroll=useRef(0);
   const returnToEvent=useRef(false);
   const [syncError,setSyncError]=useState('');
+  const [setlistSavingId,setSetlistSavingId]=useState(null);
+  const setlistWriteRef=useRef(false);
   const [connectionStatus,setConnectionStatus]=useState('offline');
   const [addOpen,setAddOpen]=useState(false);
   const [notifsOpen,setNotifsOpen]=useState(false);
@@ -2790,6 +2794,20 @@ export default function LouveSync() {
     catch(error){setEvents(evs=>evs.map(ev=>ev.id===eventId?{...ev,confirmations:{...ev.confirmations,[profile.id]:previous}}:ev));setSyncError(`Presença não salva: ${error.message}`);return false;}
   }
 
+  const handleSetlistConfirmation=async(eventId,snapshot,confirmed)=>{
+    if(!profile?.is_admin)return {ok:false,error:'Somente administradores podem definir o setlist.'};
+    if(!isOnline||!navigator.onLine||!supabase)return {ok:false,error:'Conecte-se para salvar a confirmação para toda a equipe.'};
+    if(setlistWriteRef.current)return {ok:false,error:'Aguarde a confirmação em andamento.'};
+    setlistWriteRef.current=true;setSetlistSavingId(eventId);
+    try{
+      const preferences=await setSetlistConfirmation(eventId,snapshot,profile.id,confirmed);
+      setEvents(previous=>previous.map(event=>event.id===eventId?{...event,...preferences}:event));
+      await broadcastUpdate({type:'data_changed'});notifyChanges();
+      return {ok:true};
+    }catch(error){return {ok:false,error:error.message||'A confirmação não foi salva. Tente novamente.'};}
+    finally{setlistWriteRef.current=false;setSetlistSavingId(null);}
+  };
+
   const handleSetSinger=async(eventId,songId,singerMemberId)=>{
     if(!profile?.is_admin)return;
     const memberId=singerMemberId||null;
@@ -2838,6 +2856,7 @@ export default function LouveSync() {
       for(const ev of toAdd){
         ev.items=ev.items?.length?ev.items:(ev.songs||[]).map(song_id=>({type:'song',song_id,singer_id:ev.singerBySong?.[song_id]||null,text:''}));
         ev.songs=ev.items.filter(item=>item.type==='song').map(item=>item.song_id);
+        if(!isSetlistConfirmed(ev,songs))ev.setlist_confirmation=null;
         if(isOnline&&supabase){await upsertEvent(eventPayload(ev));await setEventItems(ev.id,ev.items,ev.members||[],ev);}
       }
       setEvents(prev=>{const next=[...prev];for(const ev of toAdd){const index=next.findIndex(row=>row.id===ev.id);if(index<0)next.push(ev);else next[index]=ev;}return next;});
@@ -3005,7 +3024,7 @@ export default function LouveSync() {
             {tab==='mural'&&!inCifra&&<CommunityMural profile={profile} dark={dark} members={allMembers} activity={activity}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio connectionStatus={connectionStatus} dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
             {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
-            {tab==='escala'&&!inCifra&&<ScheduleScreen view={scheduleView} onViewChange={setScheduleView} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} Avatar={Ava} onConfirm={handleConfirm} onOpenEvent={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
+            {tab==='escala'&&!inCifra&&<ScheduleScreen setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} view={scheduleView} onViewChange={setScheduleView} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} Avatar={Ava} onConfirm={handleConfirm} onOpenEvent={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
             {tab==='membros'&&!inCifra&&<Membros profile={profile} dark={dark} members={allMembers} events={events} selRole={selRole} setSelRole={setSelRole}/>}
             {tab==='ia'&&!inCifra&&<Maestro dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
@@ -3024,7 +3043,7 @@ export default function LouveSync() {
       {/* OVERLAYS */}
       {addOpen&&<AddSong dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
       {profile?.is_admin&&createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
-      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={openEventEditor} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
+      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={openEventEditor} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotificationInbox dark={dark} controller={notifications} onClose={()=>setNotifsOpen(false)} onOpen={handleOpenNotification}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
 

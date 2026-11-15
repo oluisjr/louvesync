@@ -2,10 +2,16 @@
 // columns. They must never be posted as optional columns on the events table.
 const prefix = 'louvesync:event-preferences:v1:';
 
+export function normalizeSetlistConfirmation(value) {
+  if (value?.version !== 1 || typeof value.snapshot !== 'string' || !value.snapshot || typeof value.confirmed_by !== 'string' || !value.confirmed_by || typeof value.confirmed_at !== 'string' || !Number.isFinite(Date.parse(value.confirmed_at))) return null;
+  return { version: 1, snapshot: value.snapshot, confirmed_by: value.confirmed_by, confirmed_at: value.confirmed_at };
+}
+
 export function eventPreferences(value = {}) {
   return {
     requested_songs: [...new Set((Array.isArray(value.requested_songs) ? value.requested_songs : []).filter(id => typeof id === 'string' && id))],
     santa_ceia_song: typeof value.santa_ceia_song === 'string' && value.santa_ceia_song ? value.santa_ceia_song : null,
+    setlist_confirmation: normalizeSetlistConfirmation(value.setlist_confirmation),
   };
 }
 

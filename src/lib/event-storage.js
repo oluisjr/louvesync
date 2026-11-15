@@ -1,5 +1,42 @@
-import { eventPayload } from './domain.js';
+import { eventPayload, normalizeEvent } from './domain.js';
 import { decodeEventPreferences, encodeEventPreferences } from './event-preferences.js';
+import { setlistSnapshot } from './setlist-confirmation.js';
+
+async function readSetlist(supabase, eventId) {
+  const [base, items] = await Promise.all([
+    supabase.from('events').select('id,type').eq('id', eventId).maybeSingle(),
+    supabase.from('event_songs').select('*').eq('event_id', eventId),
+  ]);
+  if (base.error || items.error) throw base.error || items.error;
+  if (!base.data) throw new Error('Evento não encontrado. Atualize a escala.');
+  const event = normalizeEvent({ ...base.data, event_songs: items.data || [] });
+  const ids = [...new Set(event.songs)];
+  const catalog = ids.length ? await supabase.from('songs').select('*').in('id', ids) : { data: [] };
+  if (catalog.error) throw catalog.error;
+  const internal = (items.data || []).filter(decodeEventPreferences).sort((a, b) => (a.order_index || 0) - (b.order_index || 0) || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+  return { event, rows: items.data || [], internal: internal.at(-1), snapshot: setlistSnapshot(event, catalog.data) };
+}
+
+// Only update the existing hidden event preferences. Never rewrite songs,
+// roster or attendance just to confirm a repertoire.
+export async function updateSetlistConfirmation(supabase, eventId, expectedSnapshot, memberId, confirmed) {
+  if (!supabase) throw new Error('Conecte-se para salvar a confirmação do setlist.');
+  const current = await readSetlist(supabase, eventId);
+  if (current.event.type === 'ensaio') throw new Error('O ensaio usa o repertório dos eventos de culto.');
+  if (confirmed && (!memberId || !current.snapshot)) throw new Error('Adicione músicas antes de confirmar o setlist.');
+  if (confirmed && current.snapshot !== expectedSnapshot) throw new Error('O repertório mudou. Atualize a escala, revise e confirme novamente.');
+  const confirmation = confirmed ? { version: 1, snapshot: current.snapshot, confirmed_by: memberId, confirmed_at: new Date().toISOString() } : null;
+  const preferences = { requested_songs: current.event.requested_songs, santa_ceia_song: current.event.santa_ceia_song, setlist_confirmation: confirmation };
+  const note_text = encodeEventPreferences(preferences);
+  const result = current.internal
+    ? await supabase.from('event_songs').update({ note_text }).eq('event_id', eventId).eq('id', current.internal.id).eq('note_text', current.internal.note_text).select('id')
+    : await supabase.from('event_songs').insert([{ event_id: eventId, item_type: 'note', song_id: null, note_text, order_index: Math.max(0, ...current.rows.map(row => row.order_index || 0)) + 1, singer_member_id: null, sequence: null }]).select('id');
+  if (result.error) throw result.error;
+  if (!result.data?.length) throw new Error('O evento foi alterado por outra pessoa. Atualize a escala e tente novamente.');
+  const saved = await readSetlist(supabase, eventId);
+  if (JSON.stringify(saved.event.setlist_confirmation) !== JSON.stringify(confirmation) || (confirmed && saved.snapshot !== current.snapshot)) throw new Error('O repertório mudou durante a confirmação. Atualize a escala e revise o status.');
+  return preferences;
+}
 
 export async function upsertEventRecord(supabase, event) {
   if (!supabase) return null;
