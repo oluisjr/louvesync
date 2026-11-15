@@ -34,6 +34,8 @@ async function fixture({ worker = 'worker-a', icon = 'icon-a' } = {}) {
   await writeFile(join(directory, 'images/home/worship-stage.webp'), 'stage-art');
   await writeFile(join(directory, 'images/more/music.webp'), 'more-art');
   await writeFile(join(directory, 'images/equipment/guitar.webp'), 'equipment-art');
+  for(const asset of ['bass','saxophone','flute','cavaquinho','ukulele'])await writeFile(join(directory, `images/equipment/${asset}.webp`),'expanded-equipment-art');
+  for(const asset of ['devotional','maestro'])await writeFile(join(directory, `images/more/${asset}.webp`),'expanded-more-art');
   await writeFile(join(directory, 'brand/church-emblem-3d.webp'), 'church-art');
   await writeFile(join(directory, 'index.html'), '<html><head><meta name="louvesync-build" content="__LOUVESYNC_BUILD__"></head></html>');
   await writeFile(join(directory, 'assets/main-hash.js'), 'const app = "same JS";');
@@ -58,6 +60,8 @@ test('build output stamps identical HTML/worker/manifest identities and precache
     assert.ok(worker.includes('/images/home/worship-stage.webp'));
     assert.ok(worker.includes('/images/more/music.webp'));
     assert.ok(worker.includes('/images/equipment/guitar.webp'));
+    for(const asset of ['bass','saxophone','flute','cavaquinho','ukulele'])assert.ok(worker.includes(`/images/equipment/${asset}.webp`));
+    for(const asset of ['devotional','maestro'])assert.ok(worker.includes(`/images/more/${asset}.webp`));
     assert.ok(worker.includes('/brand/church-emblem-3d.webp'));
   } finally { await rm(directory, { recursive: true }); }
 });

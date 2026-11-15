@@ -20,6 +20,11 @@ export function equipmentArtwork(item) {
   if (/\b(cabo|capa|case|suporte|pedal|bag)\b/.test(name)) return '/images/more/equipment.webp';
   if (/\b(microfone|microphone|mic|sm58|sm57)\b/.test(name)) return '/images/equipment/microphone.webp';
   if (/\b(teclado|keyboard|piano|sintetizador|synth)\b/.test(name)) return '/images/equipment/keyboard.webp';
-  if (/\b(violao|guitarra|guitar|ukulele|cavaquinho)\b/.test(name)) return '/images/equipment/guitar.webp';
+  if (/\b(baixo|contrabaixo|bass)\b/.test(name)) return '/images/equipment/bass.webp';
+  if (/\b(sax|saxofone|saxophone)\b/.test(name)) return '/images/equipment/saxophone.webp';
+  if ((/\bflauta\b/.test(name) && !/\bflauta doce\b/.test(name)) || /\bflute\b/.test(name)) return '/images/equipment/flute.webp';
+  if (/\b(cavaquinho|cavaco)\b/.test(name)) return '/images/equipment/cavaquinho.webp';
+  if (/\b(ukulele|ukelele)\b/.test(name)) return '/images/equipment/ukulele.webp';
+  if (/\b(violao|guitarra|guitar)\b/.test(name)) return '/images/equipment/guitar.webp';
   return '/images/more/equipment.webp';
 }

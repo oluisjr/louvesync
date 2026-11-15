@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "generation": "Native ImageGen; approved guitar and menu renders used as style references.",
+  "export": "Trim transparent margins at alpha>16; proportional resize; 8px transparent padding; WebP quality92/alpha100; no recoloring.",
+  "assets": [
+    {
+      "path": "/images/equipment/bass.webp",
+      "source": "equipment-bass.png",
+      "width": 183,
+      "height": 400,
+      "bytes": 20084,
+      "sha256": "798983cbfcfdba8bd3049afc404f3e17e3292f089953ef3ae923212e1e42e175"
+    },
+    {
+      "path": "/images/equipment/saxophone.webp",
+      "source": "equipment-saxophone.png",
+      "width": 182,
+      "height": 400,
+      "bytes": 25672,
+      "sha256": "752c10ee090eb304bcf8e591c8159f6bbd7336c6923277c30d0d467a9a47c2f5"
+    },
+    {
+      "path": "/images/equipment/flute.webp",
+      "source": "equipment-flute.png",
+      "width": 400,
+      "height": 148,
+      "bytes": 12862,
+      "sha256": "6c6fcf160275df312c7c56cf08427669917182587736f5129bd81d78f62042ff"
+    },
+    {
+      "path": "/images/equipment/cavaquinho.webp",
+      "source": "equipment-cavaquinho.png",
+      "width": 189,
+      "height": 400,
+      "bytes": 21736,
+      "sha256": "0af10bbb1e611bae7967b505bd4258d79702d6ed83a0e0ee68fbef72f30edb61"
+    },
+    {
+      "path": "/images/equipment/ukulele.webp",
+      "source": "equipment-ukulele.png",
+      "width": 190,
+      "height": 400,
+      "bytes": 32228,
+      "sha256": "bc3d7d0538f2790161b1a989bd19da2888deb347604ad1bfedf524b42e3dbecf"
+    },
+    {
+      "path": "/images/more/devotional.webp",
+      "source": "more-devotional.png",
+      "width": 484,
+      "height": 528,
+      "bytes": 47602,
+      "sha256": "5a7e2412a6720fe91d8d99dcbb3588e654bdda469692cf45de4a5a708648be54"
+    },
+    {
+      "path": "/images/more/maestro.webp",
+      "source": "more-maestro.png",
+      "width": 429,
+      "height": 528,
+      "bytes": 64180,
+      "sha256": "34031753ef7aa88b4418ca95119fb7c1e2a4e019ff3f17780e92c1081a6b7738"
+    }
+  ]
+}

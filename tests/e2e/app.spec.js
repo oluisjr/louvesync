@@ -2,6 +2,8 @@ import { test, expect, devices } from '@playwright/test';
 import fs from 'node:fs';
 import { strFromU8, unzipSync } from 'fflate';
 import { encodeSequence } from '../../src/lib/domain.js';
+import { BIBLE_EDITION, bibleCacheKey } from '../../src/lib/bible-edition.js';
+import { createBibleHandler } from '../../api/bible.js';
 const names = [...fs.readFileSync('src/lib/supabase.js','utf8').matchAll(/export async function (\w+)/g)].map(match => match[1]);
 const admin = { id: 'user-admin', name: 'Admin Teste', instrument: 'Vocal', role: 'Vocal', avatar: 'AT', color: '#7B3FF2', status: 'ativo', is_admin: true };
 const member = { ...admin, id: 'user-member', name: 'Membro Teste', is_admin: false };
@@ -726,7 +728,7 @@ test('five fixed destinations keep secondary screens reachable and respect membe
     await expect(nav.getByRole('button',{name:'Mais',exact:true})).toHaveAttribute('aria-current','page');
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
     await expect(nav.getByRole('button',{name:'Mural',exact:true}).locator('img')).toHaveAttribute('src','/brand/church-emblem-3d.webp');
-    await expect(menu.locator('.app-more-artwork')).toHaveCount(6);
+    await expect(menu.locator('.app-more-artwork')).toHaveCount(8);
     await expect.poll(()=>menu.locator('.app-more-artwork').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0))).toBe(true);
     for(const label of ['Músicas','Patrimônio','Ensaio','Treinar','Admin'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
@@ -775,6 +777,7 @@ for(const theme of ['light','dark']){
       await expect(main).toHaveJSProperty('inert',true);
       expect(await main.evaluate(element=>element.scrollTop)).toBe(previousScroll);
       await expect.poll(()=>menu.locator('img').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0))).toBe(true);
+      for(const [label,asset] of [['Devocional','devotional'],['Maestro','maestro']])await expect(menu.getByRole('button',{name:label,exact:true}).locator('img')).toHaveAttribute('src',`/images/more/${asset}.webp`);
       await expect.poll(()=>nav.locator('img').evaluate(image=>image.complete&&image.naturalWidth>0)).toBe(true);
       for(const width of [390,320]){
         await page.setViewportSize({width,height:844});
@@ -783,10 +786,12 @@ for(const theme of ['light','dark']){
         const firstCard=await menu.locator('.app-more-destination').nth(0).boundingBox(),secondCard=await menu.locator('.app-more-destination').nth(1).boundingBox();
         expect(secondCard.x-firstCard.x-firstCard.width).toBeGreaterThanOrEqual(8);
         await menuScroll.evaluate(element=>{element.scrollTop=element.scrollHeight;});
-        const end=await menu.locator('.app-more-secondary').boundingBox(),bar=await nav.boundingBox();
+        const end=await menu.locator('.app-more-destination').last().boundingBox(),bar=await nav.boundingBox();
         expect(bar.y-end.y-end.height).toBeGreaterThanOrEqual(10);
         await menuScroll.evaluate(element=>{element.scrollTop=0;});
         await page.screenshot({path:test.info().outputPath(`more-${theme}-${width}.png`),scale:'css'});
+        await menu.locator('.app-more-devocional').evaluate(element=>element.scrollIntoView({block:'center'}));
+        await page.screenshot({path:test.info().outputPath(`more-expanded-${theme}-${width}.png`),scale:'css'});
       }
       const backgroundScroll=await main.evaluate(element=>element.scrollTop);
       await page.keyboard.press('Escape');
@@ -1555,13 +1560,59 @@ test('Bible plan uses the selected book and opening a passage does not mark it r
   const app=await fixture(browser);
   try{
     const page=await app.open();const requests=[];
-    await page.route('**/api/bible?**',route=>{const url=new URL(route.request().url());requests.push(url.href);return route.fulfill({json:{book:url.searchParams.get('book'),chapter:Number(url.searchParams.get('chapter')),translation:'almeida',source:'getbible',verses:[{number:1,text:'Versículo de teste'}]}});});
+    await page.route('**/api/bible?**',route=>{const url=new URL(route.request().url());requests.push(url.href);return route.fulfill({json:{book:url.searchParams.get('book'),chapter:Number(url.searchParams.get('chapter')),translation:BIBLE_EDITION.id,edition:BIBLE_EDITION.revision,language:BIBLE_EDITION.language,verses:[{number:1,text:'Versículo de teste'}]}});});
     await page.getByRole('button',{name:'Bíblia',exact:true}).click();await page.getByRole('button',{name:'Planos de leitura',exact:true}).click();
     await page.getByRole('button',{name:'Hebreus 11:1',exact:true}).click();await expect(page.getByRole('heading',{name:'Hebreus 11',exact:true})).toBeVisible();
     await expect.poll(()=>requests.some(url=>url.includes('book=hebrews')&&url.includes('chapter=11'))).toBe(true);
     expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ls_bible_plans')||'{}'))).toEqual({});expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
+test('Bible reads the pinned edition, ignores old translation caches and keeps new chapters offline',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open();let offline=false;const handler=createBibleHandler();
+    await page.route('**/api/bible?**',async route=>{
+      if(offline)return route.abort('failed');
+      const url=new URL(route.request().url());const res={code:200,body:null,setHeader(){},status(code){this.code=code;return this;},json(body){this.body=body;return this;}};
+      await handler({method:'GET',query:Object.fromEntries(url.searchParams)},res);
+      return route.fulfill({status:res.code,json:res.body});
+    });
+    await page.evaluate(()=>localStorage.setItem('ls_bible_john_1',JSON.stringify([{number:1,text:'TEXTO ANTIGO INCORRETO'}])));
+    await page.getByRole('button',{name:'Bíblia',exact:true}).click();
+    const reader=page.locator('.ui-bible-reading');await expect(reader).toContainText('Bíblia Livre (2018)');
+    await expect(reader.locator('[data-verse="1"]')).toContainText('No princípio era a Palavra');await expect(reader.locator('.ui-bible-verse')).toHaveCount(51);
+    await expect(reader).not.toContainText('TEXTO ANTIGO INCORRETO');
+    await page.getByRole('combobox',{name:'Capítulo',exact:true}).selectOption('3');
+    await expect(reader.locator('[data-verse="16"]')).toContainText('Porque Deus amou ao mundo de tal maneira');
+    await expect(reader.locator('.ui-bible-verse')).toHaveCount(36);
+    await expect.poll(()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)||'[]').length,bibleCacheKey('john',3))).toBe(36);
+    await expect(reader.getByRole('link',{name:'BLIVRE · fonte e créditos',exact:true})).toHaveAttribute('href','https://ebible.org/porbr2018/');
+    offline=true;await page.getByRole('button',{name:'Início',exact:true}).click();await page.getByRole('button',{name:'Bíblia',exact:true}).click();
+    await expect(reader).toContainText('Leitura disponível offline.');await expect(reader.locator('[data-verse="16"]')).toContainText('Porque Deus amou ao mundo de tal maneira');
+    await page.getByRole('button',{name:'Aumentar fonte',exact:true}).click();await expect(reader.locator('.ui-bible-verse').first()).toHaveCSS('font-size','20px');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+for(const theme of ['light','dark'])test(`instrument artwork and rounded inventory and music filters work in ${theme}`,async({browser})=>{
+  const app=await fixture(browser);
+  const instruments=[['Baixo elétrico','bass'],['Saxofone alto','saxophone'],['Flauta transversal','flute'],['Cavaquinho','cavaquinho'],['Ukulele','ukulele']];
+  app.state.equipment=instruments.map(([name],index)=>({id:'instrument-'+index,name,status:'Disponível'}));
+  try{
+    const page=await app.open(admin,undefined,{theme,device:{viewport:{width:390,height:844}}});await navigate(page,'Patrimônio');
+    const inventory=page.getByRole('region',{name:'Patrimônio',exact:true});
+    const selected=inventory.getByRole('group',{name:'Filtrar por status'}).getByRole('button',{name:'Todos',exact:true});
+    await expect(selected).toHaveCSS('border-top-left-radius','12px');await expect(selected).toHaveCSS('border-bottom-right-radius','12px');
+    for(const [name,asset] of instruments){const image=inventory.getByRole('article',{name,exact:true}).locator('img');await image.scrollIntoViewIfNeeded();await expect(image).toHaveAttribute('src',`/images/equipment/${asset}.webp`);await expect.poll(()=>image.evaluate(element=>element.complete&&element.naturalWidth>0)).toBe(true);}
+    for(const width of [390,320]){await page.setViewportSize({width,height:844});await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=0;});await page.screenshot({path:test.info().outputPath(`expanded-inventory-${theme}-${width}.png`),scale:'css'});expect(await inventory.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);}
+    await navigate(page,'Músicas');const filters=page.getByRole('group',{name:'Filtrar por categoria'});
+    await expect(filters.getByRole('button',{name:'Todos',exact:true})).toHaveCSS('border-bottom-left-radius','12px');
+    await filters.getByRole('button',{name:'Adoração',exact:true}).click();await expect(filters.getByRole('button',{name:'Adoração',exact:true})).toHaveAttribute('aria-pressed','true');
+    await page.screenshot({path:test.info().outputPath(`rounded-music-${theme}.png`),scale:'css'});
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
 test('two devices share rehearsal song, arrangement, running timer and stage alerts',async({browser})=>{
   const app=await fixture(browser);
   try{

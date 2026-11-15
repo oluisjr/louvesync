@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { readCache, writeCache } from '../lib/domain.js';
 import { Icon, PageHeading, Section } from './Interface.jsx';
 import { fetchBibleChapter, normalizeBiblePosition, normalizeBibleVerses } from '../lib/bible-client.js';
+import { BIBLE_EDITION, bibleCacheKey } from '../lib/bible-edition.js';
 
 export default function Bible({ dark, books, plans }) {
   const saved = normalizeBiblePosition(readCache('ls_bible_position', { book: 'john', chapter: 1 }), books);
@@ -18,7 +19,7 @@ export default function Bible({ dark, books, plans }) {
   const selected = books.find(item => item.a === book) || books[0];
   useEffect(() => {
     const abort = new AbortController();
-    const key = `ls_bible_${book}_${chapter}`;
+    const key = bibleCacheKey(book,chapter);
     let cached = null;
     try { cached=normalizeBibleVerses(readCache(key,null)); } catch { /* Ignore malformed or empty stored chapters. */ }
     setStatus(cached ? 'cached' : 'loading');
@@ -55,11 +56,12 @@ export default function Bible({ dark, books, plans }) {
       </div>)}</div>
     </Section>)}</div>}
     <article ref={reading} className="ui-card ui-bible-reading" aria-busy={status==='loading'}>
-      <div className="ui-reading-heading"><div><span className="ui-eyebrow">Almeida · Palavra viva</span><h3>{selected.n} {chapter}</h3></div><span className="ui-reading-decoration" aria-hidden="true"><Icon name="book" size={28}/></span></div>
+      <div className="ui-reading-heading"><div><span className="ui-eyebrow">{BIBLE_EDITION.title} · Português do Brasil</span><h3>{selected.n} {chapter}</h3></div><span className="ui-reading-decoration" aria-hidden="true"><Icon name="book" size={28}/></span></div>
       {status==='loading'&&<p className="ui-helper" role="status">Carregando capítulo…</p>}
       {status==='cached'&&<p className="ui-message" role="status"><Icon name="check" size={16}/>Leitura disponível offline.</p>}
       {status==='error'&&<div className="ui-message ui-error" role="alert"><div><p>Não foi possível carregar este capítulo.</p><button className="ui-button" style={{marginTop:10}} onClick={()=>setRetry(value=>value+1)}>Tentar novamente</button></div></div>}
       {verses.map(item=><p key={item.number} className="ui-bible-verse" data-verse={item.number} style={{fontSize,background:verse===item.number?'var(--ui-accent-soft)':undefined}}><sup>{item.number}</sup>{item.text}</p>)}
+      <p className="ui-helper bible-credits">{BIBLE_EDITION.credits}. <a href={BIBLE_EDITION.sourceUrl} target="_blank" rel="noreferrer">{BIBLE_EDITION.abbreviation} · fonte e créditos</a> · <a href={BIBLE_EDITION.licenseUrl} target="_blank" rel="noreferrer">{BIBLE_EDITION.license}</a>.</p>
       <nav className="ui-chapter-navigation" aria-label="Navegar entre capítulos"><button className="ui-button" disabled={chapter<=1} onClick={()=>changeChapter(-1)}><Icon name="left" size={16}/>Anterior</button><button className="ui-button ui-button-soft" disabled={chapter>=selected.c} onClick={()=>changeChapter(1)}>Próximo capítulo<Icon name="right" size={16}/></button></nav>
     </article>
   </div>;

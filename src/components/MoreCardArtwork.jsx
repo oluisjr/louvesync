@@ -3,6 +3,8 @@ const artwork = {
   treinamento: 'training',
   ensaio: 'rehearsal',
   patrimonio: 'equipment',
+  devocional: 'devotional',
+  ia: 'maestro',
   membros: 'members',
   admin: 'settings',
 };

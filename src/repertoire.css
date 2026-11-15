@@ -47,10 +47,10 @@
 .repertoire-key-filter select { max-width:145px; min-height:36px; padding:6px 8px; border:1px solid var(--repertoire-line); border-radius:9px; background:var(--repertoire-panel); color:var(--repertoire-ink); font:700 16px/1.4 'Nunito',sans-serif; color-scheme:light; }
 .repertoire-page[data-theme="dark"] .repertoire-key-filter select { color-scheme:dark; }
 .repertoire-categories { display:flex; gap:15px; overflow-x:auto; border-bottom:1px solid var(--repertoire-line); padding:0 2px; scrollbar-width:thin; scrollbar-color:var(--repertoire-line) transparent; }
-.repertoire-categories button { display:flex; align-items:center; justify-content:center; gap:5px; flex:0 0 auto; position:relative; min-height:43px; padding:8px 2px 11px; border:0; border-bottom:3px solid transparent; background:transparent; color:var(--repertoire-muted); font:700 12px/1.4 'Nunito',sans-serif; white-space:nowrap; cursor:pointer; }
+.repertoire-categories button { display:flex; align-items:center; justify-content:center; gap:5px; flex:0 0 auto; position:relative; min-height:43px; padding:8px 9px 11px; border:0; border-bottom:3px solid transparent; border-radius:12px; background:transparent; color:var(--repertoire-muted); font:700 12px/1.4 'Nunito',sans-serif; white-space:nowrap; cursor:pointer; }
 .repertoire-categories button > span { font-size:10px; opacity:.8; }
 .repertoire-categories button > svg { width:14px; height:14px; }
-.repertoire-categories button[aria-pressed="true"] { border-bottom-color:var(--repertoire-accent); color:var(--repertoire-ink); font-weight:900; }
+.repertoire-categories button[aria-pressed="true"] { outline:none; border-bottom-color:var(--repertoire-accent); background:var(--repertoire-soft)!important; color:var(--repertoire-ink); font-weight:900; }
 .repertoire-results { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:37px; margin:2px 0 9px; color:var(--repertoire-muted); font-size:11px; }
 .repertoire-results > button,.repertoire-empty > button { min-height:32px; padding:6px 0; border:0; background:transparent; color:var(--repertoire-accent); font:800 11px/1.4 'Nunito',sans-serif; cursor:pointer; }
 .repertoire-groups { display:grid; gap:22px; min-width:0; }

@@ -1,0 +1,19 @@
+{
+  "id": "blivre",
+  "revision": "blivre-2018-2026-11-15",
+  "title": "Bíblia Livre (2018)",
+  "abbreviation": "BLIVRE",
+  "language": "pt-BR",
+  "source": "eBible.org",
+  "sourceUrl": "https://ebible.org/porbr2018/",
+  "credits": "© 2018 Diego Santos, Mario Sérgio e Marco Teles",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+  "archiveUrl": "https://ebible.org/Scriptures/porbr2018_vpl.zip",
+  "archiveSha256": "3d9c4c8a36d33e16f92258f86ca3eef8c4df230055ec8fb9268594f9100fcda0",
+  "dataSha256": "7cd20f9bc5d2dd931256584702d938422144d2790b030037fd9d901a6e350871",
+  "books": 66,
+  "chapters": 1189,
+  "verses": 31102,
+  "conversion": "Exact VPL text, grouped by canonical book/chapter/verse. No wording changes."
+}
