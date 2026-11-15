@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMaestroHandler, maestroConfig } from '../server/maestro.js';
+import { availableChatModel, createMaestroHandler, maestroConfig } from '../server/maestro.js';
 import { maestroEndpoint, maestroRequest } from '../src/lib/maestro-client.js';
 const secret = 'xai-SYNTHETIC_SERVER_ONLY_KEY', pin = 'SYNTHETIC_PRIVATE_MEMBER_PIN';
 const member = { id: 'member', name: 'Membro', status: 'ativo', role: 'Vocal', is_admin: false };
@@ -58,4 +58,25 @@ test('client authenticates, awaits a nonempty reply and preserves useful configu
   assert.equal(result, 'Resposta real do teste'); assert.equal(JSON.parse(call.options.body).pin, pin); assert.equal(call.options.method, 'POST');
   await assert.rejects(maestroRequest({ memberId: member.id, pin }, body.messages, { fetcher: async () => Response.json({ error: 'A configuração foi recusada.', code: 'provider_auth' }, { status: 503 }) }), error => error.code === 'provider_auth' && error.message === 'A configuração foi recusada.');
   await assert.rejects(maestroRequest({ memberId: member.id, pin }, body.messages, { fetcher: async () => Response.json({ choices: [] }) }), /resposta completa/);
+});
+
+test('an unavailable default uses a chat model advertised by the account and caches the successful choice', async () => {
+  const calls = [];
+  const handler = createMaestroHandler({ environment: { GROK_API_KEY: secret }, verifyActor: async () => member, fetcher: async (url, options) => {
+    calls.push({ url, options });
+    if (options.method === 'GET') return Response.json({ data: [{ id: 'grok-imagine-image' }, { id: 'grok-3-mini' }] });
+    return JSON.parse(options.body).model === 'grok-4.3' ? Response.json({}, { status: 404 }) : Response.json({ choices: [{ message: { content: 'OK' } }] });
+  } });
+  for (let count = 0; count < 2; count++) { const res = response(); await handler(request(), res); assert.equal(res.code, 200); }
+  assert.equal(calls.length, 4); assert.equal(calls[1].url, 'https://api.x.ai/v1/models');
+  assert.equal(JSON.parse(calls[2].options.body).model, 'grok-3-mini'); assert.equal(JSON.parse(calls[3].options.body).model, 'grok-3-mini');
+  assert.equal(calls[0].options.signal, calls[2].options.signal); assert.ok(calls.every(call => !JSON.stringify(call.options.body || '').includes(pin)));
+});
+
+test('explicit model choices are preserved and model discovery excludes image, audio and guard models', async () => {
+  let calls = 0;
+  const handler = createMaestroHandler({ environment: { GROK_API_KEY: secret, GROK_MODEL: 'chosen-model' }, verifyActor: async () => member, fetcher: async () => { calls++; return Response.json({}, { status: 404 }); } });
+  const res = response(); await handler(request(), res); assert.equal(res.body.code, 'provider_model'); assert.equal(calls, 1);
+  assert.equal(availableChatModel({ data: [{ id: 'grok-imagine-image' }, { id: 'grok-voice' }] }, 'xai', 'grok-4.3'), null);
+  assert.equal(availableChatModel({ data: [{ id: 'llama-guard-4-12b' }, { id: 'llama-3.1-8b-instant' }] }, 'groq', 'llama-3.3-70b-versatile'), 'llama-3.1-8b-instant');
 });

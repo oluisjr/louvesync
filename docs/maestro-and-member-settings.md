@@ -8,6 +8,8 @@ O servidor agora seleciona Groq (`https://api.groq.com/openai/v1/chat/completion
 
 Os padrões são `llama-3.3-70b-versatile` em Groq e `grok-4.3` em xAI. `MAESTRO_MODEL` substitui o padrão; também são aceitas as opções específicas `GROQ_MODEL`, `XAI_MODEL` e `GROK_MODEL`. O cliente não escolhe o modelo nem recebe credenciais do provedor. Referências oficiais: [Groq](https://console.groq.com/docs/models) e [xAI](https://docs.x.ai/docs/models).
 
+O primeiro teste real após corrigir a variável revelou HTTP 404 do provedor para o modelo padrão. Quando um padrão está indisponível, o servidor consulta `/v1/models` e tenta um modelo de conversa efetivamente oferecido àquela chave, preservando o provedor e o prazo total da requisição. Modelos de imagem, voz e moderação são excluídos. Uma escolha explícita por variável de ambiente é respeitada e não sofre substituição automática. A alternativa que responder com sucesso é reutilizada por até uma hora por instância.
+
 `/api/maestro` autentica o membro pelo RPC de login existente e consulta o acesso persistido à tela Maestro. A formatação de cifras exige acesso a Músicas. Configuração indisponível, sessão inválida, modelo inexistente, falta de créditos e demora recebem mensagens distintas. Falhas preservam a pergunta e não consomem as dez respostas da sessão. O servidor limita cada membro a trinta tentativas em cinco minutos por instância. O modo nativo com recursos locais usa o domínio canônico da API.
 
 O personagem usa a arte de referência com rosto, cabelos, moletom azul e marca preservados, acrescentando a batuta. É uma imagem WebP com transparência para a interface.

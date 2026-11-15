@@ -11,6 +11,12 @@ export function maestroConfig(environment) {
   return { key, provider, model: environment.MAESTRO_MODEL?.trim() || (provider === 'groq' ? environment.GROQ_MODEL?.trim() || 'llama-3.3-70b-versatile' : environment.XAI_MODEL?.trim() || environment.GROK_MODEL?.trim() || 'grok-4.3'),
     url: provider === 'groq' ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://api.x.ai/v1/chat/completions' };
 }
+export function availableChatModel(data, provider, failedModel) {
+  const ids = (Array.isArray(data?.data) ? data.data : []).flatMap(model => [model.id, ...(Array.isArray(model.aliases) ? model.aliases : [])]).filter(id => typeof id === 'string' && id !== failedModel && /^[\w./:-]{1,150}$/.test(id));
+  const chat = ids.filter(id => provider === 'xai' ? /^grok-/i.test(id) && !/imagine|image|video|audio|voice|tts|embed|code|vision/i.test(id) : /llama|gpt-oss|qwen|gemma|mixtral/i.test(id) && !/guard|whisper|tts|audio|embed/i.test(id));
+  const preferred = provider === 'xai' ? ['grok-4-1-fast-non-reasoning', 'grok-4-fast-non-reasoning', 'grok-3-mini', 'grok-3', 'grok-4.3', 'grok-4-latest'] : ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'openai/gpt-oss-20b', 'openai/gpt-oss-120b'];
+  return preferred.find(id => chat.includes(id)) || chat.find(id => /non-reasoning|mini|fast/i.test(id)) || chat[0] || null;
+}
 async function verifySession(body, environment) {
   const url = environment.SUPABASE_URL || environment.VITE_SUPABASE_URL, key = environment.SUPABASE_ANON_KEY || environment.VITE_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('auth_not_configured');
@@ -21,6 +27,7 @@ async function verifySession(body, environment) {
 }
 export function createMaestroHandler({ environment = process.env, fetcher = fetch, verifyActor = verifySession, now = Date.now } = {}) {
   const limits = new Map();
+  let discoveredModel = null;
   return async (req, res) => {
     res.setHeader('Cache-Control', 'private, no-store');
     const origin = req.headers?.origin, host = req.headers?.host;
@@ -51,8 +58,22 @@ export function createMaestroHandler({ environment = process.env, fetcher = fetc
     if (++rate.count > 30) return res.status(429).json({ code: 'rate_limited', error: 'Muitas solicitações. Aguarde alguns minutos.' });
     limits.set(memberId, rate);
     try {
-      const response = await fetcher(config.url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.key },
-        body: JSON.stringify({ messages: messages.map(({ role, content }) => ({ role, content })), model: config.model, max_tokens: Math.min(2000, Math.max(1, Number(max_tokens) || 900)), stream: false }), signal: AbortSignal.timeout(40000) });
+      const signal = AbortSignal.timeout(40000), headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.key };
+      const configuredModel = environment.MAESTRO_MODEL?.trim() || (config.provider === 'groq' ? environment.GROQ_MODEL?.trim() : environment.XAI_MODEL?.trim() || environment.GROK_MODEL?.trim());
+      let selectedModel = !configuredModel && discoveredModel?.provider === config.provider && discoveredModel.until > time ? discoveredModel.id : config.model;
+      const complete = model => fetcher(config.url, { method: 'POST', headers,
+        body: JSON.stringify({ messages: messages.map(({ role, content }) => ({ role, content })), model, max_tokens: Math.min(2000, Math.max(1, Number(max_tokens) || 900)), stream: false }), signal });
+      let response = await complete(selectedModel);
+      // A default may exist in the public catalog but be unavailable to this key.
+      // Only select a replacement actually advertised by the same provider.
+      if (response.status === 404 && !configuredModel) {
+        const models = await fetcher(config.url.replace('/chat/completions', '/models'), { method: 'GET', headers, signal });
+        const replacement = models.ok ? availableChatModel(await models.json(), config.provider, selectedModel) : null;
+        if (replacement) {
+          selectedModel = replacement; response = await complete(replacement);
+          if (response.ok) { discoveredModel = { provider: config.provider, id: replacement, until: time + 3600000 }; console.info('[Maestro] Modelo disponível selecionado:', config.provider, replacement); }
+        }
+      }
       if (!response.ok) {
         const kind = response.status === 401 || response.status === 403 ? 'provider_auth' : response.status === 404 ? 'provider_model' : response.status === 429 ? 'provider_quota' : 'provider_unavailable';
         return res.status(response.status === 429 ? 429 : 503).json({ code: kind, error: kind === 'provider_quota' ? 'O serviço de IA atingiu o limite de uso ou de créditos. Tente novamente mais tarde.' : kind === 'provider_auth' ? 'A configuração do Maestro foi recusada pelo serviço de IA. Avise a liderança.' : kind === 'provider_model' ? 'O modelo de IA configurado não está disponível. Avise a liderança.' : 'O serviço de IA está indisponível. Tente novamente.' });
