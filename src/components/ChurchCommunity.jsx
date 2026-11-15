@@ -1,19 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dialog, Icon } from './Interface.jsx';
+import { Icon } from './Interface.jsx';
 import { communityEvents, churchDate, churchTime } from '../lib/community.js';
 import { communityRequest } from '../lib/community-client.js';
 import '../church-community.css';
 
 const newDraft = profile => ({id:crypto.randomUUID(),name:profile?.name||'',message:'',anonymous:false,visibility:'team',website:''});
 const destinations=[['welcome','Início','home'],['events','Agenda','calendar'],['prayer','Oração','heart'],['bible','Bíblia','book']];
-function EventCard({event,featured=false,onOpen}) {
-  return <article className={'church-event-card'+(featured?' church-event-featured':'')}>
-    {featured&&<div className="church-event-cover"><span>{churchDate(event.starts_at,{weekday:'short',day:undefined,month:undefined})}<strong>{churchTime(event.starts_at)}</strong></span><small>{event.category}</small></div>}
-    <div className="church-event-body">{!featured&&<time dateTime={event.starts_at}><span>{churchDate(event.starts_at,{month:'short'})}</span><strong>{churchTime(event.starts_at)}</strong></time>}<div><h3>{event.title}</h3><p><Icon name="calendar" size={14}/>{churchDate(event.starts_at,{weekday:'long'})}{featured&&' · '+churchTime(event.starts_at)}</p>{event.location&&<p><Icon name="pin" size={14}/>{event.location}</p>}</div><button type="button" onClick={()=>onOpen(event)} aria-label={'Ver detalhes de '+event.title}>{featured?'Ver detalhes':<Icon name="right"/>}</button></div>
+function EventCard({event,featured=false}) {
+  const time=event.time_defined===false?'Horário a definir':churchTime(event.starts_at);
+  return <article className={'church-event-card'+(featured?' church-event-featured':'')} aria-label={event.title}>
+    {featured&&<div className="church-event-cover"><span>{churchDate(event.starts_at,{weekday:'short',day:undefined,month:undefined})}<strong>{time}</strong></span></div>}
+    <div className="church-event-body">{!featured&&<time dateTime={event.starts_at}><span>{churchDate(event.starts_at,{month:'short'})}</span><strong>{time}</strong></time>}<div><h3>{event.title}</h3><p><Icon name="calendar" size={14}/>{churchDate(event.starts_at,{weekday:'long'})}{featured&&' · '+time}</p></div></div>
   </article>;
 }
 export default function ChurchCommunity({profile,credentials,onLogin,onLogout,dark,setDark,BibleView}) {
-  const [page,setPage]=useState('welcome'),[filter,setFilter]=useState('all'),[selected,setSelected]=useState(null);
+  const [page,setPage]=useState('welcome'),[filter,setFilter]=useState('all');
   const [data,setData]=useState({events:[],prayers:[]}),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState(''),[revision,setRevision]=useState(0);
   const [draft,setDraft]=useState(()=>newDraft(profile)),[busy,setBusy]=useState(false),[error,setError]=useState(''),[receipt,setReceipt]=useState(null);
   const scroll=useRef(null),heading=useRef(null),submitController=useRef(null),lastPage=useRef(page);
@@ -32,7 +33,7 @@ export default function ChurchCommunity({profile,credentials,onLogin,onLogout,da
     try{const result=await communityRequest({action:'submit_prayer',...draft},{credentials,signal:controller.signal});if(result.id!==draft.id)throw new Error('O envio não foi confirmado. Tente novamente.');setReceipt(result);setDraft(newDraft(profile));}
     catch(failure){if(!controller.signal.aborted)setError(failure.message);}finally{if(!controller.signal.aborted)setBusy(false);submitController.current=null;}
   };
-  const navigate=destination=>{setPage(destination);setSelected(null);};
+  const navigate=destination=>setPage(destination);
   return <div className={'church-community'+(dark?' dark':'')} data-theme={dark?'dark':'light'} data-update-blocking={!!draft.message||busy}>
     <div className="church-shell"><header className="church-header"><img src="/brand/v2/mark-color.png" alt="" width="40" height="40"/><div><strong>Louve</strong><span>VIDA EM COMUNIDADE</span></div><button type="button" aria-label={dark?'Ativar tema claro':'Ativar tema escuro'} onClick={()=>setDark(!dark)}><Icon name={dark?'sun':'moon'} size={19}/></button><span className="church-audience">{profile?'Membro':'Visitante'}</span>{profile&&<button type="button" aria-label="Sair da minha conta" onClick={onLogout}><Icon name="logout" size={18}/></button>}</header>
       <main ref={scroll} className="church-scroll" data-main-scroll aria-label="Comunidade da igreja">
@@ -41,11 +42,11 @@ export default function ChurchCommunity({profile,credentials,onLogin,onLogout,da
           <div className="church-welcome-hero"><span className="church-eyebrow">UM LUGAR PARA VOCÊ</span><h1 ref={heading} tabIndex={-1}>{profile?'Bem-vindo, '+profile.name.split(' ')[0]+'.':'Que bom ter você aqui.'}</h1><p>Um lugar para viver a fé em comunidade.</p><span className="church-welcome-note"><Icon name="heart" size={19}/>Você é sempre bem-vindo.</span><img src="/images/community/church.webp" alt="Igreja com portas abertas em arte 3D" width="280" height="345"/></div>
           <div className="church-entry-actions">{profile?<span className="church-member-banner"><Icon name="users" size={19}/>Você faz parte desta comunidade.</span>:<button className="church-login-cta" type="button" onClick={onLogin}><Icon name="lock" size={20}/><span>Fazer login</span><Icon name="right" size={19}/></button>}</div>
           <div className="church-section-heading"><h2>Nosso próximo encontro</h2><button type="button" onClick={()=>navigate('events')}>Ver agenda<Icon name="right" size={14}/></button></div>
-          {loading?<p role="status" className="church-empty">Carregando os próximos encontros…</p>:next?<EventCard event={next} featured onOpen={setSelected}/>:<div className="church-empty"><Icon name="calendar" size={28}/><strong>Novos encontros em breve</strong><p>Acompanhe aqui a agenda publicada pela igreja.</p></div>}
+          {loading?<p role="status" className="church-empty">Carregando os próximos encontros…</p>:next?<EventCard event={next} featured/>:<div className="church-empty"><Icon name="calendar" size={28}/><strong>Novos encontros em breve</strong><p>Acompanhe aqui a agenda publicada pela igreja.</p></div>}
           <button type="button" className="church-prayer-shortcut" onClick={()=>navigate('prayer')}><span><Icon name="heart" size={25}/></span><div><strong>Podemos orar por você?</strong><p>Compartilhe seu pedido com a gente.</p></div><Icon name="right" size={21}/></button>
         </section>}
         {page==='events'&&<section aria-label="Agenda da igreja"><div className="church-page-heading"><div><span className="church-eyebrow">JUNTOS NA MESMA FÉ</span><h1 ref={heading} tabIndex={-1}>Eventos<br/>da igreja</h1><p>Encontre seu próximo momento em comunidade.</p></div><img src="/images/community/calendar.webp" alt="" width="110" height="120"/></div><div className="church-filters" role="group" aria-label="Filtrar agenda">{[['all','Todos'],['week','Esta semana']].map(([id,label])=><button key={id} type="button" aria-pressed={filter===id} onClick={()=>setFilter(id)}>{label}</button>)}</div>
-          {loading?<p role="status" className="church-empty">Carregando agenda…</p>:events.length?<div className="church-events-list">{events.map((event,index)=><EventCard key={event.id} event={event} featured={index===0} onOpen={setSelected}/>)}</div>:<div className="church-empty"><Icon name="calendar" size={30}/><strong>Nenhum encontro neste período</strong><p>Assim que a igreja publicar a programação, ela aparecerá aqui.</p></div>}
+          {loading?<p role="status" className="church-empty">Carregando agenda…</p>:events.length?<div className="church-events-list">{events.map((event,index)=><EventCard key={event.id} event={event} featured={index===0}/>)}</div>:<div className="church-empty"><Icon name="calendar" size={30}/><strong>Nenhum encontro neste período</strong><p>Os próximos encontros aparecerão aqui.</p></div>}
         </section>}
         {page==='prayer'&&<section aria-label="Pedido de oração"><div className="church-prayer-heading"><span className="church-eyebrow">CUIDADO E ACOLHIMENTO</span><h1 ref={heading} tabIndex={-1}>Como podemos<br/>orar por você?</h1><p>Você não precisa caminhar sozinho.</p><img src="/images/community/prayer.webp" alt="Mãos em oração sobre uma Bíblia em arte 3D" width="225" height="205"/></div>
           <form className="church-prayer-form" onSubmit={submit}><fieldset disabled={busy}><div className="church-form-card"><label><span>Seu nome <small>(opcional)</small></span><input value={draft.name} disabled={draft.anonymous} maxLength={100} onChange={event=>change({name:event.target.value})} placeholder="Como podemos chamar você?" autoComplete="name"/></label><label>Seu pedido de oração<textarea value={draft.message} required minLength={10} maxLength={2000} rows={4} onChange={event=>change({message:event.target.value})} placeholder="Escreva aqui o que deseja compartilhar…"/></label><span className="church-counter">{draft.message.length}/2000</span></div>
@@ -59,6 +60,6 @@ export default function ChurchCommunity({profile,credentials,onLogin,onLogout,da
         {page==='bible'&&<section aria-label="Bíblia da comunidade"><h1 ref={heading} tabIndex={-1} className="church-sr-only">Bíblia</h1><BibleView dark={dark} profileId={profile?.id||'visitor'}/></section>}
 
       </main><nav className="church-navigation" aria-label="Navegação da comunidade">{destinations.map(([id,label,icon])=><button type="button" key={id} aria-current={page===id?'page':undefined} onClick={()=>navigate(id)}><Icon name={icon} size={23}/><span>{label}</span></button>)}</nav>
-    </div>{selected&&<Dialog dark={dark} icon="calendar" title={selected.title} onClose={()=>setSelected(null)} closeLabel="Fechar detalhes do encontro"><div className="church-event-detail"><strong>{selected.category}</strong><p><Icon name="calendar"/>{churchDate(selected.starts_at,{weekday:'long'})} · {churchTime(selected.starts_at)}</p>{selected.ends_at&&<p>Até {churchDate(selected.ends_at)} · {churchTime(selected.ends_at)}</p>}{selected.location&&<p><Icon name="pin"/>{selected.location}</p>}<p>{selected.description||'Membros e visitantes são bem-vindos. Venha participar com a comunidade.'}</p><button type="button" className="ui-button ui-button-primary" onClick={()=>setSelected(null)}>Entendi</button></div></Dialog>}
+    </div>
   </div>;
 }

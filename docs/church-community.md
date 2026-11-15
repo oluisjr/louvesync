@@ -14,9 +14,11 @@ A API de dados exige uma sessão válida da equipe para ler as tabelas internas 
 
 ## Agenda pública
 
-**Admin → Comunidade da igreja → Agenda pública** permite criar e editar encontros, local, categoria, descrição, começo, encerramento e publicação. Um rascunho é visível somente à administração. Desmarcar **Publicar na agenda da igreja** retira o encontro da área pública sem apagar o registro. Alterações concorrentes exigem atualizar o evento antes de sobrescrevê-lo.
+A agenda de visitantes e membros mostra os mesmos próximos eventos cadastrados na **Escala** do ministério, incluindo ensaios. Cada card contém somente nome, dia e horário, sem botão ou modal de detalhes. A tela inicial usa o primeiro evento dessa mesma lista. Edições e exclusões feitas na escala aparecem na próxima atualização da agenda: ao abrir ou retomar o app, reconectar ou no ciclo de atualização de um minuto.
 
-As tabelas `louvesync_church_events` e `events` são independentes. Escalas de cultos, equipes e setlists nunca são copiados automaticamente para visitantes. Uma agenda ainda vazia informa que novos encontros serão publicados, sem eventos fictícios.
+`POST /api/community` com `action: public` consulta `events` no servidor, selecionando explicitamente apenas `id,label,date,time`. A resposta é projetada em `id,title,starts_at,time_defined,published`; não contém temas, notas, marcações, participantes, confirmações, músicas, tons ou relacionamentos. Os horários são interpretados no fuso da igreja, America/Sao_Paulo. Quando não há um horário válido, o card informa **Horário a definir**. Eventos anteriores ao dia atual ficam fora da agenda pública.
+
+**Admin → Comunidade da igreja → Agenda pública** passa a mostrar essa mesma lista e oferece **Abrir escala** para gerenciar os encontros na origem. O cadastro separado de eventos foi retirado da interface e a API recusa `save_event`. Os registros antigos de `louvesync_church_events` são preservados no banco, mas não alimentam mais a agenda. As permissões das tabelas do ministério continuam restritas; visitantes recebem apenas o resumo público pela API.
 
 ## Pedidos de oração
 

@@ -1,28 +1,37 @@
 import { createClient } from '@supabase/supabase-js';
 import { createHmac } from 'node:crypto';
 import { normalizeSupabaseUrl } from '../src/lib/supabase-url.js';
-import { churchCategories, prayerStatuses } from '../src/lib/community.js';
+import { prayerStatuses } from '../src/lib/community.js';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const text=(value,max)=>typeof value==='string'&&value.length<=max;
+// Schedule dates and times are authored in the church's Sao Paulo timezone.
+export function publicScheduleEvent(event) {
+  if(!event?.id||typeof event.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(event.date))return null;
+  const day=new Date(event.date+'T12:00:00-03:00');
+  if(!Number.isFinite(day.getTime())||day.toISOString().slice(0,10)!==event.date)return null;
+  const time=typeof event.time==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,6})?)?$/.test(event.time)?event.time:null;
+  return {id:String(event.id),title:typeof event.label==='string'&&event.label.trim()?event.label.trim():'Encontro da igreja',starts_at:new Date(event.date+'T'+(time||'00:00')+'-03:00').toISOString(),time_defined:!!time,published:true};
+}
+async function publicSchedule(db,signal,now) {
+  const today=new Date(now).toLocaleDateString('sv-SE',{timeZone:'America/Sao_Paulo'});
+  const result=await db.from('events').select('id,label,date,time').gte('date',today).order('date').order('time').limit(120).abortSignal(signal);
+  if(result.error)throw result.error;
+  return (result.data||[]).map(publicScheduleEvent).filter(Boolean);
+}
 export function communityPayload(body) {
-  if(!body||!['public','submit_prayer','admin_list','save_event','review_prayer'].includes(body.action))return null;
+  if(!body||!['public','submit_prayer','admin_list','review_prayer'].includes(body.action))return null;
   const payload={action:body.action};
   if(body.memberId!=null||body.pin!=null){if(!text(body.memberId,128)||!body.memberId||!text(body.pin,256)||!body.pin)return null;payload.memberId=body.memberId;payload.pin=body.pin;}
   if(body.action==='submit_prayer'){
     if(!uuid.test(body.id)||!text(body.message,2000)||body.message.trim().length<10||!text(body.name||'',100)||!['team','community'].includes(body.visibility)||typeof body.anonymous!=='boolean'||(body.website!=null&&body.website!==''))return null;
     Object.assign(payload,{id:body.id,message:body.message.trim(),name:body.anonymous?'':(body.name||'').trim(),anonymous:body.anonymous,visibility:body.visibility});
   }
-  if(body.action==='save_event'){
-    const e=body.event;
-    if(!e||!uuid.test(e.id)||!text(e.title,120)||e.title.trim().length<3||!text(e.description||'',4000)||!text(e.location||'',240)||!churchCategories.includes(e.category)||typeof e.published!=='boolean'||!Number.isFinite(Date.parse(e.starts_at))||(e.ends_at&&(!Number.isFinite(Date.parse(e.ends_at))||Date.parse(e.ends_at)<Date.parse(e.starts_at)))||(e.updated_at&&!Number.isFinite(Date.parse(e.updated_at))))return null;
-    payload.event=Object.fromEntries(['id','title','description','location','category','starts_at','ends_at','published','updated_at'].filter(key=>Object.hasOwn(e,key)).map(key=>[key,e[key]]));
-  }
   if(body.action==='review_prayer'){
     if(!uuid.test(body.id)||!Object.hasOwn(prayerStatuses,body.status)||typeof body.published!=='boolean'||(body.reviewed_at&&!Number.isFinite(Date.parse(body.reviewed_at))))return null;
     Object.assign(payload,{id:body.id,status:body.status,published:body.published,reviewed_at:body.reviewed_at||null});
   }
-  if(['admin_list','save_event','review_prayer'].includes(body.action)&&!payload.memberId)return null;
+  if(['admin_list','review_prayer'].includes(body.action)&&!payload.memberId)return null;
   return payload;
 }
 function clients(environment) {
@@ -44,10 +53,10 @@ export function createCommunityHandler({environment=process.env,connect=clients,
       const {db,auth,salt}=connect(environment),signal=AbortSignal.timeout(18000);
       if(payload.action==='public'){
         const [events,prayers]=await Promise.all([
-          db.from('louvesync_church_events').select('id,title,description,starts_at,ends_at,location,category,published').eq('published',true).or('starts_at.gte.'+new Date(now()-86400000).toISOString()+',ends_at.gte.'+new Date(now()).toISOString()).order('starts_at').limit(120).abortSignal(signal),
+          publicSchedule(db,signal,now()),
           db.from('louvesync_prayer_requests').select('id,display_name,anonymous,message,status,created_at').eq('published',true).eq('visibility','community').in('status',['pending','praying','answered']).order('created_at',{ascending:false}).limit(30).abortSignal(signal)
-        ]);if(events.error)throw events.error;if(prayers.error)throw prayers.error;
-        return res.status(200).json({ok:true,events:events.data,prayers:prayers.data});
+        ]);if(prayers.error)throw prayers.error;
+        return res.status(200).json({ok:true,events,prayers:prayers.data});
       }
       let result;
       if(payload.action==='submit_prayer'){
@@ -57,7 +66,9 @@ export function createCommunityHandler({environment=process.env,connect=clients,
         const ipHash=createHmac('sha256',salt).update(address).digest('hex');
         result=await db.rpc('louvesync_submit_prayer',{p_payload:{id:payload.id,message:payload.message,name:payload.name,anonymous:payload.anonymous,visibility:payload.visibility},p_ip_hash:ipHash,p_member_id:payload.anonymous?null:memberId}).abortSignal(signal);
       }else result=await db.rpc('louvesync_community_admin',{p_payload:payload}).abortSignal(signal);
-      if(result.error)throw result.error;if(!result.data?.ok)throw new Error('unconfirmed');return res.status(200).json(result.data);
+      if(result.error)throw result.error;if(!result.data?.ok)throw new Error('unconfirmed');
+      if(payload.action==='admin_list')return res.status(200).json({...result.data,events:await publicSchedule(db,signal,now())});
+      return res.status(200).json(result.data);
     }catch(error){
       const code=typeof error.code==='string'&&/^[A-Z0-9]{5}$/.test(error.code)?error.code:error.message==='not_configured'?'not_configured':'unavailable',status=code==='28000'?403:code==='54000'?429:code==='40001'||code==='23505'?409:code==='42501'?403:['23514','22023','22007','22P02'].includes(code)?400:503;
       const message=code==='28000'?'Acesso restrito. Entre novamente com uma conta autorizada.':code==='54000'?'Você enviou vários pedidos. Aguarde antes de tentar novamente.':code==='40001'?'Este registro mudou em outro aparelho. Atualize a lista e tente novamente.':code==='42501'?'Este pedido não tem autorização para ser compartilhado.':code==='23505'?'Este envio já foi recebido com outros dados. Atualize a página antes de enviar um novo pedido.':status===400?'Confira os campos e tente novamente.':'A comunidade está temporariamente indisponível. Seu texto foi preservado para tentar novamente.';

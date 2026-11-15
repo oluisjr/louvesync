@@ -23,10 +23,10 @@ export function communityDatabase(state,getBaseDb) {
       return row.rows[0].result;
     });},
     from(table){
-      if(!['louvesync_church_events','louvesync_prayer_requests'].includes(table))throw new Error('Unexpected community table');
-      const filters=[],values=[];let columns,order='created_at',ascending=true,limit=100;
+      if(!['events','louvesync_church_events','louvesync_prayer_requests'].includes(table))throw new Error('Unexpected community table');
+      const filters=[],values=[],orders=[];let columns,limit=100;
       const bind=value=>{values.push(value);return '$'+values.length;};
-      const chain={select(value){columns=value;return chain;},eq(key,value){filters.push(key+'='+bind(value));return chain;},in(key,list){filters.push(key+' in('+list.map(bind).join(',')+')');return chain;},or(){const value=bind(new Date(state.activityNow).toISOString());filters.push('(starts_at>='+value+' or ends_at>='+value+')');return chain;},order(key,options={}){order=key;ascending=options.ascending!==false;return chain;},limit(value){limit=value;return chain;},abortSignal:async()=>{try{const db=await database();return {data:(await db.query('select '+columns+' from '+table+' where '+filters.join(' and ')+' order by '+order+(ascending?' asc':' desc')+' limit '+limit,values)).rows,error:null};}catch(error){return {data:null,error:{code:error.code,message:error.message}};}}};
+      const chain={select(value){columns=value;return chain;},eq(key,value){filters.push(key+'='+bind(value));return chain;},gte(key,value){filters.push(key+'>='+bind(value));return chain;},in(key,list){filters.push(key+' in('+list.map(bind).join(',')+')');return chain;},or(){const value=bind(new Date(state.activityNow).toISOString());filters.push('(starts_at>='+value+' or ends_at>='+value+')');return chain;},order(key,options={}){orders.push(key+(options.ascending===false?' desc':' asc'));return chain;},limit(value){limit=value;return chain;},abortSignal:async()=>{try{const db=await database();return {data:(await db.query('select '+columns+' from '+table+(filters.length?' where '+filters.join(' and '):'')+(orders.length?' order by '+orders.join(','):'')+' limit '+limit,values)).rows,error:null};}catch(error){return {data:null,error:{code:error.code,message:error.message}};}}};
       return chain;
     }
   };

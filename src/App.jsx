@@ -1006,7 +1006,7 @@ const PatrimonioScreen = memo(({members, profile, dark, embedded = false}) => {
 });
 
 /* ─── PAINEL ADMIN ──────────────────────────────────────────── */
-const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState, setMembers, activity, onUpdateOwnPin})=>{
+const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState, setMembers, activity, onUpdateOwnPin, onNavTo})=>{
   const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
 
@@ -1108,7 +1108,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
       )}
     </div>
 
-    {adminTab === 'comunidade' && <ChurchAdmin dark={dark} credentials={activity.credentials}/>}
+    {adminTab === 'comunidade' && <ChurchAdmin dark={dark} credentials={activity.credentials} onOpenSchedule={()=>onNavTo('escala')}/>}
     {adminTab === 'geral' && <>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}} className="aUp">
         <div className={gc} style={{padding:16,borderRadius:'var(--r-lg)',textAlign:'center'}}>
@@ -2893,7 +2893,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
             {tab==='treinamento'&&!inCifra&&<Treinamento dark={dark} profile={profile}/>}
             {tab==='biblia'&&!inCifra&&<Biblia dark={dark} profileId={profile?.id}/>}
-            {profile?.is_admin&&tab==='admin'&&!inCifra&&<PainelAdmin onUpdateOwnPin={handleOwnPinChanged} dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState} setMembers={setAllMembers} activity={activity}/>}
+            {profile?.is_admin&&tab==='admin'&&!inCifra&&<PainelAdmin onNavTo={navTo} onUpdateOwnPin={handleOwnPinChanged} dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState} setMembers={setAllMembers} activity={activity}/>}
           </>}
         </div>
           {moreOpen&&!inCifra&&<div className="app-more-scroll"><MoreMenu tabs={TABS} currentTab={tab} onNavigate={navTo} onClose={closeMore} dark={dark}/></div>}
