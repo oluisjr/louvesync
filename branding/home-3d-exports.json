@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "sourceConcept": "21-inicio-palco-cor-bg.png",
+  "sourceCutout": "home-worship-stage.png",
+  "generation": "Native ImageGen export of the approved stage illustration, preserving instruments, cross, camera and materials.",
+  "export": "Trim transparent margins; proportional resize; WebP quality 92, alpha quality 100; no recoloring.",
+  "path": "/images/home/worship-stage.webp",
+  "width": 984,
+  "height": 730,
+  "bytes": 107146,
+  "sha256": "c7033b5b5ea2c9e3f3b35a059c1a99c56ba38ac34b02c181e81394bcc87e594a"
+}

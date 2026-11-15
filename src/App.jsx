@@ -15,6 +15,7 @@ import MemberEditor from './components/MemberEditor.jsx';
 import EquipmentEditor from './components/EquipmentEditor.jsx';
 import EquipmentInventory from './components/EquipmentInventory.jsx';
 import Repertorio from './components/Repertoire.jsx';
+import Home from './components/HomeScreen.jsx';
 import AppNavigation from './components/AppNavigation.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import CommunityMural from './components/CommunityMural.jsx';
@@ -241,19 +242,6 @@ function patchEvent(ev){
     sequenceBySong: ev.sequenceBySong || {},
   });
 }
-function getSetlistCategoryOrder(cat){
-  const order = ['corinho','jubilo','hinario','adoracao','oferta','ceia'];
-  const idx = order.indexOf(String(cat || '').toLowerCase());
-  return idx === -1 ? 99 : idx;
-}
-function sortSongsByCategoryAndTitle(a,b){
-  const oa = getSetlistCategoryOrder(a?.cat);
-  const ob = getSetlistCategoryOrder(b?.cat);
-  if (oa !== ob) return oa - ob;
-  return String(a?.title || '').localeCompare(String(b?.title || ''), 'pt-BR', { sensitivity: 'base' });
-}
-
-
 function readableTextColor(color,dark){
   const tints=dark?{'#4F46E5':'#BD97FF','#7B3FF2':'#CA9FFF','#00C9A7':'#2EE0B6','#FF6B35':'#FFAA68','#EC4899':'#FF83C1','#E11D48':'#FF8BA4','#06B6D4':'#47D7F0','#10B981':'#37E3A3','#EF4444':'#FF8BA4','#F59E0B':'#FFC250','#94A3B8':'#D7C7EA'}:{'#00C9A7':'#007A63','#FF6B35':'#B64315','#EC4899':'#B61969','#E11D48':'#BE123C','#06B6D4':'#08758B','#10B981':'#007A59','#EF4444':'#C92D4A','#F59E0B':'#9B6100','#94A3B8':'#514064'};
   return typeof color==='string'?(tints[color.toUpperCase()]||color):color;
@@ -391,7 +379,6 @@ const IcoTrash   = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill=
 const IcoGuitar  = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.11 8.89L4 16l-1 3 3-1 7.11-7.11"/><path d="M14 7l3-3 1 1-3 3"/><circle cx="14.5" cy="9.5" r="2.5"/></svg>;
 const IcoMural   = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M7 7h10M7 11h8M7 15h5"/></svg>;
 const IcoMic     = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4"/><path d="M8 23h8"/></svg>;
-const IcoPlus    = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 const IcoCheck   = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
 const IcoX       = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 const IcoEdit    = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
@@ -1446,224 +1433,6 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
 });
 
 /* ─── HOME ──────────────────────────────────────────────────── */
-const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSetAddOpen,onConfirm,spawnConfetti,onCreateEvent})=>{
-  const tc='var(--home-text)', t2='var(--home-muted)';
-  const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
-  const todayStr=today();
-
-  const upcoming=events.filter(e=>e.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date));
-  const [selDay, setSelDay] = useState(todayStr);
-  const nextGlobal = upcoming[0];
-
-  // Exibir TODOS os eventos do dia selecionado
-  let displayEvents = events.filter(e => e.date === selDay).sort((a,b)=>a.time.localeCompare(b.time));
-  if (displayEvents.length === 0 && nextGlobal) {
-    displayEvents = [nextGlobal];
-  }
-
-  // Month carousel logic
-  const monthKey=todayStr.slice(0,7);
-  const monthDays = useMemo(() => {
-    const [year,month]=monthKey.split('-').map(Number);
-    const now = new Date(year,month-1,1);
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const fDayNum = firstDay.getDay() || 7;
-    const startCal = new Date(firstDay);
-    startCal.setDate(firstDay.getDate() - fDayNum + 1);
-
-    const days = [];
-    let cur = new Date(startCal);
-    while (cur <= lastDay || (cur.getDay() || 7) !== 1) {
-      days.push(new Date(cur));
-      cur.setDate(cur.getDate() + 1);
-      if (cur > lastDay && (cur.getDay() || 7) === 1) break;
-    }
-    return days;
-  }, [monthKey]);
-
-  // Sync scroll to today
-  const homeScrollRef = useRef(null);
-  useDraggableScroll(homeScrollRef);
-  useEffect(() => {
-    if (homeScrollRef.current) {
-       const todayEl = homeScrollRef.current.querySelector('[data-istoday="true"]');
-       if (todayEl) {
-           const containerCenter = homeScrollRef.current.clientWidth / 2;
-           const elCenter = todayEl.offsetLeft + todayEl.clientWidth / 2;
-           homeScrollRef.current.scrollTo({left: elCenter - containerCenter, behavior: 'smooth'});
-       }
-    }
-  }, []);
-
-  // Pending Confirmations Block
-  const d3 = new Date();
-  d3.setDate(d3.getDate() + 3);
-  const d3Str = d3.toLocaleDateString('sv-SE');
-  const pendingEvents = upcoming.filter(e => e.date <= d3Str && (e.members||[]).includes(profile?.id) && (e.confirmations||{})[profile?.id] === undefined);
-  const nxtPending = pendingEvents[0];
-
-  const isVocal = profile?.instrument?.toLowerCase().includes('vocal');
-  const vocalCats = [];
-  if (isVocal) {
-    if (profile?.name?.includes('Cleide') || profile?.name?.includes('Kassya')) vocalCats.push('adoração');
-    if (profile?.name?.includes('Lidia') || profile?.name?.includes('Maria')) vocalCats.push('hinário');
-    if (profile?.name?.includes('Josi') || profile?.name?.includes('Sonia')) vocalCats.push('júbilo');
-    vocalCats.push('oferta', 'santa ceia');
-  }
-
-  return <div className="app-page home-page">
-    {/* Greeting */}
-    <div className="aUp" style={{marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-      <div>
-        <div style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',fontWeight:800,marginBottom:4,letterSpacing:'.08em'}}>✦ BEM-VINDO DE VOLTA</div>
-        <div className="font-serif" style={{fontSize:'var(--fs-2xl)',fontWeight:900,color:tc,letterSpacing:'-.03em',lineHeight:1.1}}>{profile?.name?.split(' ')[0]||'Usuário'}<br/><span style={{opacity:.55, fontWeight:400, fontSize:'var(--fs-lg)'}}>{profile?.role||'Membro'}</span></div>
-      </div>
-      <div style={{textAlign:'right',paddingTop:4}}>
-        <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',marginBottom:2}}>Hoje</div>
-        <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>{new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'})}</div>
-      </div>
-    </div>
-
-    {/* Stats */}
-    <div className="home-stats" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:12}}>
-      {[{v:songs.length,l:'Músicas',c:'#4F46E5'},{v:members.filter(m=>m.status==='ativo').length,l:'Membros',c:'#10B981'},{v:upcoming.filter(e=>e.type==='culto').length,l:'Cultos',c:'#F59E0B'},{v:events.reduce((acc,e)=>{const c=e.confirmations[profile?.id];return acc+(c===true?1:0);},0),l:'Confirm.',c:'#EC4899'}].map((s,i)=>
-        <div key={s.l} className={`${gc} aUp`} style={{borderRadius:'var(--r-lg)',padding:'12px 6px',textAlign:'center',animationDelay:`${i*.05}s`}}>
-          <div style={{fontSize:18,fontWeight:900,color:readableTextColor(s.c,dark),lineHeight:1}}>{s.v}</div>
-          <div style={{fontSize:8,color:t2,fontWeight:700,marginTop:2}}>{s.l}</div>
-        </div>)}
-    </div>
-
-    {/* Vocal Alert */}
-    {isVocal && (
-      <div className="aUp home-illustrated home-reminder" style={{marginBottom:16,borderLeft:'4px solid #F59E0B',padding:12,borderRadius:'var(--r-md)',animationDelay:'.2s'}}>
-        <div style={{fontSize:'var(--fs-sm)',color:tc,fontWeight:700,marginBottom:4}}>🎤 Lembrete para Vocais</div>
-        <div style={{fontSize:'var(--fs-xs)',color:t2}}>
-          Atenção! Você é responsável por alimentar o nosso repertório com novas músicas das seguintes categorias: <strong>{vocalCats.join(', ')}</strong>.
-        </div>
-      </div>
-    )}
-
-    {/* 🎵 Música da Semana */}
-    {songs.find(s=>s.featured_week)&&(()=>{
-      const feat=songs.find(s=>s.featured_week);
-      return <button type="button" aria-label={'Estudar '+feat.title} className={`${gc} aUp home-illustrated home-featured`} style={{...CS,animationDelay:'.03s'}} onClick={()=>onSelectSong(feat)}>
-        <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'var(--app-link, #4F46E5)',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:6,display:'flex',alignItems:'center',gap:5}}>📌 Música da Semana</div>
-        <div className="font-serif" style={{fontSize:20,fontWeight:900,color:tc,lineHeight:1.2}}>{feat.title}</div>
-        <div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:3,marginBottom:10}}>{feat.artist} · Tom {feat.key}</div>
-        {feat.featured_note&&<div className="home-featured-note" style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',borderRadius:'var(--r-sm)',padding:'6px 10px',marginBottom:8,fontStyle:'italic'}}>"{feat.featured_note}"</div>}
-        <div style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',fontWeight:700}}>Toque para estudar →</div>
-      </button>;
-    })()}
-
-    {/* Confirmações Pendentes */}
-    <div className={`${gc} aUp home-illustrated home-pending`} style={{...CS,animationDelay:'.08s'}}>
-        <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'#F59E0B',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:6}}><IcoBell s={12}/> Confirmações Pendentes (Próx. 3 dias)</div>
-        {nxtPending ? (
-            <div>
-              <div style={{fontSize:16,fontWeight:900,color:tc,lineHeight:1.2,marginBottom:4}}>{nxtPending.label}</div>
-              <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:10}}>{fDate(nxtPending.date)} · {nxtPending.time}</div>
-              <div style={{display:'flex',gap:8}}>
-                <button onClick={()=>{onConfirm(nxtPending.id,true);spawnConfetti();}} style={{flex:1,padding:'8px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'#10B981',color:'#fff',transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><IcoCheck s={12}/>Confirmar</button>
-                <button onClick={()=>onConfirm(nxtPending.id,false)} style={{flex:1,padding:'8px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'#EF4444',color:'#fff',transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><IcoX s={12}/>Recusar</button>
-              </div>
-            </div>
-        ) : (
-            <div style={{fontSize:'var(--fs-sm)',color:t2,fontWeight:600,fontStyle:'italic'}}>Você já está ciente de todos os próximos eventos por enquanto...</div>
-        )}
-    </div>
-
-    {/* Month carousel */}
-    <div className={`${gc} aUp`} style={{...CS,animationDelay:'.06s',position:'relative'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-        <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:6}}><IcoCal s={12}/>Agenda do Mês</div>
-      </div>
-      <div ref={homeScrollRef} style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2,scrollbarWidth:'none'}} className="hide-scroll">
-        {monthDays.map(dt=>{
-          const ds=dt.toLocaleDateString('sv-SE');
-          const ev=events.find(e=>e.date===ds);
-          const isT=ds===todayStr;
-          const isSel=ds===selDay;
-          return(
-          <div key={ds} data-istoday={isT} onClick={()=>{
-              if(isSel && !ev && profile?.is_admin) onCreateEvent(ds);
-              else setSelDay(ds);
-          }} style={{flexShrink:0,width:50,borderRadius:'var(--r-md)',padding:'9px 0',textAlign:'center',cursor:'pointer',background:isSel?'#4F46E5':ev?'rgba(79,70,229,.08)':'transparent',border:`1px solid ${ev&&!isSel?'rgba(79,70,229,.2)':'transparent'}`,transition:'all .2s',opacity:ev||isSel?1:.45}}>
-            <div style={{fontSize:8,fontWeight:700,color:isSel?'rgba(255,255,255,.75)':t2,marginBottom:3}}>{dt.toLocaleDateString('pt-BR',{weekday:'short'}).slice(0,3).toUpperCase()}</div>
-            <div style={{fontSize:18,fontWeight:900,color:isSel?'#fff':ev?'var(--app-link, #4F46E5)':tc,lineHeight:1}}>{dt.getDate()}</div>
-            {ev&&<div style={{width:5,height:5,borderRadius:'50%',margin:'5px auto 0',background:isSel?'rgba(255,255,255,.8)':ev.type==='culto'?'#4F46E5':'#10B981'}}/>}
-          </div>);
-        })}
-      </div>
-    </div>
-
-    {/* Events List */}
-    {displayEvents.length > 0 ? displayEvents.map(evt => {
-      const isNext = evt.id === nextGlobal?.id;
-      const t = evt.type || 'culto';
-      let badgeLabel = t === 'culto' ? 'CULTO' : t === 'ensaio' ? 'ENSAIO' : t === 'ebd' ? 'EBD' : 'CONSAGRAÇÃO';
-      if (isNext) badgeLabel = 'PRÓXIMO ' + badgeLabel;
-
-      const nS = (evt.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean).sort(sortSongsByCategoryAndTitle)||[];
-      const nM = evt.members?.map(id=>members.find(m=>m.id===id)).filter(Boolean)||[];
-      const showSetlist = t !== 'ensaio' && t !== 'ebd' && t !== 'consagracao' && nS.length > 0;
-
-      return <div key={evt.id} className={`${gc} aUp`} style={{...CS,animationDelay:'.11s',position:'relative',overflow:'hidden'}}>
-        <div style={{position:'absolute',top:0,right:0,width:100,height:100,background:'linear-gradient(135deg,rgba(79,70,229,.07),transparent)',borderRadius:'0 var(--r-xl) 0 100%'}}/>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
-          <div>
-            <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,marginBottom:6,background:t==='culto'?'rgba(79,70,229,.1)':'rgba(16,185,129,.1)',color:t==='culto'?'var(--app-link, #4F46E5)':"var(--app-positive, #059669)",border:`1px solid ${t==='culto'?'rgba(79,70,229,.2)':'rgba(16,185,129,.2)'}`}}>{badgeLabel.toUpperCase()}</span>
-            <div style={{fontSize:17,fontWeight:900,color:tc,lineHeight:1.2}}>{evt.label}</div>
-          </div>
-          <div style={{textAlign:'right',flexShrink:0}}><div style={{fontSize:19,fontWeight:900,color:tc,lineHeight:1}}>{evt.time}</div><div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:2}}>{fDate(evt.date)}</div></div>
-        </div>
-        {evt.theme&&<div style={{background:'rgba(79,70,229,.06)',borderRadius:'var(--r-sm)',padding:'8px 12px',marginBottom:12,fontSize:'var(--fs-sm)',color:'var(--app-link, #4F46E5)',fontWeight:700,border:'1px solid rgba(79,70,229,.14)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>  {evt.theme}</div>}
-
-        {showSetlist && <div style={{marginBottom:12}}>
-          <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:7}}>Setlist</div>
-          {nS.map((s,i)=><div key={s.id} onClick={()=>onSelectSong(s,evt)} className="touch-scale" style={{display:'flex',alignItems:'center',gap:9,padding:'8px 0',borderBottom:i<nS.length-1?`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`:''}}>
-            <span style={{width:22,height:22,borderRadius:7,background:'rgba(79,70,229,.1)',color:'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{i+1}</span>
-            <div style={{flex:1}}><div className="font-serif" style={{fontSize:16,fontWeight:800,color:tc,lineHeight:1.2}}>{String(s.title || 'Sem Título')}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{String(s.artist || 'Ministério')}</div></div>
-            <KeyChip k={performanceKey(s,evt)} size={10}/>
-          </div>)}
-        </div>}
-
-        <div style={{display:'flex',alignItems:'center',gap:4,flexWrap:'wrap'}}>
-          {nM.slice(0,7).map((m,i)=><div key={m.id} style={{marginLeft:i?-8:0,zIndex:10-i}}><Ava m={m} size={26} ring/></div>)}
-          {nM.length>7&&<span style={{fontSize:'var(--fs-xs)',color:t2,marginLeft:5,fontWeight:600}}>+{nM.length-7}</span>}
-          <span style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:600,marginLeft:6}}>{nM.length} escalado{nM.length!==1?'s':''}</span>
-          {t==='ensaio'&&<button className="ui-button ui-button-soft ui-button-small" style={{marginLeft:'auto'}} onClick={()=>onNavTo('ensaio')}>Abrir Ensaio <Icon name="right" size={14}/></button>}
-        </div>
-      </div>
-    }) : <EmptyState icon={<IcoCal s={32}/>} title="Nenhum evento neste dia" sub="Quando houver um evento agendado, ele aparecerá aqui." cta={"Criar evento"}/>}
-
-    {/* Quick actions */}
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}} className="aUp">
-      {[{ico:<IcoSpark s={22}/>,l:'Maestro',s:'IA de adoração',g:'linear-gradient(135deg,#4F46E5,#7C3AED)',a:()=>onNavTo('ia')},{ico:<IcoPlus s={22}/>,l:'Adicionar',s:'Nova música',g:'linear-gradient(135deg,#10B981,#059669)',a:()=>onSetAddOpen(true)}].map(a=>
-        <button key={a.l} onClick={a.a} className="touch-scale" style={{padding:'16px 14px',borderRadius:'var(--r-xl)',border:'none',background:a.g,display:'flex',flexDirection:'column',alignItems:'flex-start',gap:5,boxShadow:'0 6px 20px rgba(0,0,0,.14)'}}>
-          <span style={{color:'rgba(255,255,255,.85)'}}>{a.ico}</span>
-          <span style={{fontSize:'var(--fs-base)',fontWeight:800,color:'#fff'}}>{a.l}</span>
-          <span style={{fontSize:'var(--fs-xs)',color:'rgba(255,255,255,.7)',fontWeight:600}}>{a.s}</span>
-        </button>)}
-    </div>
-
-    {/* Team strip */}
-    <div className={`${gc} aUp`} style={{...CS,animationDelay:'.17s',marginBottom:20}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,letterSpacing:'.1em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:6}}><IcoPeople s={12}/>Equipe Ativa</div>
-        <button onClick={()=>onNavTo('membros')} style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',fontWeight:700,border:'none',background:'transparent',cursor:'pointer'}}>Ver todos →</button>
-      </div>
-      <div style={{display:'flex',gap:14,overflowX:'auto',paddingBottom:2}}>
-        {members.filter(m=>m.status==='ativo').slice(0,6).map(m=><div key={m.id} style={{flexShrink:0,textAlign:'center'}}>
-          <Ava m={m} size={44} ring/>
-          <div style={{fontSize:'var(--fs-xs)',fontWeight:700,color:tc,marginTop:5,width:46,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.name.split(' ')[0]}</div>
-          <div style={{fontSize:8,color:t2}}>{m.instrument}</div>
-        </div>)}
-      </div>
-    </div>
-  </div>;
-});
-
 /* ─── CIFRA ─────────────────────────────────────────────────── */
 const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metronome,setStageMode,onSendAI,onNavTo,onDeleteSong,onSetSequence,onSaveVocalKey,onSaveSong,profile,members,fontFam})=>{
   const iframeRef = useRef(null);
@@ -2824,7 +2593,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
       <div style={{padding:'16px 20px 52px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
           <div><div className="font-serif" style={{fontSize:24,fontWeight:900,color:tc}}>{ev.label}</div><div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:3}}>{fDate(ev.date)} · {ev.time}</div></div>
-          <button onClick={onClose} style={{width:34,height:34,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.07)',color:t2,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={14}/></button>
+          <button aria-label="Fechar detalhes do evento" onClick={onClose} style={{width:34,height:34,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.07)',color:t2,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={14}/></button>
         </div>
         {ev.theme&&<div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-sm)',padding:'9px 14px',marginBottom:14,fontSize:'var(--fs-sm)',color:'var(--app-link, #4F46E5)',fontWeight:700,border:'1px solid rgba(79,70,229,.15)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
         {profile?.is_admin&&<ViewersButton activity={activity} targetType="event" targetId={ev.id} title={ev.label} context={`${new Date(ev.date+'T12:00:00').toLocaleDateString('pt-BR')} · ${String(ev.time||'').slice(0,5)}`} members={members} audience={ev.members} dark={dark}/>}
@@ -2954,6 +2723,7 @@ export default function LouveSync() {
   });
   const navigationRef=useNavigationClearance();
   const [tab,setTab]=useState('home');
+  const [homeDate,setHomeDate]=useState(null);
   const [moreOpen,setMoreOpen]=useState(false);
   const closeMore=useCallback(()=>setMoreOpen(false),[]);
   const [selectedSong,setSelSong]=useState(null);
@@ -2973,6 +2743,7 @@ export default function LouveSync() {
   const [escalaWeek,setEscalaWeek]=useState(null);
   const mainScrollRef=useRef(null);
   const previousScroll=useRef(0);
+  const returnToEvent=useRef(false);
   const [syncError,setSyncError]=useState('');
   const [connectionStatus,setConnectionStatus]=useState('offline');
   const [addOpen,setAddOpen]=useState(false);
@@ -3189,7 +2960,7 @@ export default function LouveSync() {
 
   const backFromSong=useCallback(()=>{
     stopMetronome();setSelSong(null);setSelEvent(null);
-    if(selEvent)setEvSheet(selEvent);
+    if(selEvent&&returnToEvent.current)setEvSheet(selEvent);
     requestAnimationFrame(()=>{if(mainScrollRef.current)mainScrollRef.current.scrollTop=previousScroll.current;});
   },[selEvent,stopMetronome]);
   /* ── Preserve event context for browser and Android back navigation ── */
@@ -3202,7 +2973,7 @@ export default function LouveSync() {
   useEffect(()=>{
     const handlePopState=()=>{
       if(stageMode){setStageMode(false);previousOverlay.current='cifra';return;}
-      if(inCifra){previousOverlay.current=selEvent?'event':null;backFromSong();return;}
+      if(inCifra){previousOverlay.current=selEvent&&returnToEvent.current?'event':null;backFromSong();return;}
       if(addOpen){setAddOpen(false);return;}
       if(createEvOpen){setCreateEvOpen(false);return;}
       if(notifsOpen){setNotifsOpen(false);return;}
@@ -3269,7 +3040,7 @@ export default function LouveSync() {
     void notifications.detach();
     localStorage.removeItem('ls_profile');
     localStorage.removeItem('ls_last_activity');
-    setProfile(null); setMoreOpen(false); setSelSong(null); setSelEvent(null); setTab('home');
+    setProfile(null); setMoreOpen(false); setSelSong(null); setSelEvent(null); setHomeDate(null); setTab('home');
   }
   function navTo(t){
     if(moreOpen){setMoreOpen(false);requestAnimationFrame(()=>mainScrollRef.current?.scrollTo({top:0}));}
@@ -3286,6 +3057,7 @@ export default function LouveSync() {
   function selectSong(s,ev=null,activeKey=null){
     if(!s) return alert('Ops! Esta música ainda não foi adicionada no Repertório.');
     console.log('🎵 selectSong called with:', {title: s.title, artist: s.artist, id: s.id});
+    returnToEvent.current=!!ev&&!!evSheet;
     // Close any overlays that might block the cifra view (fixes white/blank screen)
     if (stageMode) setStageMode(false);
     if (addOpen) setAddOpen(false);
@@ -3309,13 +3081,13 @@ export default function LouveSync() {
   }
 
   async function handleConfirm(eventId,confirmed){
-    if(!profile)return;
+    if(!profile)return false;
     const previous=events.find(event=>event.id===eventId)?.confirmations?.[profile.id];
     setEvents(evs=>evs.map(ev=>ev.id===eventId?{...ev,confirmations:{...ev.confirmations,[profile.id]:confirmed}}:ev));
-    if(!isOnline){setSyncQueue(prev=>[...prev,{type:'confirm',data:{eventId,memberId:profile.id,confirmed}}]);return;}
-    if(!supabase)return;
-    try{await setPresence(eventId,profile.id,confirmed);await broadcastUpdate({type:'data_changed'});notifyChanges();}
-    catch(error){setEvents(evs=>evs.map(ev=>ev.id===eventId?{...ev,confirmations:{...ev.confirmations,[profile.id]:previous}}:ev));setSyncError(`Presença não salva: ${error.message}`);}
+    if(!isOnline){setSyncQueue(prev=>[...prev,{type:'confirm',data:{eventId,memberId:profile.id,confirmed}}]);return true;}
+    if(!supabase)return true;
+    try{await setPresence(eventId,profile.id,confirmed);await broadcastUpdate({type:'data_changed'});notifyChanges();return true;}
+    catch(error){setEvents(evs=>evs.map(ev=>ev.id===eventId?{...ev,confirmations:{...ev.confirmations,[profile.id]:previous}}:ev));setSyncError(`Presença não salva: ${error.message}`);return false;}
   }
 
   const handleSetSinger=async(eventId,songId,singerMemberId)=>{
@@ -3526,7 +3298,7 @@ export default function LouveSync() {
         <div className="app-content">
         <div ref={mainScrollRef} className="app-main" data-main-scroll data-song-open={inCifra} inert={moreOpen&&!inCifra} aria-hidden={moreOpen&&!inCifra ? true : undefined}>
           {dataLoading&&!inCifra&&(tab!=='repertorio'||!songs.length)?<Skeleton dark={dark} count={6}/>:<>
-            {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
+            {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} selectedDate={homeDate} onDateChange={setHomeDate} songs={songs} events={events} members={allMembers} Avatar={Ava} onOpenEvent={openEvent} onNavTo={navTo} onSelectSong={selectSong} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} categories={CAT} loading={dataLoading} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
             {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metronome={metronome} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} onSaveSong={handleSaveSong} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
 

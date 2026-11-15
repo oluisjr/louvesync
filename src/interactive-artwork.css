@@ -1,0 +1,6 @@
+.interactive-artwork { --art-rx:0deg; --art-ry:0deg; --art-dx:0px; --art-dy:0px; display:block; width:100%; min-width:0; padding:0; border:0; border-radius:16px; background:transparent; perspective:650px; touch-action:pan-y; user-select:none; -webkit-user-select:none; cursor:grab; }
+.interactive-artwork[data-dragging="true"] { cursor:grabbing; }
+.interactive-artwork img { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; user-select:none; -webkit-user-drag:none; transform:translate3d(var(--art-dx),var(--art-dy),0) rotateX(var(--art-rx)) rotateY(var(--art-ry)); transform-origin:center 65%; transition:transform 330ms cubic-bezier(.18,.8,.25,1); }
+.interactive-artwork[data-dragging="true"] img { transition:none; }
+.interactive-artwork:focus-visible { outline:2px solid var(--app-link); outline-offset:2px; }
+@media (prefers-reduced-motion:reduce) { .interactive-artwork img { transition:none; } }

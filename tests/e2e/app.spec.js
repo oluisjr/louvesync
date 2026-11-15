@@ -575,7 +575,12 @@ async function fixture(browser) {
         if(index<0)state.members.push(structuredClone(args[0]));else state.members[index]=structuredClone(args[0]);
         return args[0];
       }
-      if (action === 'setPresence') { state.events[0].event_members.find(row => row.member_id === args[1]).confirmed = args[2]; return; }
+      if (action === 'setPresence') {
+        (state.presenceRequests||=[]).push(structuredClone(args));
+        await state.presenceSaveGate;
+        if(state.presenceSaveError)throw new Error(state.presenceSaveError);
+        state.events.find(event=>event.id===args[0]).event_members.find(row=>row.member_id===args[1]).confirmed=args[2];return;
+      }
       if (action === 'rehearsalUpload') {
         (state.audioUploads||=[]).push(structuredClone(args[0]));
         return {error:state.audioUploadError?{message:state.audioUploadError}:null};
@@ -815,7 +820,9 @@ for(const theme of ['light','dark']){
       await expect(home.locator('.home-featured')).toContainText('Pratique a transição');
       await expect(home.locator('.home-pending').getByRole('button',{name:'Confirmar',exact:true})).toBeVisible();
       await first.screenshot({path:test.info().outputPath('home-'+theme+'.png'),scale:'css'});
+      await home.locator('.home-featured').evaluate(element=>element.scrollIntoView({block:'center'}));
       await home.getByRole('button',{name:'Estudar Teste ceia',exact:true}).click();
+      expect(app.failures).toEqual([]);
       await expect(first.locator('.app-header')).toContainText('Teste ceia');
       await expect(first.locator('.app-nav')).toHaveCount(0);
       await first.getByRole('button',{name:'Voltar',exact:true}).click();
@@ -824,7 +831,7 @@ for(const theme of ['light','dark']){
       await home.locator('.home-pending').getByRole('button',{name:'Confirmar',exact:true}).click();
       await expect.poll(()=>app.state.events[0].event_members[0].confirmed).toBe(true);
       for(const page of [first,observer]){
-        await expect(page.locator('.home-pending')).toContainText('Você já está ciente de todos os próximos eventos');
+        await expect(page.locator('.home-pending')).toContainText('Presença confirmada.');
         await expect(page.locator('.home-stats > div').filter({hasText:'Confirm.'})).toContainText('1');
       }
       await first.getByRole('button',{name:'Escala',exact:true}).click();
@@ -836,6 +843,119 @@ for(const theme of ['light','dark']){
     }finally{await app.close();}
   });
 }
+
+for(const theme of ['light','dark'])test(`Home stage supports drag and keyboard with preserved backgrounds and compact layouts in ${theme}`,async({browser})=>{
+  const app=await fixture(browser);
+  app.state.songs[0].featured_week=true;
+  app.state.events[0].theme='Unidos em adoração';
+  try{
+    const page=await app.open(admin,undefined,{theme,device:{...devices['iPhone 13'],viewport:{width:390,height:844}},standalone:true});
+    const home=page.locator('.home-page'),art=home.getByRole('button',{name:'Mover ilustração do palco',exact:true}),image=art.locator('img');
+    await expect(image).toHaveAttribute('src','/images/home/worship-stage.webp');
+    await expect.poll(()=>image.evaluate(element=>element.complete&&element.naturalWidth>0)).toBe(true);
+    await expect(home.locator('.home-calendar-dates [aria-pressed="true"]')).toHaveCSS('background-color','rgb(101, 68, 232)');
+    for(const [selector,file] of [['.home-pending','devotional-ribbons'],['.home-featured','worship-landscape']])expect(await home.locator(selector).evaluate(element=>getComputedStyle(element).backgroundImage)).toContain(`${file}${theme==='dark'?'-dark':''}.webp`);
+    const bounds=await art.boundingBox();
+    await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2);await page.mouse.down();
+    await page.mouse.move(bounds.x+bounds.width/2+45,bounds.y+bounds.height/2-15,{steps:5});
+    await expect(art).toHaveAttribute('data-dragging','true');
+    await expect.poll(()=>art.evaluate(element=>parseFloat(element.style.getPropertyValue('--art-ry')))).toBeGreaterThan(0);
+    await page.mouse.up();await expect(art).toHaveAttribute('data-dragging','false');
+    await expect.poll(()=>art.evaluate(element=>element.style.getPropertyValue('--art-ry'))).toBe('0deg');
+    await art.focus();await page.keyboard.down('ArrowLeft');
+    await expect.poll(()=>art.evaluate(element=>parseFloat(element.style.getPropertyValue('--art-ry')))).toBeLessThan(0);
+    await page.keyboard.up('ArrowLeft');await expect.poll(()=>art.evaluate(element=>element.style.getPropertyValue('--art-ry'))).toBe('0deg');
+    if(theme==='light'){
+      const touch=await page.context().newCDPSession(page),x=bounds.x+bounds.width/2,y=bounds.y+bounds.height/2;
+      await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+      await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+40,y:y+2}]});
+      await expect.poll(()=>art.evaluate(element=>parseFloat(element.style.getPropertyValue('--art-ry')))).toBeGreaterThan(0);
+      await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await touch.detach();
+      await expect(art).toHaveAttribute('data-dragging','false');
+    }
+    await page.emulateMedia({reducedMotion:'reduce'});await expect(image).toHaveCSS('transition-duration','0s');
+    await art.evaluate(element=>element.blur());
+    await expect(home).toBeVisible();await expect(page.locator('.gL2')).toHaveCount(0);
+    for(const width of [390,320]){
+      await page.setViewportSize({width,height:844});
+      await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=0;});
+      await page.screenshot({path:test.info().outputPath(`home-stage-${theme}-${width}.png`),scale:'css'});
+      expect(await home.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+      await home.locator('.home-calendar').evaluate(element=>element.scrollIntoView({block:'center'}));
+      await page.screenshot({path:test.info().outputPath(`home-agenda-${theme}-${width}.png`),scale:'css'});
+      await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=element.scrollHeight;});
+      const team=await home.getByRole('region',{name:'Equipe',exact:true}).boundingBox(),nav=await page.locator('.app-nav .gNav').boundingBox();
+      expect(team.y+team.height).toBeLessThan(nav.y-8);
+    }
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+for(const profile of [admin,member])test(`Home keeps day events, setlist keys and team context for ${profile.is_admin?'admins':'members'}`,async({browser})=>{
+  const app=await fixture(browser);
+  app.state.events[0].event_songs=[{song_id:'song-2',order_index:1,sequence:encodeSequence('Intro','Eb')},{song_id:'song-0',order_index:2}];
+  app.state.events[0].event_members=[{member_id:profile.id,confirmed:null}];
+  app.state.events.push({...structuredClone(initialEvents[0]),id:'same-day',time:'20:00:00',label:'Encontro da noite',type:'outro'},
+    {...structuredClone(initialEvents[0]),id:'following-day',date:'2026-10-26',label:'Culto de segunda'});
+  app.state.members.push({...member,id:'inactive',name:'Integrante Inativo',status:'inativo'});
+  try{
+    const page=await app.open(profile),home=page.locator('.home-page'),calendar=home.getByRole('group',{name:'Dias da agenda'});
+    const primary=home.getByRole('article',{name:'Culto de Teste',exact:true});
+    await expect(calendar.locator('[aria-pressed="true"]')).toHaveAttribute('data-date','2026-10-25');
+    await expect(home.getByRole('article',{name:'Encontro da noite',exact:true})).toBeVisible();
+    const other=home.getByRole('region',{name:'Outras confirmações pendentes',exact:true});
+    await expect(other).toContainText('Culto de segunda');await expect(other).not.toContainText('Encontro da noite');
+    const setlist=home.getByRole('region',{name:'Repertório do evento',exact:true});
+    await expect(setlist.locator('.home-song-copy strong')).toHaveText(['Teste jubilo','Teste adoracao']);
+    await expect(setlist.locator('.home-song-key').first()).toHaveText('Eb');
+    const team=home.getByRole('region',{name:'Equipe',exact:true});
+    await expect(team.locator('.home-team-member')).toHaveCount(1);
+    await team.getByRole('button',{name:'Equipe ativa 2',exact:true}).click();await expect(team.locator('.home-team-member')).toHaveCount(2);
+    await expect(team.getByRole('button',{name:'Ver todos',exact:true})).toHaveCount(profile.is_admin?1:0);
+    await setlist.evaluate(element=>element.scrollIntoView({block:'center'}));
+    await setlist.getByRole('button',{name:'Abrir cifra de Teste jubilo',exact:true}).click();
+    await expect(page.getByRole('combobox',{name:'Tom da cifra',exact:true})).toHaveValue('D#'); // The transposer uses sharp pitch names (Eb = D#).
+    await page.getByRole('button',{name:'Voltar',exact:true}).click();
+    await expect(home).toBeVisible();await expect(page.locator('.gL2')).toHaveCount(0);
+    await expect(calendar.locator('[aria-pressed="true"]')).toHaveAttribute('data-date','2026-10-25');
+    await primary.evaluate(element=>element.scrollIntoView({block:'center'}));
+    await primary.getByRole('button',{name:'Ver escala',exact:true}).click();
+    await page.locator('.gL2').getByRole('button',{name:'Abrir cifra de Teste jubilo',exact:true}).click();
+    await page.getByRole('button',{name:'Voltar',exact:true}).click();
+    await expect(page.locator('.gL2')).toContainText('Culto de Teste');
+    await page.locator('.gL2').getByRole('button',{name:'Fechar detalhes do evento',exact:true}).click();
+    await home.getByRole('region',{name:'Agenda do mês',exact:true}).evaluate(element=>element.scrollIntoView({block:'center'}));
+    await calendar.locator('[data-date="2026-10-24"]').click();
+    await expect(home).toContainText('Nenhum evento neste dia');
+    const create=home.getByRole('button',{name:'Criar evento neste dia',exact:true});
+    await expect(create).toHaveCount(profile.is_admin?1:0);
+    if(profile.is_admin){
+      await create.click();await expect(page.getByRole('dialog',{name:'Novo evento',exact:true}).getByLabel('Data',{exact:true})).toHaveValue('2026-10-24');
+    }
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('Home rolls back failed attendance and saves responses on the correct event',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.events.push({...structuredClone(initialEvents[0]),id:'other-event',time:'20:00:00',label:'Outro culto'});
+  try{
+    const page=await app.open(),home=page.locator('.home-page'),primary=home.getByRole('article',{name:'Culto de Teste',exact:true}),secondary=home.getByRole('article',{name:'Outro culto',exact:true});
+    app.state.presenceSaveError='Falha de teste';
+    await primary.getByRole('button',{name:'Confirmar',exact:true}).click();
+    await expect(page.getByRole('alert')).toContainText('Presença não salva: Falha de teste');
+    await expect(primary.getByRole('button',{name:'Confirmar',exact:true})).toBeEnabled();
+    await expect(home.locator('.home-stats > div').filter({hasText:'Confirm.'})).toContainText('0');
+    expect(app.state.events[0].event_members[0].confirmed).toBeNull();await expect(page.locator('.conf-p')).toHaveCount(0);
+    delete app.state.presenceSaveError;
+    await secondary.evaluate(element=>element.scrollIntoView({block:'center'}));
+    await secondary.getByRole('button',{name:'Recusar',exact:true}).click();
+    await expect.poll(()=>app.state.events[1].event_members[0].confirmed).toBe(false);
+    await expect(secondary).toContainText('Você informou que não poderá ir.');
+    expect(app.state.events[0].event_members[0].confirmed).toBeNull();
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
 
 test('admin sees online members across devices, foreground changes, disconnections and logout',async({browser})=>{
   const app=await fixture(browser);

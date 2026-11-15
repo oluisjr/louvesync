@@ -31,6 +31,7 @@ async function fixture({ worker = 'worker-a', icon = 'icon-a' } = {}) {
   await mkdir(join(directory, 'images/equipment'), { recursive: true });
   await mkdir(join(directory, 'brand'), { recursive: true });
   await writeFile(join(directory, 'images/home/worship-landscape.webp'), 'home-art');
+  await writeFile(join(directory, 'images/home/worship-stage.webp'), 'stage-art');
   await writeFile(join(directory, 'images/more/music.webp'), 'more-art');
   await writeFile(join(directory, 'images/equipment/guitar.webp'), 'equipment-art');
   await writeFile(join(directory, 'brand/church-emblem-3d.webp'), 'church-art');
@@ -54,6 +55,7 @@ test('build output stamps identical HTML/worker/manifest identities and precache
     assert.equal(manifest.version, version); assert.equal(manifest.commit, 'fixture-commit');
     assert.ok(worker.includes('/assets/print-hash.js')); assert.ok(!worker.includes('__PRECACHE_MANIFEST__'));
     assert.ok(worker.includes('/images/home/worship-landscape.webp'));
+    assert.ok(worker.includes('/images/home/worship-stage.webp'));
     assert.ok(worker.includes('/images/more/music.webp'));
     assert.ok(worker.includes('/images/equipment/guitar.webp'));
     assert.ok(worker.includes('/brand/church-emblem-3d.webp'));
