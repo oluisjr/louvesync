@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "sourceConcept": "14-patrimonio-conceito-escuro.png",
+  "generation": "Native ImageGen transparent exports of the approved equipment illustrations.",
+  "export": "Transparent margins trimmed; proportional resize; WebP quality 90 and alpha quality 100. No recoloring or redrawing.",
+  "assets": [
+    {
+      "path": "/images/equipment/microphone.webp",
+      "sourceCutout": "inventory-microphone.png",
+      "width": 159,
+      "height": 320,
+      "bytes": 20080,
+      "sha256": "12d1940c9a0aeb9f9c9ec5c176d9c39aab6b40c0be4e307a45d9af568143b8a1"
+    },
+    {
+      "path": "/images/equipment/keyboard.webp",
+      "sourceCutout": "inventory-keyboard.png",
+      "width": 320,
+      "height": 164,
+      "bytes": 12614,
+      "sha256": "a843b08a890b180f8a4dd5a1df7343ecb2cb94831a73c831289cc59a7f0b9d20"
+    },
+    {
+      "path": "/images/equipment/guitar.webp",
+      "sourceCutout": "inventory-guitar.png",
+      "width": 175,
+      "height": 320,
+      "bytes": 15142,
+      "sha256": "bc367106600ec692156049a379497c858effe83e9a965d30884eaaf25abb4bf9"
+    }
+  ]
+}

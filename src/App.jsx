@@ -13,6 +13,7 @@ import { performanceKey, renderChordText } from './lib/chords.js';
 import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
 import EquipmentEditor from './components/EquipmentEditor.jsx';
+import EquipmentInventory from './components/EquipmentInventory.jsx';
 import AppNavigation from './components/AppNavigation.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import CommunityMural from './components/CommunityMural.jsx';
@@ -32,6 +33,7 @@ import { publishAnnouncement } from './lib/announcement-storage.js';
 import { remapAnnouncementTask } from './lib/announcement-queue.js';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
+import { withoutRehearsalSongs } from './lib/rehearsal-events.js';
 import { onRealtime, onRealtimeStatus, broadcastUpdate, disconnectRealtime } from './lib/realtime.js';
 
 class ErrorBoundary extends Component {
@@ -226,7 +228,7 @@ function patchEvent(ev){
   // Se veio do Supabase sem normalizar (tem event_songs), normaliza
   if (ev.event_songs !== undefined) return normalizeEvent(ev);
   // Caso contrário, apenas garante campos ausentes
-  return {
+  return withoutRehearsalSongs({
     items: [],
     requested_songs: [],
     santa_ceia_song: null,
@@ -236,7 +238,7 @@ function patchEvent(ev){
     confirmations: ev.confirmations || {},
     singerBySong: ev.singerBySong || {},
     sequenceBySong: ev.sequenceBySong || {},
-  };
+  });
 }
 function getSetlistCategoryOrder(cat){
   const order = ['corinho','jubilo','hinario','adoracao','oferta','ceia'];
@@ -944,11 +946,9 @@ const AdminDashboard = memo(({pastEvents, members, songs = [], dark, tc, t2, gc,
 });
 
 /* ─── PATRIMÔNIO SCREEN ─────────────────────────────────────── */
-const PatrimonioScreen = memo(({members, profile, dark}) => {
+const PatrimonioScreen = memo(({members, profile, dark, embedded = false}) => {
   const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
-  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
-  const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
   const isAdm = !!profile?.is_admin;
 
   // Carrega e sincroniza com o banco de dados Supabase em tempo real!
@@ -1049,47 +1049,13 @@ const PatrimonioScreen = memo(({members, profile, dark}) => {
     setEditItem(null);
   };
 
-  return <div className="app-page aUp">
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em'}}>{isAdm ? 'Controle de Patrimônio' : 'Patrimônio da Igreja'}</div>
-      {isAdm && <button aria-label="Adicionar equipamento" onClick={() => setEditItem({id: 'eq_' + Date.now(), name: '', brand: '', status: 'Disponível', custodian_id: null, serial_number: ''})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo</button>}
-    </div>
-
-    <div style={{display:'flex', gap:8, marginBottom:12}}>
-      <div className="gIn" style={{flex:1, display:'flex', alignItems:'center', padding:'0 10px'}}>
-        <input className="fi" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar equipamento..." style={{color:tc, padding:0, fontSize:'var(--fs-xs)'}} />
-      </div>
-      <select className="gIn" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={{color:tc, padding:'6px 10px', fontSize:'var(--fs-xs)', border:'1px solid rgba(79,70,229,.12)', borderRadius:'var(--r-sm)'}}>
-        <option value="all">Todos</option>
-        <option value="Disponível">Disponível</option>
-        <option value="Em uso">Em uso</option>
-        <option value="Manutenção">Manutenção</option>
-      </select>
-    </div>
-
-    {loading ? <div style={{textAlign:'center',padding:30}}><Loader/></div> : (
-      <div style={{display:'flex', flexDirection:'column', gap:10}}>
-        {filtered.map(eq => {
-          const custodian = members.find(m => m.id === eq.custodian_id);
-          const statusColor = eq.status === 'Disponível' ? '#10B981' : eq.status === 'Em uso' ? '#4F46E5' : '#EF4444';
-          return <div key={eq.id} className={gc} style={{...CS, padding:14, marginBottom:0, display:'flex', justifyContent:'space-between', alignItems:'center', borderLeft:`3px solid ${statusColor}`}}>
-            <div>
-              <div style={{fontWeight:800, color:tc, fontSize:'var(--fs-sm)'}}>{eq.name}</div>
-              <div style={{fontSize:'var(--fs-xs)', color:t2}}>{eq.brand} {eq.serial_number ? `· SN: ${eq.serial_number}` : ''}</div>
-              <div style={{display:'flex', alignItems:'center', gap:6, marginTop:6}}>
-                <span style={{background: statusColor + '15', color: statusColor, padding:'2px 8px', borderRadius:100, fontSize:10, fontWeight:800}}>{eq.status}</span>
-                {custodian && <span style={{fontSize:10, color:t2, display:'flex', alignItems:'center', gap:4}}><Ava m={custodian} size={16} /> Custódia: {custodian.name.split(' ')[0]}</span>}
-              </div>
-            </div>
-            {isAdm && <button onClick={() => setEditItem({...eq})} style={{padding:'5px 10px', borderRadius:'var(--r-sm)', border:'none', background:'rgba(79,70,229,.1)', color:'var(--app-link, #4F46E5)', fontWeight:700, fontSize:'var(--fs-xs)', cursor:'pointer'}}>Editar</button>}
-          </div>;
-        })}
-        {filtered.length === 0 && <EmptyState icon="🏛️" title="Nenhum equipamento cadastrado" />}
-      </div>
-    )}
-
+  return <>
+    <EquipmentInventory dark={dark} equipment={equipment} items={filtered} members={members} loading={loading}
+      search={search} onSearchChange={setSearch} statusFilter={statusFilter} onStatusChange={setStatusFilter}
+      isAdmin={isAdm} embedded={embedded} onEdit={item=>setEditItem({...item})}
+      onAdd={()=>setEditItem({id:'eq_'+Date.now(),name:'',brand:'',status:'Disponível',custodian_id:null,serial_number:''})}/>
     {isAdm&&editItem&&<EquipmentEditor key={editItem.id} dark={dark} item={editItem} members={members} isNew={!equipment.some(row=>row.id===editItem.id)} onSave={handleSave} onDelete={()=>handleDelete(editItem.id)} onClose={()=>setEditItem(null)}/>}
-  </div>;
+  </>;
 });
 
 /* ─── PAINEL ADMIN ──────────────────────────────────────────── */
@@ -1380,6 +1346,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
 
     {adminTab === 'patrimonio' && (
       <PatrimonioScreen
+        embedded
         members={members}
         profile={profile}
         dark={dark}
@@ -1640,7 +1607,7 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
 
       const nS = (evt.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean).sort(sortSongsByCategoryAndTitle)||[];
       const nM = evt.members?.map(id=>members.find(m=>m.id===id)).filter(Boolean)||[];
-      const showSetlist = t !== 'ebd' && t !== 'consagracao' && nS.length > 0;
+      const showSetlist = t !== 'ensaio' && t !== 'ebd' && t !== 'consagracao' && nS.length > 0;
 
       return <div key={evt.id} className={`${gc} aUp`} style={{...CS,animationDelay:'.11s',position:'relative',overflow:'hidden'}}>
         <div style={{position:'absolute',top:0,right:0,width:100,height:100,background:'linear-gradient(135deg,rgba(79,70,229,.07),transparent)',borderRadius:'0 var(--r-xl) 0 100%'}}/>
@@ -1662,10 +1629,11 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
           </div>)}
         </div>}
 
-        <div style={{display:'flex',alignItems:'center',gap:4}}>
+        <div style={{display:'flex',alignItems:'center',gap:4,flexWrap:'wrap'}}>
           {nM.slice(0,7).map((m,i)=><div key={m.id} style={{marginLeft:i?-8:0,zIndex:10-i}}><Ava m={m} size={26} ring/></div>)}
           {nM.length>7&&<span style={{fontSize:'var(--fs-xs)',color:t2,marginLeft:5,fontWeight:600}}>+{nM.length-7}</span>}
           <span style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:600,marginLeft:6}}>{nM.length} escalado{nM.length!==1?'s':''}</span>
+          {t==='ensaio'&&<button className="ui-button ui-button-soft ui-button-small" style={{marginLeft:'auto'}} onClick={()=>onNavTo('ensaio')}>Abrir Ensaio <Icon name="right" size={14}/></button>}
         </div>
       </div>
     }) : <EmptyState icon={<IcoCal s={32}/>} title="Nenhum evento neste dia" sub="Quando houver um evento agendado, ele aparecerá aqui." cta={"Criar evento"}/>}
@@ -2033,7 +2001,15 @@ const Stage = memo(({song,tr,mode,stageFs,setStageFs,dark,onClose,chordColor,set
 });
 
 /* ─── ESCALA ────────────────────────────────────────────────── */
-const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,dark,events,songs,members,onConfirm,onEvSheet,spawnConfetti,onCreateEvent})=>{
+function RehearsalEventActions({ event, admin, onOpen, onEdit, onDelete }) {
+  const actionStyle={display:'grid',placeItems:'center',width:32,height:32,border:'1px solid rgba(148,163,184,.3)',borderRadius:8,color:'var(--app-link, #4F46E5)',background:'transparent',cursor:'pointer'};
+  return <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:7,flexWrap:'wrap',marginLeft:'auto'}}>
+    {admin&&<><button type="button" style={actionStyle} aria-label={`Editar evento ${event.label}`} onClick={()=>onEdit(event)}><IcoEdit s={14}/></button><button type="button" style={actionStyle} aria-label={`Excluir evento ${event.label}`} onClick={()=>onDelete(event)}><IcoTrash s={14}/></button></>}
+    <button type="button" onClick={()=>onOpen(event)} style={{minHeight:32,fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',border:'none',background:'transparent',cursor:'pointer',fontWeight:800}}>Abrir Ensaio →</button>
+  </div>;
+}
+
+const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,dark,events,songs,members,onConfirm,onEvSheet,onEditEvent,onDeleteEvent,spawnConfetti,onCreateEvent})=>{
   const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
   const todayStr=today();
@@ -2178,7 +2154,7 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
         const evS=(ev.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean);
         const evM=(ev.members||[]).map(id=>members.find(m=>m.id===id)).filter(Boolean);
         const myConf=(ev.confirmations||{})[profile?.id];
-        return <div key={ev.id} className={`${gc} aUp`} style={{...CS,animationDelay:`${ei*.04}s`,opacity:.85,borderLeft:`3px solid ${ev.type==='culto'?'#4F46E5':'#10B981'}`}} onClick={()=>onEvSheet(ev)}>
+        return <div key={ev.id} className={`${gc} aUp`} style={{...CS,animationDelay:`${ei*.04}s`,opacity:.85,borderLeft:`3px solid ${ev.type==='culto'?'#4F46E5':'#10B981'}`}} onClick={event=>{if(!event.target.closest('button'))onEvSheet(ev);}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
             <div>
               <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.08em',marginBottom:3}}>{ev.type?.toUpperCase()} · {fDate(ev.date)}</div>
@@ -2193,6 +2169,7 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
             {evS.map(s=><span key={s.id} style={{padding:'3px 9px',borderRadius:100,fontSize:11,fontWeight:700,background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}14`,color:readableTextColor((CAT[s.cat]||{color:'#94A3B8'}).color,dark)}}>{s.title}</span>)}
           </div>}
           <div style={{display:'flex',gap:3}}>{evM.slice(0,6).map((m,i)=><div key={m.id} style={{marginLeft:i?-6:0}}><Ava m={m} size={22} ring/></div>)}</div>
+          {ev.type==='ensaio'&&<RehearsalEventActions event={ev} admin={profile?.is_admin} onOpen={onEvSheet} onEdit={onEditEvent} onDelete={onDeleteEvent}/>}
         </div>;
       })}
     </div>}
@@ -2218,9 +2195,9 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
 
       const t = ev.type || 'culto';
       const badgeLabel = t === 'culto' ? 'CULTO' : t === 'ensaio' ? 'ENSAIO' : t === 'ebd' ? 'EBD' : 'CONSAGRAÇÃO';
-      const showSetlist = t !== 'ebd' && t !== 'consagracao';
+      const showSetlist = t !== 'ensaio' && t !== 'ebd' && t !== 'consagracao';
 
-      return <div key={ev.id} className={`${gc} aUp touch-scale`} style={{...CS,animationDelay:`${ei*.06}s`,borderLeft:`3px solid ${t==='culto'?'#4F46E5':'#10B981'}`,opacity:dark?1:isExpired?0.5:!isMyEvent&&!profile?.is_admin?0.7:1}} onClick={(e)=>{ if(e.target.tagName!=='BUTTON') onEvSheet(ev); }}>
+      return <div key={ev.id} className={`${gc} aUp touch-scale`} style={{...CS,animationDelay:`${ei*.06}s`,borderLeft:`3px solid ${t==='culto'?'#4F46E5':'#10B981'}`,opacity:dark?1:isExpired?0.5:!isMyEvent&&!profile?.is_admin?0.7:1}} onClick={(e)=>{ if(!e.target.closest('button')) onEvSheet(ev); }}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
           <div>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
@@ -2251,7 +2228,7 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
             {evS.map(s=><span key={s.id} style={{padding:'4px 11px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer',background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}14`,color:readableTextColor((CAT[s.cat]||{color:'#94A3B8'}).color,dark),border:`1px solid ${(CAT[s.cat]||{color:'#94A3B8'}).color}28`}}>{s.title}</span>)}
           </div>}
         </div>}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
           <div style={{display:'flex',alignItems:'center',gap:3}}>
             {evM.length > 0 ? (
               <>
@@ -2262,7 +2239,7 @@ const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,da
                <span style={{fontSize:'var(--fs-xs)',color:t2,fontStyle:'italic'}}>Nenhum escalado</span>
             )}
           </div>
-          <button onClick={()=>onEvSheet(ev)} style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',border:'none',background:'transparent',cursor:'pointer',fontWeight:700}}>Ver detalhes →</button>
+          {t==='ensaio'?<RehearsalEventActions event={ev} admin={profile?.is_admin} onOpen={onEvSheet} onEdit={onEditEvent} onDelete={onDeleteEvent}/>:<button onClick={()=>onEvSheet(ev)} style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',border:'none',background:'transparent',cursor:'pointer',fontWeight:700}}>Ver detalhes →</button>}
         </div>
       </div>;
     })}
@@ -2735,7 +2712,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
        d.setDate(d.getDate() + i * 7);
        const dStr = d.toLocaleDateString('sv-SE');
 
-       let songsToUse = [...new Set([...form.selSongs,...form.requestedSongs,...(form.santaCeiaSong?[form.santaCeiaSong]:[])])];
+       let songsToUse = form.type==='ensaio'?[]:[...new Set([...form.selSongs,...form.requestedSongs,...(form.santaCeiaSong?[form.santaCeiaSong]:[])])];
        let membersToUse = form.selMembers;
        let sbsToUse = {...form.singerBySong};
 
@@ -2778,21 +2755,14 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
          text: ''
        }));
        (editEvent?.items||[]).forEach((item,index)=>{if(item.type!=='song')itemsToUse.splice(Math.min(index,itemsToUse.length),0,item);});
-       const newEv = {id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:editEvent?editEvent.confirmations:{},singerBySong:sbsToUse,sequenceBySong:editEvent?editEvent.sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong,items:itemsToUse};
+       const newEv = withoutRehearsalSongs({id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:editEvent?editEvent.confirmations:{},singerBySong:sbsToUse,sequenceBySong:editEvent?editEvent.sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong,items:itemsToUse});
        evs.push(newEv);
 
        // Criar ensaio de sábado automaticamente se for domingo (apenas na criação)
        if (!editEvent && form.type === 'culto' && d.getDay() === 0) {
            const dSat = new Date(d);
            dSat.setDate(dSat.getDate() - 1);
-           const satItems = songsToUse.map((songId, idx) => ({
-             id: `song_${songId}_sat_${i}_${idx}`,
-             type: 'song',
-             song_id: songId,
-             singer_id: null,
-             text: ''
-           }));
-           evs.push({id:crypto.randomUUID(),date:dSat.toLocaleDateString('sv-SE'),time:'15:00',type:'ensaio',label:'Ensaio (Sáb)',theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:{},singerBySong:{},sequenceBySong:{},requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong,items:satItems});
+           evs.push({id:crypto.randomUUID(),date:dSat.toLocaleDateString('sv-SE'),time:'15:00',type:'ensaio',label:'Ensaio (Sáb)',theme:form.theme||null,songs:[],members:membersToUse,confirmations:{},singerBySong:{},sequenceBySong:{},requested_songs:[],santa_ceia_song:null,items:[]});
        }
     }
     setSaving(true);setSaveError('');
@@ -2804,7 +2774,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
   const songGroups = categoryIds.map(id=>({id,label:CAT[id]?.label||(id==='uncategorized'?'Sem categoria':id),color:CAT[id]?.color||'#64748B',songs:filtS.filter(song=>(song.cat||'uncategorized')===id).sort((a,b)=>a.title.localeCompare(b.title,'pt-BR',{sensitivity:'base',numeric:true}))})).filter(group=>group.songs.length);
 
 
-  const hasSetlist = form.type !== 'ebd' && form.type !== 'consagracao';
+  const hasSetlist = form.type !== 'ensaio' && form.type !== 'ebd' && form.type !== 'consagracao';
   const activeTab = !hasSetlist && tab === 'setlist' ? 'details' : tab;
   const tabs = [{id:'details',label:'Detalhes',icon:'calendar'},...(hasSetlist?[{id:'setlist',label:'Setlist',icon:'music',count:form.selSongs.length}]:[]),{id:'team',label:'Equipe',icon:'users',count:form.selMembers.length}];
   const selectedCount = new Set([...form.selSongs,...form.requestedSongs,...(form.santaCeiaSong?[form.santaCeiaSong]:[])]).size;
@@ -2835,6 +2805,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
       <Section icon="calendar" title="Sobre o evento">
         <span className="ui-field-label">Tipo de evento</span>
         <div className="ui-chip-group" style={{marginBottom:18}}>{Object.entries(types).map(([id,label])=><button key={id} className="ui-chip" aria-pressed={form.type===id} onClick={()=>setForm(f=>({...f,type:id}))}>{label}</button>)}</div>
+        {form.type==='ensaio'&&<p className="ui-helper" style={{marginBottom:16}}>Na tela Ensaio, a equipe acessa as músicas dos cultos e dos demais eventos com repertório definido.</p>}
         <label className="ui-field">Nome do evento <input value={form.label} onChange={e=>setForm(f=>({...f,label:e.target.value}))} placeholder="Nome do compromisso *" required/></label>
         <div className="ui-fields ui-event-date-fields" style={{marginTop:16}}>
           <label className="ui-field">Data <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} required/></label>
@@ -3126,7 +3097,8 @@ export default function LouveSync() {
           if(task.type==='confirm') await setPresence(task.data.eventId,task.data.memberId,task.data.confirmed);
           else if(task.type==='create_event'){
             if(!profile.is_admin)throw new Error('Somente administradores podem salvar eventos.');
-            for(const ev of Array.isArray(task.data)?task.data:[task.data]){
+            for(const queuedEvent of Array.isArray(task.data)?task.data:[task.data]){
+              const ev=withoutRehearsalSongs(queuedEvent);
               await upsertEvent(eventPayload(ev));
               await setEventItems(ev.id,ev.items||[],ev.members||[],ev);
             }
@@ -3205,16 +3177,17 @@ export default function LouveSync() {
   const [keyF,setKeyF]=useState('');
   // inCifra: qualquer tab pode abrir a cifra de uma música
   const inCifra = !!selSong;
-  const homeTheme = !!profile && (moreOpen || ['home','mural','treinamento','ensaio'].includes(tab)) && !inCifra;
+  const homeTheme = !!profile && (moreOpen || ['home','mural','treinamento','ensaio','patrimonio'].includes(tab)) && !inCifra;
   useAppDisplay(dark,homeTheme);
   const unread=notifications.items.filter(item=>!item.read_at).length;
   const [pushLink,setPushLink]=useState(()=>new URL(window.location.href).searchParams.has('tab')?window.location.href:null);
   const openNotificationTarget=useCallback(item=>{
     const target=notificationDestination(item,window.location.origin);
     if(!profile||!target||profile.permissions&&!profile.permissions.includes(target.tab))return;
-    stopMetronome();setMoreOpen(false);setTab(target.tab);setSelEvent(null);setNotifsOpen(false);
+    const targetEvent=target.eventId?events.find(event=>event.id===target.eventId)||null:null;
+    stopMetronome();setMoreOpen(false);setTab(targetEvent?.type==='ensaio'?'ensaio':target.tab);setSelEvent(null);setNotifsOpen(false);
     if(target.tab==='repertorio')setSelSong(songs.find(song=>song.id===target.songId)||null);
-    else{setSelSong(null);setEvSheet(target.eventId?events.find(event=>event.id===target.eventId)||null:null);}
+    else{setSelSong(null);setEvSheet(targetEvent?.type==='ensaio'?null:targetEvent);}
   },[profile,songs,events,stopMetronome]);
   useEffect(()=>{
     const receive=event=>{
@@ -3367,6 +3340,14 @@ export default function LouveSync() {
     if(moreOpen){setMoreOpen(false);requestAnimationFrame(()=>mainScrollRef.current?.scrollTo({top:0}));}
     vib();setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}
   }
+  function openEvent(event){
+    if(event.type==='ensaio'){setEvSheet(null);navTo('ensaio');}
+    else setEvSheet(event);
+  }
+  function openEventEditor(event){
+    if(!profile?.is_admin)return;
+    setEvSheet(null);setCreateEvDate(null);setEditEvState(event);setCreateEvOpen(true);
+  }
   function selectSong(s,ev=null,activeKey=null){
     if(!s) return alert('Ops! Esta música ainda não foi adicionada no Repertório.');
     console.log('🎵 selectSong called with:', {title: s.title, artist: s.artist, id: s.id});
@@ -3445,7 +3426,7 @@ export default function LouveSync() {
 
   async function handleSaveEvent(evs){
     if(!profile?.is_admin)return;
-    const toAdd=Array.isArray(evs)?evs:[evs];
+    const toAdd=(Array.isArray(evs)?evs:[evs]).map(withoutRehearsalSongs);
     try {
       for(const ev of toAdd){
         ev.items=ev.items?.length?ev.items:(ev.songs||[]).map(song_id=>({type:'song',song_id,singer_id:ev.singerBySong?.[song_id]||null,text:''}));
@@ -3617,7 +3598,7 @@ export default function LouveSync() {
             {tab==='mural'&&!inCifra&&<CommunityMural profile={profile} dark={dark} members={allMembers} activity={activity}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio connectionStatus={connectionStatus} dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
             {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
-            {tab==='escala'&&!inCifra&&<Escala selWeekIdx={escalaWeek} setSelWeekIdx={setEscalaWeek} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} onConfirm={handleConfirm} onEvSheet={setEvSheet} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
+            {tab==='escala'&&!inCifra&&<Escala selWeekIdx={escalaWeek} setSelWeekIdx={setEscalaWeek} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} onConfirm={handleConfirm} onEvSheet={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
             {tab==='membros'&&!inCifra&&<Membros profile={profile} dark={dark} members={allMembers} events={events} selRole={selRole} setSelRole={setSelRole}/>}
             {tab==='ia'&&!inCifra&&<Maestro dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
@@ -3636,7 +3617,7 @@ export default function LouveSync() {
       {/* OVERLAYS */}
       {addOpen&&<AddSong dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
       {profile?.is_admin&&createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
-      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={ev=>{if(!profile?.is_admin)return;setEvSheet(null);setCreateEvDate(null);setEditEvState(ev);setCreateEvOpen(true);}} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
+      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={openEventEditor} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotificationInbox dark={dark} controller={notifications} onClose={()=>setNotifsOpen(false)} onOpen={handleOpenNotification}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
 

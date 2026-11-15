@@ -7,6 +7,152 @@ const admin = { id: 'user-admin', name: 'Admin Teste', instrument: 'Vocal', role
 const member = { ...admin, id: 'user-member', name: 'Membro Teste', is_admin: false };
 const songs = ['adoracao', 'ceia', 'jubilo'].map((cat, index) => ({ id: `song-${index}`, title: `Teste ${cat}`, artist: 'Fixture', cat, key: 'C', lyrics: '[C]Letra para [G]teste', bpm: 80, tags: [], time_signature: '4/4', vocal_keys: {} }));
 const initialEvents = [{ id: 'event-1', date: '2026-10-25', time: '18:00:00', label: 'Culto de Teste', type: 'culto', event_songs: songs.map((song, index) => ({ id: index + 1, song_id: song.id, order_index: index + 1, item_type: 'song' })), event_members: [{ member_id: admin.id, confirmed: null }, { member_id: member.id, confirmed: null }] }];
+const rehearsalEvent = () => ({ ...structuredClone(initialEvents[0]), id:'practice', date:'2026-10-24', time:'15:00:00', type:'ensaio', label:'Ensaio da equipe', event_members:[{member_id:admin.id,confirmed:true},{member_id:member.id,confirmed:true}] });
+
+for(const profile of [admin,member])test(`rehearsal events open the studio and use service and custom event repertoires for ${profile.is_admin?'admins':'members'}`,async({browser})=>{
+  const app=await fixture(browser);
+  app.state.events.unshift(rehearsalEvent());
+  app.state.events.push({...structuredClone(initialEvents[0]),id:'special',date:'2026-10-26',type:'outro',label:'Encontro com músicas',event_songs:[{id:20,song_id:'song-1',item_type:'song'}]},
+    {...structuredClone(initialEvents[0]),id:'empty',date:'2026-10-26',type:'outro',label:'Reunião sem músicas',event_songs:[]});
+  try{
+    const page=await app.open(profile);
+    const homeCard=page.locator('.gL1').filter({has:page.getByText('Ensaio da equipe',{exact:true})});
+    await expect(homeCard).not.toContainText('Teste adoracao');
+    await homeCard.getByRole('button',{name:'Abrir Ensaio',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Estúdio',exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Escolher evento do ensaio',exact:true})).toContainText('Culto de Teste');
+    await expect(page.getByRole('region',{name:'Músicas do ensaio',exact:true}).getByRole('button')).toHaveCount(3);
+    await page.getByRole('button',{name:'Escolher evento do ensaio',exact:true}).click();
+    const picker=page.getByRole('combobox',{name:'Evento do ensaio',exact:true});
+    await expect(picker.locator('option')).toHaveText(['Selecione um evento','Culto de Teste · 25/10/2026','Encontro com músicas · 26/10/2026']);
+    await picker.selectOption('special');
+    const repertoire=page.getByRole('region',{name:'Músicas do ensaio',exact:true});
+    await expect(repertoire.getByRole('button')).toHaveCount(1);
+    await repertoire.getByRole('button',{name:'Teste ceia',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Tocando agora: Teste ceia',exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'Escala',exact:true}).click();
+    const card=page.locator('.gL1').filter({has:page.getByText('Ensaio da equipe',{exact:true})});
+    await expect(card).not.toContainText('Teste adoracao');
+    await expect(card.getByRole('button',{name:'Ver detalhes →',exact:true})).toHaveCount(0);
+    await expect(card.getByRole('button',{name:'Editar evento Ensaio da equipe',exact:true})).toHaveCount(profile.is_admin?1:0);
+    await card.getByRole('button',{name:'Abrir Ensaio →',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Estúdio',exact:true})).toBeVisible();
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('rehearsal editing clears legacy song links while retaining the team and Sunday creation no longer copies music',async({browser})=>{
+  const app=await fixture(browser);
+  const legacy=rehearsalEvent();legacy.event_songs.push({id:10,item_type:'note',note_text:'Chegar às 15h',order_index:4});app.state.events.unshift(legacy);
+  try{
+    const page=await app.open();
+    await page.getByRole('button',{name:'Escala',exact:true}).click();
+    await page.getByRole('button',{name:'Editar evento Ensaio da equipe',exact:true}).click();
+    const edit=page.getByRole('dialog',{name:'Editar evento',exact:true});
+    await expect(edit.getByRole('tab',{name:'Setlist',exact:true})).toHaveCount(0);
+    await expect(edit).toContainText('Na tela Ensaio, a equipe acessa as músicas dos cultos');
+    await edit.getByRole('tab',{name:'Equipe',exact:true}).click();
+    await expect(edit.getByRole('button',{name:'Admin Teste',exact:true})).toHaveAttribute('aria-pressed','true');
+    await edit.getByRole('button',{name:'Salvar Alterações',exact:true}).click();
+    await expect(edit).toHaveCount(0);
+    const saved=app.state.events.find(event=>event.id==='practice');
+    expect(saved.event_songs.filter(row=>row.song_id)).toHaveLength(0);
+    expect(saved.event_songs.find(row=>row.id===10).note_text).toBe('Chegar às 15h');
+    expect(saved.event_members).toEqual([{member_id:admin.id,confirmed:true},{member_id:member.id,confirmed:true}]);
+    await page.getByRole('button',{name:'Novo',exact:true}).click();
+    const create=page.getByRole('dialog',{name:'Novo evento',exact:true});
+    await create.getByLabel('Nome do evento',{exact:true}).fill('Novo culto de domingo');
+    await create.getByLabel('Data',{exact:true}).fill('2026-11-01');
+    await create.getByRole('tab',{name:'Setlist',exact:true}).click();
+    await create.getByRole('button',{name:'Selecionar Teste adoracao',exact:true}).click();
+    await create.getByRole('button',{name:'Criar Compromisso',exact:true}).click();
+    await expect(create).toHaveCount(0);
+    const sunday=app.state.events.find(event=>event.label==='Novo culto de domingo');
+    const saturday=app.state.events.find(event=>event.type==='ensaio'&&event.date==='2026-10-31');
+    expect(sunday.event_songs.filter(row=>row.song_id).map(row=>row.song_id)).toEqual(['song-0']);
+    expect(saturday.event_songs.filter(row=>row.song_id)).toHaveLength(0);
+    expect(saturday.event_members.map(row=>row.member_id)).toEqual(sunday.event_members.map(row=>row.member_id));
+    await page.getByRole('button',{name:'Novo',exact:true}).click();
+    const direct=page.getByRole('dialog',{name:'Novo evento',exact:true});
+    await direct.getByLabel('Nome do evento',{exact:true}).fill('Ensaio sem cópia');
+    await direct.getByLabel('Data',{exact:true}).fill('2026-10-30');
+    await direct.getByRole('tab',{name:'Setlist',exact:true}).click();
+    await direct.getByRole('button',{name:'Selecionar Teste ceia',exact:true}).click();
+    await direct.getByRole('tab',{name:'Detalhes',exact:true}).click();
+    await direct.getByRole('button',{name:'Ensaio',exact:true}).click();
+    await expect(direct.getByRole('tab',{name:'Setlist',exact:true})).toHaveCount(0);
+    await direct.getByRole('button',{name:'Criar Compromisso',exact:true}).click();
+    await expect(direct).toHaveCount(0);
+    expect(app.state.events.find(event=>event.label==='Ensaio sem cópia').event_songs.filter(row=>row.song_id)).toHaveLength(0);
+    expect(app.state.songs).toHaveLength(songs.length);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+for(const theme of ['light','dark'])test(`3D inventory uses real totals and supports search, filters and custody in ${theme} theme`,async({browser})=>{
+  const app=await fixture(browser);
+  app.state.equipment=[{id:'mic',name:'Microfone SM58',brand:'Shure',serial_number:'M-01',status:'Disponível'},
+    {id:'keyboard',name:'Teclado PSR',brand:'Yamaha',status:'Em uso',custodian_id:member.id},
+    {id:'guitar',name:'Violão acústico',brand:'Takamine',status:'Manutenção'},
+    {id:'mixer',name:'Mesa de som',brand:'Behringer',status:'Disponível'}];
+  try{
+    const page=await app.open(admin,undefined,{theme,device:{viewport:{width:390,height:844}}});
+    await navigate(page,'Patrimônio');
+    const inventory=page.getByRole('region',{name:'Patrimônio',exact:true}),summary=page.getByRole('region',{name:'Resumo do inventário',exact:true});
+    await expect(summary).toContainText('4 equipamentos');
+    await expect(summary).toContainText('2 disponíveis');
+    await expect(summary).toContainText('1 em uso');
+    await expect(summary).toContainText('1 em manutenção');
+    await expect(inventory.getByRole('article')).toHaveCount(4);
+    await expect(inventory.getByRole('article',{name:'Teclado PSR',exact:true})).toContainText('Custódia: Membro Teste');
+    for(const [name,src] of [['Microfone SM58','/images/equipment/microphone.webp'],['Teclado PSR','/images/equipment/keyboard.webp'],['Violão acústico','/images/equipment/guitar.webp'],['Mesa de som','/images/more/equipment.webp']]){
+      const image=inventory.getByRole('article',{name,exact:true}).locator('img');
+      await image.scrollIntoViewIfNeeded();await expect(image).toHaveAttribute('src',src);
+      await expect.poll(()=>image.evaluate(element=>element.complete&&element.naturalWidth>0)).toBe(true);
+    }
+    for(const width of [390,320]){
+      await page.setViewportSize({width,height:844});
+      await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=0;});
+      await page.screenshot({path:test.info().outputPath(`inventory-${theme}-${width}.png`),scale:'css'});
+      expect(await inventory.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+      const last=inventory.getByRole('article').last();await last.scrollIntoViewIfNeeded();
+      await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=element.scrollHeight;});
+      expect((await last.boundingBox()).y+(await last.boundingBox()).height).toBeLessThan((await page.locator('.app-nav .gNav').boundingBox()).y-8);
+    }
+    const filters=inventory.getByRole('group',{name:'Filtrar por status'});
+    await filters.getByRole('button',{name:'Manutenção',exact:true}).click();
+    await expect(inventory.getByRole('article')).toHaveCount(1);
+    await expect(inventory.getByRole('article')).toHaveAccessibleName('Violão acústico');
+    await expect(summary).toContainText('4 equipamentos');
+    await filters.getByRole('button',{name:'Todos',exact:true}).click();
+    await inventory.getByRole('searchbox',{name:'Buscar equipamento'}).fill('yamaha');
+    await expect(inventory.getByRole('article')).toHaveCount(1);
+    await expect(inventory.getByRole('article')).toHaveAccessibleName('Teclado PSR');
+    await inventory.getByRole('searchbox',{name:'Buscar equipamento'}).fill('inexistente');
+    await expect(inventory.getByText('Nenhum equipamento encontrado',{exact:true})).toBeVisible();
+    await inventory.getByRole('searchbox',{name:'Buscar equipamento'}).fill('');
+    await inventory.getByRole('article',{name:'Violão acústico',exact:true}).getByRole('button',{name:'Editar',exact:true}).click();
+    const edit=page.getByRole('dialog',{name:'Editar equipamento',exact:true});
+    await edit.getByLabel('Status',{exact:true}).selectOption('Disponível');
+    await edit.getByRole('button',{name:'Salvar',exact:true}).click();await expect(edit).toHaveCount(0);
+    await expect(summary).toContainText('3 disponíveis');await expect(summary).toContainText('0 em manutenção');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('members can consult the 3D inventory without equipment mutation controls',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open(member);await navigate(page,'Patrimônio');
+    const inventory=page.getByRole('region',{name:'Patrimônio',exact:true});
+    await expect(inventory.getByRole('article')).toHaveCount(1);
+    await expect(inventory.getByRole('button',{name:'Adicionar equipamento',exact:true})).toHaveCount(0);
+    await expect(inventory.getByRole('button',{name:'Editar',exact:true})).toHaveCount(0);
+    await inventory.getByRole('group',{name:'Filtrar por status'}).getByRole('button',{name:'Disponível',exact:true}).click();
+    await expect(inventory.getByRole('article')).toHaveCount(1);
+    expect(app.state.equipmentRequests||[]).toEqual([]);expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
 
 async function navigate(page, name) {
   if (['Início','Escala','Mural','Bíblia'].includes(name)) {
@@ -1737,7 +1883,7 @@ for(const theme of ['light','dark']){
       expect(app.state.equipmentRequests).toHaveLength(2);
       expect(Object.keys(app.state.equipmentRequests[1]).sort()).toEqual(['brand','custodian_id','id','name','serial_number','status']);
       await page.reload();await navigate(page,'Patrimônio');
-      const row=page.locator('.gL1').filter({hasText:'Microfone cadastrado'});
+      const row=page.getByRole('article',{name:'Microfone cadastrado',exact:true});
       await row.getByRole('button',{name:'Editar',exact:true}).click();
       const edit=page.getByRole('dialog',{name:'Editar equipamento',exact:true});
       await expect(edit.getByLabel('Número de série',{exact:true})).toHaveValue('SERIE-2026');

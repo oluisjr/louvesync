@@ -1,4 +1,5 @@
 import { decodeEventPreferences, eventPreferences } from './event-preferences.js';
+import { withoutRehearsalSongs } from './rehearsal-events.js';
 
 export function localDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -48,7 +49,7 @@ export function normalizeEvent(ev) {
   const preferences = internal.length ? decodeEventPreferences(internal.at(-1)) : eventPreferences(ev);
   const visible = sorted.filter(row => !internal.includes(row));
   const songRows = visible.filter(row => row.song_id);
-  return {
+  return withoutRehearsalSongs({
     ...ev,
     songs: songRows.map(row => row.song_id),
     items: visible.map(row => ({ id: row.id, type: row.item_type || 'song', song_id: row.song_id, text: row.note_text, singer_id: row.singer_member_id })),
@@ -58,7 +59,7 @@ export function normalizeEvent(ev) {
     sequenceBySong: Object.fromEntries(songRows.map(row => [row.song_id, decodeSequence(row.sequence).text])),
     keyBySong: Object.fromEntries(songRows.map(row => [row.song_id, decodeSequence(row.sequence).key]).filter(([, key]) => key)),
     ...preferences,
-  };
+  });
 }
 export function eventPayload(event) {
   // Only these fields belong to the base events contract. UI/relationship data
