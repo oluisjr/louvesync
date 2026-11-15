@@ -10,6 +10,7 @@ import { Dialog, Icon, Section, SearchField } from './components/Interface.jsx';
 import { publicMember, readActorSession, setMutationActor } from './lib/member-session.js';
 import { canManageMinistry, songProposal } from './lib/change-requests.js';
 import EventDetails from './components/EventDetails.jsx';
+import MentionInput from './components/MentionInput.jsx';
 import ChangeRequestsScreen from './components/ChangeRequestsScreen.jsx';
 import ChangeRequestDialog from './components/ChangeRequestDialog.jsx';
 import { performanceKey, renderChordText } from './lib/chords.js';
@@ -2005,7 +2006,7 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
 /* ─── EVENT EDITOR ──────────────────────────────────────────── */
 const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSave,onClose})=>{
 
-  const [form,setForm]=useState({date:editEvent?.date||initialDate||'',time:editEvent?.time||'19:00',type:editEvent?.type||'culto',label:editEvent?.label||'',theme:editEvent?.theme||'',selMembers:editEvent?.members||[],selSongs:editEvent?.songs||[],requestedSongs:editEvent?.requested_songs||[],santaCeiaSong:editEvent?.santa_ceia_song||null,singerBySong:editEvent?.singerBySong||{}});
+  const [form,setForm]=useState({date:editEvent?.date||initialDate||'',time:editEvent?.time||'19:00',type:editEvent?.type||'culto',label:editEvent?.label||'',theme:editEvent?.theme||'',notes:editEvent?.notes||'',mention_member_ids:editEvent?.mention_member_ids||[],selMembers:editEvent?.members||[],selSongs:editEvent?.songs||[],requestedSongs:editEvent?.requested_songs||[],santaCeiaSong:editEvent?.santa_ceia_song||null,singerBySong:editEvent?.singerBySong||{}});
   const [tab,setTab]=useState('details');
   const tabId=useId();
   const [memberSearch,setMemberSearch]=useState('');
@@ -2122,7 +2123,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
          text: ''
        }));
        (editEvent?.items||[]).forEach((item,index)=>{if(item.type!=='song')itemsToUse.splice(Math.min(index,itemsToUse.length),0,item);});
-       const newEv = withoutRehearsalSongs({id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,songs:songsToUse,members:membersToUse,confirmations:editEvent?editEvent.confirmations:{},singerBySong:sbsToUse,sequenceBySong:editEvent?editEvent.sequenceBySong:{},keyBySong:editEvent?.keyBySong||{},setlist_confirmation:editEvent?.setlist_confirmation||null,requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong,items:itemsToUse});
+       const newEv = withoutRehearsalSongs({id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,notes:form.notes,mention_member_ids:form.mention_member_ids,songs:songsToUse,members:membersToUse,confirmations:editEvent?editEvent.confirmations:{},singerBySong:sbsToUse,sequenceBySong:editEvent?editEvent.sequenceBySong:{},keyBySong:editEvent?.keyBySong||{},setlist_confirmation:editEvent?.setlist_confirmation||null,requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong,items:itemsToUse});
        evs.push(newEv);
 
        // Criar ensaio de sábado automaticamente se for domingo (apenas na criação)
@@ -2181,6 +2182,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
           <label className="ui-field">Horário <input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))}/></label>
         </div>
         <label className="ui-field">Tema <input value={form.theme} onChange={e=>setForm(f=>({...f,theme:e.target.value}))} placeholder="Tema ou título (opcional)"/></label>
+        <MentionInput label="Mensagem para a equipe" value={form.notes} mentionIds={form.mention_member_ids} members={members} maxLength={4000} placeholder="Observações do evento. Digite @ para marcar um integrante." onChange={(notes,mention_member_ids)=>setForm(previous=>({...previous,notes,mention_member_ids}))}/>
       </Section>
       {!editEvent&&<Section icon="reset" title="Repetição">
         <div className="ui-switch-row"><div><strong>Repetir semanalmente</strong><small>Cria os eventos nas próximas semanas.</small></div><button className="ui-switch" role="switch" aria-label="Repetir semanalmente" aria-checked={isRecurring} onClick={()=>setIsRecurring(p=>!p)}><span/></button></div>
@@ -2441,14 +2443,17 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
   const homeTheme = !!profile && (moreOpen || ['home','mural','treinamento','ensaio','patrimonio','repertorio','biblia'].includes(tab)) && !inCifra;
   useAppDisplay(dark,homeTheme);
   const unread=notifications.items.filter(item=>!item.read_at).length;
+  const [muralTarget,setMuralTarget]=useState(null);
   const [pushLink,setPushLink]=useState(()=>new URL(window.location.href).searchParams.has('tab')?window.location.href:null);
   const openNotificationTarget=useCallback(item=>{
     const target=notificationDestination(item,window.location.origin);
     if(!profile||!target||!canSeeScreen(profile,target.tab))return;
     const targetEvent=target.eventId?events.find(event=>event.id===target.eventId)||null:null;
-    stopMetronome();setMoreOpen(false);setTab(targetEvent?.type==='ensaio'?'ensaio':target.tab);setSelEvent(null);setNotifsOpen(false);
+    const mentionEvent=item.type==='mention'&&targetEvent;
+    stopMetronome();setMoreOpen(false);setTab(targetEvent?.type==='ensaio'&&!mentionEvent?'ensaio':target.tab);setSelEvent(null);setNotifsOpen(false);
+    if(target.tab==='mural')setMuralTarget({...target,requestId:crypto.randomUUID()});
     if(target.tab==='repertorio')setSelSong(songs.find(song=>song.id===target.songId)||null);
-    else{setSelSong(null);setEvSheet(targetEvent?.type==='ensaio'?null:targetEvent);}
+    else{setSelSong(null);setEvSheet(targetEvent?.type==='ensaio'&&!mentionEvent?null:targetEvent);}
   },[profile,songs,events,stopMetronome]);
   useEffect(()=>{
     const receive=event=>{
@@ -2578,7 +2583,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
       localStorage.removeItem('ls_actor_session');setMutationActor(null);setActorSession(null);
       localStorage.removeItem('ls_profile');
       localStorage.removeItem('ls_last_activity');
-      setProfile(null); setMoreOpen(false); setSelSong(null); setSelEvent(null); setHomeDate(null); setScheduleView({week:null,day:null,scope:'all',history:false}); setTab('home');
+      setProfile(null); setMoreOpen(false); setSelSong(null); setSelEvent(null); setHomeDate(null); setScheduleView({week:null,day:null,scope:'all',history:false}); setTab('home');onVisitor?.();
     };
     if(tab==='presencas')leaveAttendance(logout);else logout();
   }
@@ -2590,6 +2595,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
   function navTo(t,attendanceId=null){
     if(!canSeeScreen(profile,t)){setChangeNotice('A liderança não liberou esta tela para seu perfil.');return;}
     const go=()=>{
+      setMuralTarget(null);
       if(moreOpen){setMoreOpen(false);requestAnimationFrame(()=>mainScrollRef.current?.scrollTo({top:0}));}
       if(t==='presencas')setAttendanceEventId(attendanceId);
       vib();setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}
@@ -2877,7 +2883,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
             {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metronome={metronome} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} onSaveSong={handleSaveSong} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
 
             {tab==='solicitacoes'&&!inCifra&&<ChangeRequestsScreen dark={dark} profile={profile} credentials={activity.credentials} songs={songs} events={events} onChangeSaved={handleChangesSaved}/>}
-            {tab==='mural'&&!inCifra&&<CommunityMural profile={profile} dark={dark} members={allMembers} activity={activity}/>}
+            {tab==='mural'&&!inCifra&&<CommunityMural target={muralTarget} profile={profile} dark={dark} members={allMembers} activity={activity}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio connectionStatus={connectionStatus} dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
             {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
             {tab==='escala'&&!inCifra&&<ScheduleScreen onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} view={scheduleView} onViewChange={setScheduleView} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} Avatar={Ava} onConfirm={handleConfirm} onOpenEvent={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}

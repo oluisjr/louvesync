@@ -2,9 +2,11 @@
 
 ## Visitantes, membros e equipe
 
-A entrada do app mostra boas-vindas a visitantes sem conta. **Já faço parte** abre o login existente por membro/PIN. Não é criado um cadastro anônimo no Supabase Auth.
+A cada abertura ou recarga da página, o app mostra as boas-vindas como **Visitante**, inclusive quando havia um perfil salvo neste aparelho. O botão destacado **Fazer login** abre a tela existente de seleção do membro e senha/PIN. O login explícito direciona a equipe ao ministério e membros da igreja à comunidade. Não é criado um cadastro anônimo no Supabase Auth.
 
-Em **Admin → Editar membro → Tipo de acesso**, o administrador escolhe **Membro da igreja** ou **Equipe do ministério**. A classificação é persistida em `members.access_type`, validada no banco e retornada no login. O membro da igreja usa boas-vindas, agenda, oração, Bíblia e sua conta. Não recebe telas, privilégios administrativos, novas notificações ou seleção para escalas do ministério. A troca de classificação atualiza outros aparelhos por sincronização e retomada da janela; retornar à equipe restaura o ambiente do ministério.
+Em **Admin → Editar membro → Tipo de acesso**, o administrador escolhe **Membro da igreja** ou **Equipe do ministério**. A classificação é persistida em `members.access_type`, validada no banco e retornada no login. Visitantes e membros da igreja têm apenas quatro destinos: **Início** (boas-vindas), **Agenda** (eventos da igreja), **Oração** e **Bíblia**. O membro conectado pode sair pelo cabeçalho. Não recebe telas, privilégios administrativos, novas notificações ou seleção para escalas do ministério. A troca de classificação atualiza outros aparelhos por sincronização e retomada da janela; retornar à equipe restaura o ambiente do ministério durante a sessão conectada.
+
+Entrar como visitante limpa somente o perfil e as credenciais da sessão anterior. Mantém tema, posição de leitura e cache da Bíblia. Os capítulos efetivamente abertos ficam em cache local e podem ser relidos sem conexão; capítulos ainda não baixados precisam de internet. A biblioteca de versículos permanece separada por perfil, incluindo o perfil visitante.
 
 Contas existentes continuam classificadas como equipe para preservar seu acesso. O texto antigo do campo função/cargo não reclassifica pessoas automaticamente. **Conta ativa** segue controlando a entrada; **Ativo na escala** segue independente. Um membro da igreja é salvo com função Membro, sem instrumento, sem administração e sem participação na escala. Os vínculos históricos de eventos são preservados.
 

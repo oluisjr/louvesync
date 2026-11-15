@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 export function Icon({ name, size = 20, ...props }) {
   const paths = {
+    logout: <><path d="M9 4H4v16h5m6-13 5 5-5 5m5-5H9"/></>,
     home: <><path d="m3 11 9-8 9 8v10h-6v-7H9v7H3V11Z"/></>,
     heart: <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/>,
     more: <><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></>,

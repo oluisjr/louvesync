@@ -5,6 +5,7 @@ import { broadcastUpdate, onRealtime } from '../lib/realtime.js';
 import { Dialog, Icon } from './Interface.jsx';
 import { ObservedPost, ViewersButton } from './Activity.jsx';
 import ReactionPicker from './ReactionPicker.jsx';
+import MentionInput, { MentionText } from './MentionInput.jsx';
 import { publishAnnouncement, verifyAnnouncement, restoreAnnouncementCache, reconcileAnnouncements } from '../lib/announcement-storage.js';
 import '../community-mural.css';
 
@@ -32,7 +33,7 @@ function SocialIcon({ name, ...props }) {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{name === 'like' ? <><path d="M7 10v11H3V10h4Zm0 1 5-8c2 0 3 2 2 5l-1 2h6a2 2 0 0 1 2 2l-2 7a3 3 0 0 1-3 2H7"/></> : name === 'comment' ? <path d="M20 15a3 3 0 0 1-3 3H9l-5 4v-4a3 3 0 0 1-2-3V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9Z"/> : <><path d="M4 8V5a2 2 0 0 1 2-2h12v18l-6-4-6 4V8"/></>}</svg>;
 }
 
-export default memo(function CommunityMural({ profile, dark, members, activity }) {
+export default memo(function CommunityMural({ profile, dark, members, activity, target }) {
   const cacheKey = `ls_mural_cache_v1:${profile?.id || 'local'}`;
   const draftKey = `ls_mural_draft_v1:${profile?.id || 'local'}`;
   const cached = readCache(cacheKey, {});
@@ -48,6 +49,10 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
   const [newPostOpen, setNewPostOpen] = useState(false);
   const [newTitle, setNewTitle] = useState(() => cachedDraft.title || '');
   const [newContent, setNewContent] = useState(() => cachedDraft.content || '');
+  const [postMentions,setPostMentions]=useState(()=>cachedDraft.mention_member_ids||[]);
+  const [commentMentions,setCommentMentions]=useState({});
+  const [serverLoaded,setServerLoaded]=useState(false);
+  const handledTarget=useRef(null);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState('');
   const [expandedComments, setExpandedComments] = useState({});
@@ -79,6 +84,7 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
       if (results[0].error) throw results[0].error;
       const savedPosts = results[0].data || [];
       setPosts(previous => reconcileAnnouncements(previous, savedPosts, profile.id));
+      setServerLoaded(true);
       if (!results[1].error) setComments(results[1].data || []);
       if (!results[2].error) setReactions(results[2].data || []);
       if (!results[3].error) setSaves((results[3].data || []).map(row => row.post_id));
@@ -103,7 +109,15 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
     return () => { alive.current = false; off(); clearInterval(timer); window.removeEventListener('online', resume); window.removeEventListener('offline', resume); document.removeEventListener('visibilitychange', resume); if (channel) supabase.removeChannel(channel); };
   }, [refresh]);
   useEffect(() => { if (!loading) writeCache(cacheKey, { posts, comments, reactions, saves }); }, [cacheKey, posts, comments, reactions, saves, loading]);
-  useEffect(() => { writeCache(draftKey, { title: newTitle, content: newContent, identity: draft.current, recovery: recovery.current }); }, [draftKey, newTitle, newContent, posting]);
+  useEffect(() => { writeCache(draftKey, { title: newTitle, content: newContent, mention_member_ids:postMentions, identity: draft.current, recovery: recovery.current }); }, [draftKey, newTitle, newContent,postMentions, posting]);
+  useEffect(()=>{
+    if(!target?.postId||!serverLoaded||handledTarget.current===target.requestId)return;
+    handledTarget.current=target.requestId;setFilter('all');
+    if(!posts.some(post=>String(post.id)===String(target.postId))){setNotice('Este comunicado não está mais disponível.');return;}
+    if(target.commentId)setExpandedComments(previous=>({...previous,[target.postId]:true}));
+    const frame=requestAnimationFrame(()=>{const element=document.getElementById('mural-comment-'+target.commentId)||document.getElementById('mural-post-'+target.postId);element?.scrollIntoView({block:'center',behavior:'smooth'});element?.focus({preventScroll:true});});
+    return()=>cancelAnimationFrame(frame);
+  },[target,serverLoaded,posts]);
 
   const queue = (type, data) => {
     if (!window.dispatchOfflineTask) throw new Error('Conecte-se para concluir esta ação.');
@@ -126,13 +140,13 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
     if (!newTitle.trim() || !newContent.trim()) { setPostError('Informe o título e o comunicado.'); return; }
     locks.current.add('post'); setPosting(true); setPostError('');
     const title = newTitle.trim(), content = newContent.trim();
-    if (!draft.current || draft.current.title !== title || draft.current.content !== content || String(draft.current.created_by) !== String(profile.id)) {
-      draft.current = { id: 'post_' + crypto.randomUUID(), title, content, created_at: new Date().toISOString(), created_by: profile.id };
+    if (!draft.current || draft.current.title !== title || draft.current.content !== content || JSON.stringify(draft.current.mention_member_ids||[])!==JSON.stringify(postMentions) || String(draft.current.created_by) !== String(profile.id)) {
+      draft.current = { id: 'post_' + crypto.randomUUID(), title, content, mention_member_ids:postMentions, created_at: new Date().toISOString(), created_by: profile.id };
     }
     const row = draft.current;
     // Keep this identity even if the write commits but its acknowledgement or
     // read-back is lost. Retrying after a reload must find the same publication.
-    writeCache(draftKey, { title: newTitle, content: newContent, identity: row, recovery: recovery.current });
+    writeCache(draftKey, { title: newTitle, content: newContent,mention_member_ids:postMentions, identity: row, recovery: recovery.current });
     try {
       let published;
       if (!navigator.onLine) {
@@ -145,7 +159,7 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
       const recovered = recovery.current;
       recovery.current = null;
       writeCache(draftKey, {});
-      setPosts(previous => [published, ...previous.filter(post => String(post.id) !== String(published.id) && !(recovered && String(post.id) === String(recovered.id) && post.title === row.title && post.content === row.content))]); setNewTitle(''); setNewContent(''); setNewPostOpen(false);
+      setPosts(previous => [published, ...previous.filter(post => String(post.id) !== String(published.id) && !(recovered && String(post.id) === String(recovered.id) && post.title === row.title && post.content === row.content))]); setNewTitle(''); setNewContent('');setPostMentions([]); setNewPostOpen(false);
       await notifyChange();
     } catch (error) { setPostError('Não foi possível publicar. ' + (error.message || 'Tente novamente.')); }
     finally { locks.current.delete('post'); setPosting(false); }
@@ -153,10 +167,10 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
   const addComment = postId => runAction(`comment:${postId}`, postId, async () => {
     const text = (commentTexts[postId] || '').trim();
     if (!text || !profile?.id) return;
-    const row = { id: 'comment_' + crypto.randomUUID(), post_id: postId, member_id: profile.id, text, created_at: new Date().toISOString() };
+    const row = { id: 'comment_' + crypto.randomUUID(), post_id: postId, member_id: profile.id, text,mention_member_ids:commentMentions[postId]||[], created_at: new Date().toISOString() };
     if (!navigator.onLine) queue('create_comment', row);
     else if (supabase) { const { error } = await supabase.from('announcement_comments').insert(row); if (error) throw error; }
-    setComments(previous => [...previous, row]); setCommentTexts(previous => ({ ...previous, [postId]: '' }));
+    setComments(previous => [...previous, row]); setCommentTexts(previous => ({ ...previous, [postId]: '' }));setCommentMentions(previous=>({...previous,[postId]:[]}));
     await notifyChange();
   });
   const toggleReaction = (postId, emoji) => runAction(`reaction:${postId}:${emoji}`, postId, async () => {
@@ -201,7 +215,7 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
       setNotice('Você já tem um rascunho em Novo aviso. Conclua ou limpe esse texto antes de recuperar outro comunicado.');
       return;
     }
-    draft.current = null; recovery.current = post; setNewTitle(post.title || ''); setNewContent(post.content || ''); setPostError(''); setNewPostOpen(true);
+    draft.current = null; recovery.current = post; setNewTitle(post.title || ''); setNewContent(post.content || '');setPostMentions(post.mention_member_ids||[]); setPostError(''); setNewPostOpen(true);
   };
 
   return <div className="app-page aUp community-mural" data-theme={dark ? 'dark' : 'light'}>
@@ -215,9 +229,9 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
       const saved = saves.includes(post.id), liked = postReactions.some(reaction => reaction.member_id === profile.id && reaction.emoji === '👍');
       const photo = safeImage(post), visibleComments = expandedComments[post.id] ? postComments : postComments.slice(-1);
       const interactive = canInteract(post), confirmed = post._publication === 'confirmed';
-      return <ObservedPost key={post.id} post={post} enabled={!newPostOpen && interactive} onView={() => activity?.recordView('announcement', String(post.id))} className="community-post">
+      return <ObservedPost id={'mural-post-'+post.id} tabIndex={-1} data-mention-target={String(target?.postId)===String(post.id)} key={post.id} post={post} enabled={!newPostOpen && interactive} onView={() => activity?.recordView('announcement', String(post.id))} className="community-post">
         <header className="community-post-header"><Avatar member={author}/><div className="community-author"><strong>{author.name}</strong><small>{author.role || author.instrument || 'Ministério'} · <time dateTime={post.created_at}>{dateText(post.created_at)}</time></small></div><button type="button" className="community-save" aria-label={`${saved ? 'Remover dos salvos' : 'Salvar aviso'}: ${post.title}`} aria-pressed={saved} disabled={!interactive || pending[`save:${post.id}`]} onClick={() => toggleSave(post.id)}><SocialIcon name="save"/></button></header>
-        <div className={'community-post-body' + (rehearsalPost(post) ? ' community-post-rehearsal' : '')}><h3>{post.title}</h3><p>{post.content}</p></div>
+        <div className={'community-post-body' + (rehearsalPost(post) ? ' community-post-rehearsal' : '')}><h3>{post.title}</h3><p><MentionText text={post.content} mentionIds={post.mention_member_ids} members={members}/></p></div>
         {photo && <img className="community-post-photo" src={photo} alt={'Imagem de ' + post.title} loading="lazy"/>}
         {!confirmed ? <div className="community-pending" role="status">
           <p>{post._publication === 'pending' ? 'Aguardando sincronização. As visualizações estarão disponíveis após a publicação.' : post._publication === 'missing' ? 'Este comunicado não foi localizado no banco. O texto está preservado neste aparelho.' : 'Verificando a publicação no banco. O texto local está preservado.'}</p>
@@ -227,14 +241,14 @@ export default memo(function CommunityMural({ profile, dark, members, activity }
         </div> : profile?.is_admin && <div className="community-viewers"><ViewersButton activity={activity} targetType="announcement" targetId={String(post.id)} title={post.title} members={members} dark={dark} beforeOpen={() => checkPublication(post)}/></div>}
         <div className="community-social-summary"><span><span aria-hidden="true">{postReactions.length ? [...new Set(postReactions.map(reaction => reaction.emoji))].slice(0, 3).join('') : '♡'}</span> {postReactions.length} {postReactions.length === 1 ? 'reação' : 'reações'}</span><button type="button" disabled={!interactive} onClick={() => setExpandedComments(previous => ({ ...previous, [post.id]: !previous[post.id] }))} aria-expanded={!!expandedComments[post.id]}>{postComments.length} {postComments.length === 1 ? 'comentário' : 'comentários'}</button></div>
         <div className="community-social-actions"><button type="button" aria-pressed={liked} disabled={!interactive || pending[`reaction:${post.id}:👍`]} onClick={() => toggleReaction(post.id, '👍')}><SocialIcon name="like"/>Curtir</button><button type="button" disabled={!interactive} aria-haspopup="menu" aria-controls={reactionMenu?.postId === post.id ? reactionMenuId : undefined} aria-expanded={reactionMenu?.postId === post.id} onClick={event => setReactionMenu(reactionMenu?.postId === post.id ? null : { postId: post.id, anchor: event.currentTarget })}><span aria-hidden="true">♡</span>Reagir</button><button type="button" disabled={!interactive} aria-expanded={!!expandedComments[post.id]} onClick={() => setExpandedComments(previous => ({ ...previous, [post.id]: !previous[post.id] }))}><SocialIcon name="comment"/>Comentar</button></div>
-        {!!visibleComments.length && <div className="community-comments">{visibleComments.map(comment => { const member = authorFor(comment.member_id); return <div className="community-comment" key={comment.id}><Avatar member={member} small/><div><strong>{member.name}</strong><p>{comment.text}</p></div></div>; })}</div>}
-        {expandedComments[post.id] && <form className="community-comment-form" onSubmit={event => { event.preventDefault(); addComment(post.id); }}><input aria-label={'Escrever comentário em ' + post.title} disabled={!interactive} data-update-blocking={!!commentTexts[post.id]?.trim()} value={commentTexts[post.id] || ''} onChange={event => setCommentTexts(previous => ({ ...previous, [post.id]: event.target.value }))} placeholder="Escreva um comentário..." required/><button type="submit" disabled={!interactive || pending[`comment:${post.id}`] || !commentTexts[post.id]?.trim()}>{pending[`comment:${post.id}`] ? 'Enviando…' : 'Enviar'}</button></form>}
+        {!!visibleComments.length && <div className="community-comments">{visibleComments.map(comment => { const member = authorFor(comment.member_id); return <div className="community-comment community-mention-target" id={'mural-comment-'+comment.id} tabIndex={-1} key={comment.id}><Avatar member={member} small/><div><strong>{member.name}</strong><p><MentionText text={comment.text} mentionIds={comment.mention_member_ids} members={members}/></p></div></div>; })}</div>}
+        {expandedComments[post.id] && <form className="community-comment-form" onSubmit={event => { event.preventDefault(); addComment(post.id); }}><MentionInput label={'Escrever comentário em '+post.title} disabled={!interactive} value={commentTexts[post.id]||''} mentionIds={commentMentions[post.id]||[]} members={members} rows={2} maxLength={2000} onChange={(text,ids)=>{setCommentTexts(previous=>({...previous,[post.id]:text}));setCommentMentions(previous=>({...previous,[post.id]:ids}));}} placeholder="Escreva um comentário..." required/><button type="submit" disabled={!interactive || pending[`comment:${post.id}`] || !commentTexts[post.id]?.trim()}>{pending[`comment:${post.id}`] ? 'Enviando…' : 'Enviar'}</button></form>}
         {actionErrors[post.id] && <p className="community-post-error" role="alert">{actionErrors[post.id]}</p>}
       </ObservedPost>;
     })}{!filteredPosts.length && !loading && <div className="community-empty"><Icon name="note" size={28}/><strong>{filter === 'saved' ? 'Nenhum aviso salvo' : filter === 'rehearsal' ? 'Nenhum aviso de ensaio' : 'Nenhum comunicado no mural'}</strong><p>{filter === 'saved' ? 'Use o marcador no aviso para encontrá-lo aqui.' : 'Os comunicados da equipe aparecerão aqui.'}</p></div>}</div>}
     {reactionPost && <ReactionPicker id={reactionMenuId} anchor={reactionMenu.anchor} postTitle={reactionPost.title} dark={dark} selected={reactions.filter(reaction => reaction.post_id === reactionPost.id && reaction.member_id === profile.id).map(reaction => reaction.emoji)} pending={['👍', '🙏', '🎵', '🔥'].filter(emoji => pending[`reaction:${reactionPost.id}:${emoji}`])} onSelect={emoji => toggleReaction(reactionPost.id, emoji)} onClose={closeReactions}/>}
     {newPostOpen && <Dialog dark={dark} icon="note" title="Novo Comunicado" description="Publique um aviso para a equipe." closeLabel="Fechar novo comunicado" busy={posting} onClose={() => setNewPostOpen(false)} footer={<>{postError && <p className="ui-message ui-error" role="alert">{postError}</p>}<div className="ui-dialog-buttons"><button type="button" className="ui-button" disabled={posting} onClick={() => setNewPostOpen(false)}>Cancelar</button><button type="submit" form={formId} className="ui-button ui-button-primary" disabled={posting}>{posting ? 'Publicando…' : 'Publicar'}</button></div></>}>
-      <form id={formId} onSubmit={createPost}><label className="ui-field">Título do aviso<input autoFocus placeholder="Título do post *" value={newTitle} onChange={event => setNewTitle(event.target.value)} required disabled={posting}/></label><label className="ui-field">Comunicado<textarea placeholder="Escreva o comunicado aqui..." value={newContent} onChange={event => setNewContent(event.target.value)} rows={7} required disabled={posting}/></label></form>
+      <form id={formId} onSubmit={createPost}><label className="ui-field">Título do aviso<input autoFocus placeholder="Título do post *" value={newTitle} onChange={event => setNewTitle(event.target.value)} required disabled={posting}/></label><MentionInput label="Comunicado" placeholder="Escreva o comunicado aqui..." value={newContent} mentionIds={postMentions} members={members} onChange={(text,ids)=>{setNewContent(text);setPostMentions(ids);}} rows={7} required disabled={posting}/></form>
     </Dialog>}
   </div>;
 });

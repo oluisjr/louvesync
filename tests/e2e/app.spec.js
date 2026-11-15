@@ -2,6 +2,7 @@ import { test, expect, devices } from '@playwright/test';
 import fs from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { communityDatabase } from '../helpers/community-database.js';
+import { mentionsDatabase } from '../helpers/mentions-database.js';
 import { createMaestroHandler } from '../../server/maestro.js';
 import { createChangesHandler } from '../../api/changes.js';
 import { createAttendanceHandler } from '../../api/attendance.js';
@@ -17,6 +18,74 @@ const member = { ...admin, id: 'user-member', name: 'Membro Teste', is_admin: fa
 const songs = ['adoracao', 'ceia', 'jubilo'].map((cat, index) => ({ id: `song-${index}`, title: `Teste ${cat}`, artist: 'Fixture', cat, key: 'C', lyrics: '[C]Letra para [G]teste', bpm: 80, tags: [], time_signature: '4/4', vocal_keys: {} }));
 const initialEvents = [{ id: 'event-1', date: '2026-10-25', time: '18:00:00', label: 'Culto de Teste', type: 'culto', event_songs: songs.map((song, index) => ({ id: index + 1, song_id: song.id, order_index: index + 1, item_type: 'song' })), event_members: [{ member_id: admin.id, confirmed: null }, { member_id: member.id, confirmed: null }] }];
 const rehearsalEvent = () => ({ ...structuredClone(initialEvents[0]), id:'practice', date:'2026-10-24', time:'15:00:00', type:'ensaio', label:'Ensaio da equipe', event_members:[{member_id:admin.id,confirmed:true},{member_id:member.id,confirmed:true}] });
+
+for(const theme of ['light','dark'])test(`every fresh entry starts as visitor with four destinations and a prominent login in ${theme}`,async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  const page=await app.open(admin,undefined,{visitorOnly:true,theme,device:{viewport:{width:390,height:844}}});
+  const nav=page.getByRole('navigation',{name:'Navegação da comunidade'}),cta=page.getByRole('button',{name:'Fazer login',exact:true});
+  await expect(page.locator('.church-audience')).toHaveText('Visitante');await expect(nav.getByRole('button')).toHaveText(['Início','Agenda','Oração','Bíblia']);
+  expect((app.state.databaseReads||[]).filter(action=>['fetchSongs','fetchEvents','fetchMembers'].includes(action))).toEqual([]);
+  expect(await page.evaluate(()=>localStorage.getItem('ls_actor_session'))).toBeNull();
+  for(const width of [390,320]){
+   await page.setViewportSize({width,height:844});await expect(cta).toBeInViewport();
+   const box=await cta.boundingBox();expect(box.height).toBeGreaterThanOrEqual(54);expect(box.width).toBeGreaterThan(width*.75);
+   const colors=await cta.evaluate(element=>{const style=getComputedStyle(element);return {text:style.color,bg:style.backgroundImage};});expect(colors.bg).toContain('gradient');
+   await page.screenshot({path:test.info().outputPath(`visitor-login-${theme}-${width}.png`),scale:'css'});
+  }
+  await app.login(page);await expect(page.locator('.app-header')).toBeVisible();await page.getByRole('button',{name:'Tema',exact:true}).click();await page.getByRole('button',{name:'Sair',exact:true}).click();await expect(page.locator('.church-community')).toHaveAttribute('data-theme',theme==='dark'?'light':'dark');
+  await page.reload();await expect(page.locator('.church-audience')).toHaveText('Visitante');await expect(nav.getByRole('button')).toHaveCount(4);await expect(cta).toBeVisible();
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('church-only member logs in explicitly and receives only the four community screens',async({browser})=>{
+ const app=await fixture(browser),church={...member,access_type:'church_member',role:'Membro',instrument:'',schedule_enabled:false};app.state.members[1]=church;
+ try{
+  const page=await app.open(church,undefined,{visitorOnly:true,community:true});await app.login(page);
+  await expect(page.locator('.church-audience')).toHaveText('Membro');const nav=page.getByRole('navigation',{name:'Navegação da comunidade'});await expect(nav.getByRole('button')).toHaveCount(4);
+  for(const name of ['Escala','Mais','Mural','Admin'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Sair da minha conta',exact:true}).click();await expect(page.locator('.church-audience')).toHaveText('Visitante');await expect(page.getByRole('button',{name:'Fazer login',exact:true})).toBeVisible();expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('visitor Bible stores chapters locally and reads the same chapter after an offline reload',async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  const page=await app.open(null),transport=await bibleTransport(page);await page.getByRole('button',{name:'Bíblia',exact:true}).click();
+  const reader=page.locator('.ui-bible-reading');await expect(reader.locator('[data-verse="1"]')).toContainText('No princípio era a Palavra');
+  await page.locator('.church-scroll').evaluate(node=>{node.scrollTop=node.scrollHeight;});const last=await reader.locator('[data-verse="51"]').boundingBox(),dock=await page.locator('.bible-chapter-dock').boundingBox(),nav=await page.locator('.church-navigation').boundingBox();expect(last.y+last.height).toBeLessThan(dock.y-8);expect(dock.y+dock.height).toBeLessThan(nav.y);await page.screenshot({path:test.info().outputPath('visitor-bible.png'),scale:'css'});const cached=await page.evaluate(key=>localStorage.getItem(key),bibleCacheKey('john',1));expect(JSON.parse(cached)).toHaveLength(51);
+  transport.offline=true;await page.reload();await expect(page.locator('.church-audience')).toHaveText('Visitante');await page.getByRole('button',{name:'Bíblia',exact:true}).click();
+  await expect(reader).toContainText('Leitura disponível offline.');await expect(reader.locator('[data-verse="1"]')).toContainText('No princípio era a Palavra');expect(await page.evaluate(key=>localStorage.getItem(key),bibleCacheKey('john',1))).toBe(cached);expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('schedule mentions notify another signed-in device and reopen the exact event with durable read receipts',async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  const leader=await app.open(admin,undefined,{mentions:true}),teammate=await app.open(member,undefined,{mentions:true});
+  await leader.getByRole('button',{name:'Escala',exact:true}).click();await leader.getByRole('button',{name:'Editar evento Culto de Teste',exact:true}).click();const editor=leader.getByRole('dialog',{name:'Editar evento',exact:true});
+  const notes=editor.getByRole('textbox',{name:'Mensagem para a equipe',exact:true});await notes.fill('Confira a passagem, @mem');await editor.getByRole('option',{name:/Membro Teste/}).click();
+  await expect(notes).toHaveValue('Confira a passagem, @Membro Teste ');await editor.getByRole('button',{name:'Salvar Alterações',exact:true}).click();await expect(editor).toHaveCount(0);
+  await teammate.getByRole('button',{name:'Notificações',exact:true}).click();const inbox=teammate.getByRole('dialog',{name:'Notificações',exact:true});await inbox.getByRole('button',{name:'Atualizar',exact:true}).click();const notice=inbox.getByRole('article').filter({hasText:'Você foi mencionado na escala'});await expect(notice).toContainText('Admin Teste marcou você em Culto de Teste');
+  await notice.getByRole('button',{name:'Ver escala',exact:true}).click();await expect(teammate.getByRole('dialog',{name:'Culto de Teste',exact:true})).toContainText('Confira a passagem, @Membro Teste');
+  await expect.poll(async()=>(await app.communityQuery("select read_at from louvesync_notifications where member_id=$1 and kind='mention'",[member.id])).rows[0]?.read_at!=null).toBe(true);
+  await app.reload(teammate);await teammate.getByRole('button',{name:'Notificações',exact:true}).click();await expect(inbox.getByRole('article').filter({hasText:'Você foi mencionado na escala'}).getByRole('button',{name:'Marcar como lida',exact:true})).toHaveCount(0);expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('mural posts and member comments mention ministry recipients and notifications focus their source',async({browser})=>{
+ const app=await fixture(browser);app.state.members.push({...member,id:'church-only',name:'Só Igreja',access_type:'church_member',role:'Membro',instrument:'',schedule_enabled:false},{...member,id:'inactive',name:'Inativo',status:'inativo'});
+ try{
+  const leader=await app.open(admin,undefined,{mentions:true,theme:'dark'}),teammate=await app.open(member,undefined,{mentions:true});await navigate(leader,'Mural');await leader.getByRole('button',{name:'Novo Aviso',exact:true}).click();const composer=leader.getByRole('dialog',{name:'Novo Comunicado',exact:true});await composer.getByPlaceholder('Título do post *').fill('Preparação com marcações');
+  await composer.getByRole('button',{name:'Marcar integrantes',exact:true}).click();await expect(composer.getByRole('option',{name:/Só Igreja|Inativo/})).toHaveCount(0);await composer.getByRole('option',{name:/Membro Teste/}).click();await composer.getByRole('textbox',{name:'Comunicado',exact:true}).press('End');await composer.getByRole('textbox',{name:'Comunicado',exact:true}).pressSequentially('vamos ensaiar a transição.');
+  await expect(composer.getByRole('listbox')).toHaveCount(0);await leader.screenshot({path:test.info().outputPath('mural-mention-composer.png'),scale:'css'});await composer.getByRole('button',{name:'Publicar',exact:true}).click();await expect(composer).toHaveCount(0);
+  await teammate.getByRole('button',{name:'Notificações',exact:true}).click();let inbox=teammate.getByRole('dialog',{name:'Notificações',exact:true});await inbox.getByRole('button',{name:'Atualizar',exact:true}).click();await inbox.getByRole('article').filter({hasText:'Você foi mencionado no mural'}).getByRole('button',{name:'Ver comunicado',exact:true}).click();const post=teammate.locator('.community-post').filter({hasText:'Preparação com marcações'});await expect(post).toBeFocused();await post.getByRole('button',{name:'Comentar',exact:true}).click();
+  await post.getByRole('textbox',{name:'Escrever comentário em Preparação com marcações',exact:true}).fill('Combinado, @adm');await post.getByRole('option',{name:/Admin Teste/}).click();await post.getByRole('button',{name:'Enviar',exact:true}).click();
+  await leader.getByRole('button',{name:'Notificações',exact:true}).click();inbox=leader.getByRole('dialog',{name:'Notificações',exact:true});await inbox.getByRole('button',{name:'Atualizar',exact:true}).click();await inbox.getByRole('article').filter({hasText:'Você foi mencionado em um comentário'}).getByRole('button',{name:'Ver comunicado',exact:true}).click();
+  const comment=leader.locator('.community-comment').filter({hasText:'Combinado, @Admin Teste'});await expect(comment).toBeFocused();await expect(comment.locator('.mention-token')).toHaveText('@Admin Teste');await leader.screenshot({path:test.info().outputPath('mural-comment-mention.png'),scale:'css'});expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
 
 for(const profile of [admin,member])test(`rehearsal events open the studio and use service and custom event repertoires for ${profile.is_admin?'admins':'members'}`,async({browser})=>{
   const app=await fixture(browser);
@@ -222,7 +291,7 @@ for(const theme of ['light','dark'])test(`3D repertoire preserves songs, favorit
     await expect(library.getByRole('article')).toHaveAccessibleName('Arranjo acústico');
     await categories.getByRole('button',{name:'Sem categoria',exact:true}).click();
     await expect(library.getByRole('article')).toHaveAccessibleName('Música ainda sem categoria');
-    await page.reload();await navigate(page,'Músicas');
+    await app.reload(page);await navigate(page,'Músicas');
     await expect(summary).toContainText('2 favoritas');
     await library.getByRole('button',{name:'Editar Teste adoracao',exact:true}).click();
     await expect(page.getByText('Editar Música',{exact:true})).toBeVisible();
@@ -354,7 +423,7 @@ for(const theme of ['light','dark']){
       await expect(page.locator('html')).toHaveAttribute('data-theme',changed);
       await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content',changed==='dark'?'#1D1B2D':'#F5F0FF');
       await expect.poll(()=>page.evaluate(()=>localStorage.getItem('ls_theme'))).toBe(changed);
-      await page.reload();
+      await app.reload(page);
       await expect(page.getByRole('button',{name:'Escala',exact:true})).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme',changed);
       await expect(page.locator('body')).toHaveCSS('background-color',changed==='dark'?'rgb(29, 27, 45)':'rgb(234, 248, 250)');
@@ -431,6 +500,7 @@ test('login remains scrollable and themed when the visible screen is short',asyn
     const page=await app.open(admin,undefined,{theme:'dark'});
     await page.setViewportSize({width:390,height:420});
     await page.getByRole('button',{name:'Sair',exact:true}).click();
+    await page.getByRole('button',{name:'Fazer login',exact:true}).click();
     const login=page.locator('.app-login'),toggle=page.getByRole('button',{name:'Modo escuro',exact:true});
     await toggle.scrollIntoViewIfNeeded();
     await expect(toggle).toBeInViewport();
@@ -450,6 +520,7 @@ for(const layout of [{theme:'light',width:390,height:844},{theme:'dark',width:32
       const page=await app.open(admin,undefined,{device:{...devices['iPhone 13'],viewport:{width:layout.width,height:layout.height}},theme:layout.theme,standalone:true});
       await page.addStyleTag({content:':root { --app-safe-top:47px; --app-safe-bottom:34px; } *,*::before,*::after { animation:none!important; transition:none!important; }'});
       await page.getByRole('button',{name:'Sair',exact:true}).click();
+      await page.getByRole('button',{name:'Fazer login',exact:true}).click();
       await page.getByRole('button',{name:/Membro Teste/}).click();
       const login=page.locator('.app-login'),password=page.getByPlaceholder('Digite sua senha...'),submit=page.getByRole('button',{name:'Entrar',exact:true});
       await expect(password).toBeFocused();
@@ -526,6 +597,7 @@ test('pages use one compact menu clearance and release it when opening a chart',
 
 async function fixture(browser) {
   const pages = [], contexts = [], failures = [];
+  const profilesByPage=new Map();
   let attendanceDb,changesDb,changeQueue=Promise.resolve();
   const getChangesDb=async()=>{
     if(changesDb)return changesDb;
@@ -573,6 +645,17 @@ async function fixture(browser) {
   };
   const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), members: structuredClone([admin,member]), memberRequests: [], session: null, notes: {}, nextItemId: 100, posts: [], activitySessions:new Map(), activityViews:new Map(), activityRequests:[], activityNow:Date.parse('2026-10-24T15:00:00Z'), activityFailure:null };
   const communityDb=communityDatabase(state,getChangesDb);
+  const mentionsDb=mentionsDatabase(communityDb,state);
+  async function login(page,profile=profilesByPage.get(page)) {
+    const person=state.members.find(person=>person.id===profile?.id)||profile;
+    if(!person)return;
+    await page.getByRole('button',{name:'Fazer login',exact:true}).click();
+    await page.locator('.app-login button').filter({has:page.getByText(person.name,{exact:true})}).click();
+    await page.getByLabel('Senha',{exact:true}).fill(person.pin||'TEST_PIN_'+person.id);
+    await page.getByRole('button',{name:'Entrar',exact:true}).click();
+    if(person.access_type==='church_member')await expect(page.locator('.church-audience')).toHaveText('Membro');
+    else await expect(page.getByRole('button',{name:'Escala',exact:true})).toBeVisible();
+  }
   const code = `
     import { memberPayload, normalizeMember } from '/src/lib/member-settings.js';
     import { updateEventItems, updateSetlistConfirmation } from '/src/lib/event-storage.js';
@@ -595,6 +678,7 @@ async function fixture(browser) {
     };}};
   `;
   async function open(profile = admin, time = '2026-10-24T12:00:00-03:00', options = {}) {
+    if(options.mentions){communityDb.enableMentions();await communityDb.ready();}
     if(options.community)await communityDb.ready();
     if(options.attendance)await getAttendanceDb();
     if(options.changes)await getChangesDb();
@@ -655,14 +739,16 @@ async function fixture(browser) {
       if (action === 'saveVocalKey') { const song=state.songs.find(song=>song.id===args[0]);song.vocal_keys[args[1]]=args[2];return song.vocal_keys; }
       if (action === 'setSingerForSong') { const event=state.events.find(event=>event.id===args[0]);event.event_songs.filter(row=>row.song_id===args[1]).forEach(row=>{row.singer_member_id=args[2];});return; }
       if (action === 'upsertEvent') {
-        const unknown=Object.keys(args[0]).find(key=>!['id','date','time','type','label','theme'].includes(key));
+        const unknown=Object.keys(args[0]).find(key=>!['id','date','time','type','label','theme','notes','mention_member_ids'].includes(key));
         if(unknown)throw new Error("Could not find the '"+unknown+"' column of 'events' in the schema cache");
+        if(options.mentions)await mentionsDb.event(args[0],await _source.page.evaluate(()=>JSON.parse(localStorage.getItem('ls_actor_session'))));
         const index=state.events.findIndex(event=>event.id===args[0].id);if(index<0)state.events.push(args[0]);else state.events[index]={...state.events[index],...args[0]};return args[0];
       }
       if (action === 'query') {
         const query = args[0];
         const muralKeys={announcements:'posts',announcement_comments:'comments',announcement_reactions:'reactions',announcement_saves:'saves'};
         if(muralKeys[query.table]){
+          if(options.mentions&&['announcements','announcement_comments'].includes(query.table))return mentionsDb.mural(query,await _source.page.evaluate(()=>JSON.parse(localStorage.getItem('ls_actor_session'))));
           const key=muralKeys[query.table];state[key]||=[];
           const matches=row=>Object.entries(query.filters).every(([field,value])=>row[field]===value);
           let inserted;
@@ -744,6 +830,11 @@ async function fixture(browser) {
     });
     await context.exposeBinding('__testBroadcast', async (_source, name, message) => { await Promise.all(pages.filter(page=>!page.isClosed()).map(page=>page.evaluate(({name,message})=>window.__testDeliver?.(name,message),{name,message}))); });
     const page = await context.newPage(); pages.push(page);
+    profilesByPage.set(page,profile);
+    if(options.mentions)await page.route('**/api/notifications',async route=>{
+      try{const result=await mentionsDb.notifications(route.request().postDataJSON());await route.fulfill({json:{...result,ok:true,pushConfigured:false}});}
+      catch(error){await route.fulfill({status:403,json:{ok:false,error:error.message}});}
+    });
     page.on('pageerror', error => failures.push(error.message));
     await page.route('**/src/lib/supabase.js*', route => route.fulfill({ contentType: 'text/javascript', body: (options.noSupabase ? code.replace('export const supabase=','const fixtureSupabase=')+'\nexport const supabase=null;' : code)+storageCode }));
     const handleActivity=async(route,direct=false)=>{
@@ -825,10 +916,11 @@ async function fixture(browser) {
     if(options.directActivity)await page.route('https://activity-fixture.supabase.co/rest/v1/rpc/louvesync_activity',route=>handleActivity(route,true));
     await page.clock.setFixedTime(new Date(time));
     await page.goto('http://127.0.0.1:5174/');
-    if(!profile||profile.access_type==='church_member')await expect(page.getByRole('navigation',{name:'Navegação da comunidade'})).toBeVisible();else await expect(page.getByRole('button', {name:'Escala',exact:true})).toBeVisible();
+    await expect(page.getByRole('navigation',{name:'Navegação da comunidade'})).toBeVisible();
+    if(profile&&!options.visitorOnly)await login(page,profile);
     return page;
   }
-  return { open, failures, state, communityQuery:communityDb.query, async attendanceQuery(sql,params=[]){const db=await getAttendanceDb();await db.exec('reset role');try{return await db.query(sql,params);}finally{await db.exec('set role anon');}}, async close(){try{for(const context of contexts)await context.close();}finally{await attendanceDb?.close();await changesDb?.close();}} };
+  return { open, login, async reload(page){await page.reload();await login(page);}, failures, state, communityQuery:communityDb.query, async attendanceQuery(sql,params=[]){const db=await getAttendanceDb();await db.exec('reset role');try{return await db.query(sql,params);}finally{await db.exec('set role anon');}}, async close(){try{for(const context of contexts)await context.close();}finally{await attendanceDb?.close();await changesDb?.close();}} };
 }
 
 test('five fixed destinations keep secondary screens reachable and respect member permissions',async({browser})=>{
@@ -1382,7 +1474,7 @@ test('leader attendance records five of ten present through the real SQL API and
     const csvEvent = page.waitForEvent('download'); await screen.getByRole('button', { name: 'CSV', exact: true }).click();
     const download = await csvEvent, path = test.info().outputPath('attendance.csv'); await download.saveAs(path);
     const csv = fs.readFileSync(path, 'utf8'); expect(csv).toContain('Admin Teste'); expect(csv).toContain('Ausente'); expect(csv).toContain('Presente');
-    await page.reload(); await page.getByRole('button', { name: 'Mais', exact: true }).click(); await page.getByRole('button', { name: 'Presenças', exact: true }).click();
+    await app.reload(page); await page.getByRole('button', { name: 'Mais', exact: true }).click(); await page.getByRole('button', { name: 'Presenças', exact: true }).click();
     await expect(page.locator('.attendance-overview')).toContainText('50%');
     expect(app.failures).toEqual([]);
   } finally { finishSave?.(); await app.close(); }
@@ -1506,7 +1598,7 @@ test('setlist approval persists across devices and reloads without confirming at
     expect(app.state.events[0].event_members.map(row => row.confirmed)).toEqual([null, null]);
     expect(app.state.presenceRequests || []).toEqual([]);
     await expect(card).toContainText('Confirmado por Admin Teste');
-    await page.reload(); await page.getByRole('button', { name: 'Escala', exact: true }).click();
+    await app.reload(page); await page.getByRole('button', { name: 'Escala', exact: true }).click();
     await expect(page.getByRole('article', { name: 'Culto de Teste', exact: true }).locator('.setlist-badge')).toHaveText('Setlist definido');
     await page.getByRole('button', { name: 'Ver detalhes →', exact: true }).evaluate(element => element.scrollIntoView({ block: 'center' }));
     await page.getByRole('button', { name: 'Ver detalhes →', exact: true }).click();
@@ -1570,7 +1662,7 @@ test('setlist approval errors and offline mode retain a pending status and empty
     expect(app.state.setlistRequests).toHaveLength(1);
     await page.context().setOffline(false);
     app.state.events[0].event_songs = [];
-    await page.reload(); const empty = await openSetlistCard(page);
+    await app.reload(page); const empty = await openSetlistCard(page);
     await expect(empty.getByRole('button', { name: 'Confirmar setlist', exact: true })).toBeDisabled();
     await expect(empty).toContainText('Adicione músicas antes de confirmar');
     expect(app.failures).toEqual([]);
@@ -1585,7 +1677,7 @@ test('setlist approval rejects an out of date screen and a failed database readb
     await card.getByRole('button', { name: 'Confirmar setlist', exact: true }).click();
     await expect(card.getByRole('alert')).toContainText('O repertório mudou');
     expect(app.state.setlistRequests || []).toHaveLength(0);
-    await page.reload(); const current = await openSetlistCard(page);
+    await app.reload(page); const current = await openSetlistCard(page);
     app.state.setlistReadbackError = 'Não foi possível verificar a gravação';
     await current.getByRole('button', { name: 'Confirmar setlist', exact: true }).click();
     await expect(current.getByRole('alert')).toHaveText('Não foi possível verificar a gravação');
@@ -1753,7 +1845,7 @@ test('new-song manual path works immediately and Santa Ceia includes every categ
   try{
     const page=await app.open();await navigate(page,'Músicas');await page.getByRole('button',{name:'Adicionar',exact:true}).click();
     await page.getByRole('button',{name:'⌨️ Digitar cifra manualmente',exact:true}).click();await expect(page.locator('textarea')).toBeVisible();
-    await page.reload();await page.getByRole('button',{name:'Escala',exact:true}).click();await page.getByRole('button',{name:'Novo',exact:true}).click();
+    await app.reload(page);await page.getByRole('button',{name:'Escala',exact:true}).click();await page.getByRole('button',{name:'Novo',exact:true}).click();
     await page.getByRole('tab',{name:'Setlist',exact:true}).click();
     await page.getByText('Pedidos e Santa Ceia',{exact:true}).click();
     const select=page.getByRole('combobox',{name:'Música da Santa Ceia',exact:true});
@@ -1890,7 +1982,7 @@ test('a committed mural post with a failed readback retains its draft across rel
   await composer.getByRole('button',{name:'Publicar',exact:true}).click();
   await expect(composer.getByRole('alert')).toContainText('Leitura temporariamente indisponível');
   expect(app.state.posts).toHaveLength(1);
-  await page.reload();await navigate(page,'Mural');
+  await app.reload(page);await navigate(page,'Mural');
   await page.getByRole('button',{name:'Novo Aviso',exact:true}).click();
   composer=page.getByRole('dialog',{name:'Novo Comunicado',exact:true});
   await expect(composer.getByPlaceholder('Título do post *')).toHaveValue('Louvor com confirmação pendente');
@@ -2037,7 +2129,7 @@ test('notification inbox activates a device, preserves read receipts and opens t
    Object.defineProperty(window,'PushManager',{configurable:true,value:function(){}});
    Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:{addEventListener(){},removeEventListener(){},async getRegistration(){return {active:true,pushManager:{async getSubscription(){return subscribed?subscription:null;},async subscribe(){subscribed=true;return subscription;}}};}}});
   });
-  await page.reload();await page.getByRole('button',{name:'Notificações',exact:true}).click();
+  await app.reload(page);await page.getByRole('button',{name:'Notificações',exact:true}).click();
   const inbox=page.getByRole('dialog',{name:'Notificações',exact:true});
   await expect(inbox.getByText('Escala atualizada',{exact:true})).toBeVisible();
   await inbox.getByRole('button',{name:'Ativar notificações',exact:true}).click();await expect(inbox.getByText('Notificações ativadas neste aparelho.',{exact:true})).toBeVisible();
@@ -2106,7 +2198,7 @@ for(const theme of ['light','dark'])test(`Bible saves, highlights and shares ver
     const before=await dock.boundingBox();await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop+=350;});const after=await dock.boundingBox();
     expect(Math.abs(before.y-after.y)).toBeLessThan(1);expect(after.y+after.height).toBeLessThan((await page.locator('.app-nav .gNav').boundingBox()).y-8);
     await page.getByRole('button',{name:'Mais',exact:true}).click();await expect(page.locator('.bible-chapter-dock')).toBeHidden();await page.keyboard.press('Escape');await expect(dock).toBeVisible();
-    transport.offline=true;await page.reload();await page.getByRole('button',{name:'Bíblia',exact:true}).click();await expect(reader.locator('[data-verse="16"]')).toHaveAttribute('data-highlight','yellow');
+    transport.offline=true;await app.reload(page);await page.getByRole('button',{name:'Bíblia',exact:true}).click();await expect(reader.locator('[data-verse="16"]')).toHaveAttribute('data-highlight','yellow');
     const collectionButton=screen.getByRole('button',{name:/Seus versículos/});await collectionButton.evaluate(element=>element.scrollIntoView({block:'center'}));await collectionButton.click();
     const collection=page.getByRole('dialog',{name:'Seus versículos',exact:true});await expect(collection.locator('.bible-collection-list > li')).toHaveCount(1);
     await page.screenshot({path:test.info().outputPath(`bible-collection-${theme}.png`),scale:'css'});
@@ -2321,15 +2413,13 @@ for(const uploadFails of [false,true])test(`compact studio records real browser 
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
-test('starting the actual app shows cached offline songs while remote data is unavailable',async({browser})=>{
+test('starting the actual app offline ignores a cached ministry session and preserves the visitor Bible cache',async({browser})=>{
   const context=await browser.newContext({serviceWorkers:'block'});
   try{
-    await context.addInitScript(({profile,songs})=>{localStorage.setItem('ls_profile',JSON.stringify(profile));localStorage.setItem('ls_actor_session',JSON.stringify({memberId:profile.id,pin:'TEST_PIN_'+profile.id}));localStorage.removeItem('ls_last_activity');localStorage.setItem('ls_songs',JSON.stringify(songs));},{profile:member,songs});
-    const page=await context.newPage();await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/,route=>route.abort());await page.goto('http://127.0.0.1:5174/');
-    await navigate(page,'Músicas');await expect(page.getByText('Teste ceia',{exact:true})).toBeVisible();
-    expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ls_songs')).length)).toBe(3);
-    await page.getByRole('button',{name:'Abrir cifra de Teste ceia',exact:true}).click();
-    await expect(page.locator('.lyrics-content')).toContainText('Letra para');
+    await context.addInitScript(({profile,songs,cacheKey})=>{localStorage.setItem('ls_profile',JSON.stringify(profile));localStorage.setItem('ls_actor_session',JSON.stringify({memberId:profile.id,pin:'TEST_PIN_'+profile.id}));localStorage.setItem('ls_songs',JSON.stringify(songs));localStorage.setItem(cacheKey,JSON.stringify([{number:1,text:'Texto em cache local para leitura.'}]));},{profile:member,songs,cacheKey:bibleCacheKey('john',1)});
+    const page=await context.newPage();await page.route('**/api/community',route=>route.abort());await page.route('**/api/bible?**',route=>route.abort());await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/,route=>route.abort());await page.goto('http://127.0.0.1:5174/');
+    await expect(page.locator('.church-audience')).toHaveText('Visitante');await expect(page.getByRole('button',{name:'Mais',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Bíblia',exact:true}).click();await expect(page.locator('.ui-bible-reading')).toContainText('Texto em cache local para leitura.');await expect(page.locator('.ui-bible-reading')).toContainText('Leitura disponível offline.');
+    expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ls_songs')).length)).toBe(3);expect(await page.evaluate(()=>localStorage.getItem('ls_actor_session'))).toBeNull();
   }finally{await context.close();}
 });
 
@@ -2758,7 +2848,7 @@ for(const theme of ['light','dark']){
       await page.evaluate(()=>{delete window.visualViewport.height;delete window.visualViewport.offsetTop;window.visualViewport.dispatchEvent(new Event('resize'));});
       expect(app.state.equipmentRequests).toHaveLength(2);
       expect(Object.keys(app.state.equipmentRequests[1]).sort()).toEqual(['brand','custodian_id','id','name','serial_number','status']);
-      await page.reload();await navigate(page,'Patrimônio');
+      await app.reload(page);await navigate(page,'Patrimônio');
       const row=page.getByRole('article',{name:'Microfone cadastrado',exact:true});
       await row.getByRole('button',{name:'Editar',exact:true}).click();
       const edit=page.getByRole('dialog',{name:'Editar equipamento',exact:true});
@@ -3040,7 +3130,7 @@ for(const theme of ['light','dark'])test(`church visitors browse public meetings
       await page.locator('.church-scroll').evaluate(node=>{node.scrollTop=node.scrollHeight;});const submit=await prayer.getByRole('button',{name:'Enviar pedido de oração',exact:true}).boundingBox(),bar=await nav.boundingBox();expect(submit.y+submit.height).toBeLessThan(bar.y-8);
       await nav.getByRole('button',{name:'Início',exact:true}).click();await page.screenshot({path:test.info().outputPath(`church-welcome-${theme}-${width}.png`),scale:'css'});await nav.getByRole('button',{name:'Oração',exact:true}).click();
     }
-    await page.reload();await expect(page.getByText('Pedido privado de oração pela minha família.',{exact:true})).toHaveCount(0);expect(app.failures).toEqual([]);
+    await app.reload(page);await expect(page.getByText('Pedido privado de oração pela minha família.',{exact:true})).toHaveCount(0);expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
 
@@ -3059,7 +3149,7 @@ test('church membership selected by an admin redirects another device and cannot
   const app=await fixture(browser);
   try{
     const leader=await app.open(admin,undefined,{community:true}),teammate=await app.open(member);await navigate(leader,'Admin');await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();const editor=leader.getByRole('dialog',{name:'Editar membro',exact:true});await editor.getByLabel('Tipo de acesso',{exact:true}).selectOption('church_member');await expect(editor.getByRole('checkbox',{name:'Administrador',exact:true})).toHaveCount(0);await expect(editor.getByRole('checkbox',{name:'Ativo na escala',exact:true})).toHaveCount(0);await editor.getByRole('button',{name:'Salvar alterações',exact:true}).click();await expect(editor).toHaveCount(0);
-    await expect(teammate.getByRole('navigation',{name:'Navegação da comunidade'})).toBeVisible();await expect(teammate.getByRole('button',{name:'Escala',exact:true})).toHaveCount(0);await teammate.reload();await expect(teammate.getByRole('navigation',{name:'Navegação da comunidade'})).toBeVisible();await teammate.getByRole('navigation',{name:'Navegação da comunidade'}).getByRole('button',{name:'Mais',exact:true}).click();await expect(teammate.getByText('Membro da igreja',{exact:true})).toBeVisible();
+    await expect(teammate.getByRole('navigation',{name:'Navegação da comunidade'})).toBeVisible();await expect(teammate.getByRole('button',{name:'Escala',exact:true})).toHaveCount(0);await teammate.reload();await expect(teammate.locator('.church-audience')).toHaveText('Visitante');await app.login(teammate);await expect(teammate.locator('.church-audience')).toHaveText('Membro');
     const blocked=await teammate.evaluate(async actor=>{const response=await fetch('/api/community',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'admin_list',memberId:actor.id,pin:actor.pin,is_admin:true})});return response.status;},{...app.state.members.find(person=>person.id===member.id),pin:app.state.members.find(person=>person.id===member.id).pin||'TEST_PIN_'+member.id});expect(blocked).toBe(403);
     expect((await app.communityQuery('select access_type,schedule_enabled,is_admin,role from members where id=$1',[member.id])).rows[0]).toMatchObject({access_type:'church_member',schedule_enabled:false,is_admin:false,role:'Membro'});
     await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();await editor.getByLabel('Tipo de acesso',{exact:true}).selectOption('ministry');await editor.getByLabel('Função ou instrumento',{exact:true}).fill('Vocal');await editor.getByRole('button',{name:'Salvar alterações',exact:true}).click();await expect(editor).toHaveCount(0);await teammate.evaluate(()=>window.dispatchEvent(new Event('online')));await expect(teammate.getByRole('button',{name:'Escala',exact:true})).toBeVisible();expect(app.failures).toEqual([]);

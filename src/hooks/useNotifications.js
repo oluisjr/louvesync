@@ -58,7 +58,7 @@ export function useNotifications(credentials) {
     configRef.current=configure;void configure();
     void load();void dispatch();
     const resume=()=>{void load();void dispatch();};
-    const off=onRealtime(message=>{if(message.type==='notifications_changed')void load();});
+    const off=onRealtime(message=>{if(['notifications_changed','mural_changed','data_changed'].includes(message.type))void load();});
     const timer=setInterval(resume,20000);
     window.addEventListener('online',resume);window.addEventListener('louvesync:resume',resume);document.addEventListener('visibilitychange',resume);
     return()=>{disposed=true;controller.abort();clearInterval(timer);off();loadRef.current=()=>{};configRef.current=()=>{};window.removeEventListener('online',resume);window.removeEventListener('louvesync:resume',resume);document.removeEventListener('visibilitychange',resume);};

@@ -33,6 +33,16 @@ As edições feitas no app disparam o envio com uma requisição que pode termin
 
 ## Verificação e limites
 
+### Marcações na escala e no mural
+
+Na criação/edição de um evento, **Mensagem para a equipe** permite digitar `@` e selecionar um integrante pelo nome ou instrumento. O mesmo seletor está em **Novo aviso** e nos comentários do mural. **Marcar integrantes** abre a busca sem digitar `@`. As pessoas selecionadas aparecem como etiquetas removíveis; texto digitado sem escolher uma pessoa não notifica por aproximação de nomes.
+
+O banco salva `mention_member_ids` em `events`, `announcements` e `announcement_comments`, com limite de 20 destinatários ativos da equipe. Um gatilho cria a notificação `mention` na mesma transação da gravação. Inclui líderes e administradores quando marcados explicitamente; visitantes e membros classificados apenas como igreja são excluídos. Não cria avisos retroativos ao instalar a migração. Uma falha ou rascunho local não envia notificação; comentários pendentes sem conexão só notificam quando sincronizados com sucesso.
+
+Regravar as mesmas marcações não duplica avisos. Remover e marcar novamente reabre a entrada existente como não lida. O sino consulta o histórico persistente após login e sincroniza avisos entre aparelhos. **Ver escala** abre o evento; **Ver comunicado** abre e focaliza o post ou comentário correspondente. Comunicados removidos mostram uma mensagem de indisponibilidade. As regras de leitura do histórico continuam restritas ao dono da conta e o autor real fica no log de alterações.
+
+`node scripts/test_mentions_sql.js` verifica gatilhos, destinatários, transações, deduplicação, autoria e acesso ao histórico em PostgreSQL descartável. Os testes de navegador também percorrem a marcação e a abertura do destino com duas sessões sintéticas e gatilhos reais.
+
 `node scripts/test_notifications_sql.js` usa PostgreSQL descartável sem rede e verifica permissões, destinatários, deduplicação, alterações, inscrições e fila. Os testes da API simulam os serviços push; o envio real exige a instalação e as variáveis acima. Não foram acessadas contas externas para aplicar a migração ou configurar as chaves.
 
 O login por PIN continua com os limites existentes de leitura/edição de membros. Esta implementação não introduz Supabase Auth e não transforma privilégios enviados pelo navegador em autoridade no banco.

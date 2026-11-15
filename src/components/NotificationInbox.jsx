@@ -18,7 +18,7 @@ export default function NotificationInbox({dark,controller,onClose,onOpen}) {
     <div className="ui-list" style={{marginTop:12}}>{items.map(item=><article key={item.id} className="ui-card" style={{marginBottom:0,borderColor:!item.read_at?'var(--ui-accent)':undefined}}>
       <strong>{item.title}</strong><p style={{color:'var(--ui-muted)',margin:'5px 0',fontSize:13}}>{item.body}</p>
       <time style={{fontSize:11,color:'var(--ui-muted)'}} dateTime={item.created_at}>{new Date(item.created_at).toLocaleString('pt-BR')}</time>
-      <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}><button type="button" className="ui-button ui-button-soft ui-button-small" onClick={()=>onOpen(item)}>Ver {item.type==='song_added'?'música':'escala'}</button>{!item.read_at&&<button type="button" className="ui-button ui-button-quiet ui-button-small" onClick={()=>controller.markRead([item.id])}>Marcar como lida</button>}</div>
+      <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}><button type="button" className="ui-button ui-button-soft ui-button-small" onClick={()=>onOpen(item)}>Ver {item.type==='song_added'?'música':item.url?.includes('tab=mural')?'comunicado':'escala'}</button>{!item.read_at&&<button type="button" className="ui-button ui-button-quiet ui-button-small" onClick={()=>controller.markRead([item.id])}>Marcar como lida</button>}</div>
     </article>)}</div>
   </Dialog>;
 }

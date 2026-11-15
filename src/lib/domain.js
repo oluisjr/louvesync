@@ -64,7 +64,7 @@ export function normalizeEvent(ev) {
 export function eventPayload(event) {
   // Only these fields belong to the base events contract. UI/relationship data
   // and optional legacy fields must not reach PostgREST as table columns.
-  return Object.fromEntries(['id', 'date', 'time', 'type', 'label', 'theme'].filter(key => Object.hasOwn(event, key)).map(key => [key, event[key]]));
+  return Object.fromEntries(['id', 'date', 'time', 'type', 'label', 'theme', 'notes', 'mention_member_ids'].filter(key => Object.hasOwn(event, key)).map(key => [key, event[key]]));
 }
 export function timerSeconds(session, now = Date.now()) {
   return Math.max(0, Math.floor((session.seconds || 0) + (session.active && session.startedAt ? (now - session.startedAt) / 1000 : 0)));

@@ -2,10 +2,12 @@ import fs from 'node:fs';
 import { createCommunityHandler } from '../../server/community.js';
 
 export function communityDatabase(state,getBaseDb) {
-  let ready;
+  let ready,mentions=false;
   const database=()=>ready||=(async()=>{
     const db=await getBaseDb();await db.exec('create role service_role bypassrls;grant usage on schema public to service_role;');
+    if(mentions)await db.exec(fs.readFileSync('supabase/migrations/20261113_notifications.sql','utf8'));
     for(const suffix of ['_member_access_and_availability.sql','_church_member_classification.sql','_church_public_intake.sql','_church_administration.sql'])await db.exec(fs.readFileSync('supabase/migrations/'+fs.readdirSync('supabase/migrations').find(name=>name.endsWith(suffix)),'utf8'));
+    if(mentions)await db.exec(fs.readFileSync('supabase/migrations/'+fs.readdirSync('supabase/migrations').find(name=>name.endsWith('_ministry_mentions_inbox.sql')),'utf8'));
     for(const event of state.churchEvents||[])await db.query('insert into louvesync_church_events(id,title,description,starts_at,ends_at,location,category,published) values($1,$2,$3,$4,$5,$6,$7,$8)',[event.id,event.title,event.description||'',event.starts_at,event.ends_at||null,event.location||'',event.category||'Culto',!!event.published]);
     return db;
   })();
@@ -28,7 +30,7 @@ export function communityDatabase(state,getBaseDb) {
       return chain;
     }
   };
-  return {ready:database,handler:createCommunityHandler({connect:()=>({db:sdk,auth:sdk,salt:'SYNTHETIC_COMMUNITY_SERVER_SECRET'}),now:()=>state.activityNow}),
+  return {ready:database,enableMentions(){mentions=true;},handler:createCommunityHandler({connect:()=>({db:sdk,auth:sdk,salt:'SYNTHETIC_COMMUNITY_SERVER_SECRET'}),now:()=>state.activityNow}),
     async syncMember(member){if(!ready)return;const db=await database();const row={...member,pin:member.pin||'TEST_PIN_'+member.id,access_type:member.access_type||'ministry',schedule_enabled:member.schedule_enabled!==false,unavailable_days:member.unavailable_days||[]};await db.query('insert into members(id,name,pin,role,instrument,status,is_admin,access_type,schedule_enabled,permissions,unavailable_days) select id,name,pin,role,instrument,status,is_admin,access_type,schedule_enabled,permissions,unavailable_days from jsonb_populate_record(null::members,$1::jsonb) on conflict(id) do update set name=excluded.name,pin=excluded.pin,role=excluded.role,instrument=excluded.instrument,status=excluded.status,is_admin=excluded.is_admin,access_type=excluded.access_type,schedule_enabled=excluded.schedule_enabled,permissions=excluded.permissions,unavailable_days=excluded.unavailable_days',[JSON.stringify(row)]);},
     async query(sql,params=[]){return (await database()).query(sql,params);}
   };

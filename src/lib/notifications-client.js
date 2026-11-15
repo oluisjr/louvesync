@@ -35,6 +35,8 @@ export function notificationDestination(item, origin) {
     if (url.origin!==origin) return null;
     const tab=url.searchParams.get('tab') || (item.type==='song_added'?'repertorio':'escala');
     if (!['escala','repertorio','mural'].includes(tab)) return null;
-    return {tab,eventId:url.searchParams.get('event') || (tab==='escala'?item.targetId:null),songId:url.searchParams.get('song') || (tab==='repertorio'?item.targetId:null)};
+    const destination={tab,eventId:url.searchParams.get('event') || (tab==='escala'?item.targetId:null),songId:url.searchParams.get('song') || (tab==='repertorio'?item.targetId:null)};
+    if(tab==='mural')Object.assign(destination,{postId:url.searchParams.get('post')||item.targetId||null,commentId:url.searchParams.get('comment')||null});
+    return destination;
   } catch {return null;}
 }

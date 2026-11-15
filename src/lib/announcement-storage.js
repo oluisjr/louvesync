@@ -1,12 +1,13 @@
 const id = value => value == null ? '' : String(value);
 const errorWithCode = (message, code) => Object.assign(new Error(message), { code });
+const mentions = post => JSON.stringify([...new Set(post.mention_member_ids||[])].sort());
 
 export function sameAnnouncement(left, right) {
   if (!left || !right) return false;
   if (id(left.id) && id(left.id) === id(right.id)) return true;
   const time = Date.parse(left.created_at);
   return !!id(left.created_by) && id(left.created_by) === id(right.created_by) &&
-    left.title === right.title && left.content === right.content &&
+    left.title === right.title && left.content === right.content && mentions(left)===mentions(right) &&
     Number.isFinite(time) && time === Date.parse(right.created_at);
 }
 
@@ -79,6 +80,7 @@ export async function publishAnnouncement(client, post) {
     const row = {
       id: post.id, title: post.title, content: post.content,
       created_at: post.created_at, created_by: post.created_by,
+      ...(post.mention_member_ids?{mention_member_ids:post.mention_member_ids}:{}),
     };
     const previous = await readByIdentity(client, row, signal);
     if (previous) return confirmed(previous);
