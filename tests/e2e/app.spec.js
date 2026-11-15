@@ -1,5 +1,7 @@
 import { test, expect, devices } from '@playwright/test';
 import fs from 'node:fs';
+import { PGlite } from '@electric-sql/pglite';
+import { createAttendanceHandler } from '../../api/attendance.js';
 import { strFromU8, unzipSync } from 'fflate';
 import { encodeSequence, normalizeEvent } from '../../src/lib/domain.js';
 import { decodeEventPreferences, encodeEventPreferences } from '../../src/lib/event-preferences.js';
@@ -519,6 +521,20 @@ test('pages use one compact menu clearance and release it when opening a chart',
 
 async function fixture(browser) {
   const pages = [], contexts = [], failures = [];
+  let attendanceDb;
+  const getAttendanceDb=async()=>{
+    if(attendanceDb)return attendanceDb;
+    attendanceDb=await PGlite.create();
+    await attendanceDb.exec(`create role anon;create role authenticated;create table members(id text primary key,name text,pin text,is_admin boolean,role text,instrument text,status text);create table events(id text primary key,label text,date text,time text,type text);create table event_members(event_id text,member_id text,confirmed boolean);`);
+    for(const person of state.members)await attendanceDb.query('insert into members values ($1,$2,$3,$4,$5,$6,$7)',[person.id,person.name,person.pin||'TEST_PIN_'+person.id,!!person.is_admin,person.role||'',person.instrument||'',person.status||'ativo']);
+    for(const event of state.events){
+      await attendanceDb.query('insert into events values ($1,$2,$3,$4,$5)',[event.id,event.label,event.date,event.time||'',event.type||'outro']);
+      for(const member of event.event_members||[])await attendanceDb.query('insert into event_members values ($1,$2,$3)',[event.id,member.member_id,member.confirmed]);
+    }
+    await attendanceDb.exec(fs.readFileSync('supabase/migrations/'+fs.readdirSync('supabase/migrations').find(name=>name.endsWith('_ministry_attendance.sql')),'utf8'));
+    await attendanceDb.exec('set role anon');
+    return attendanceDb;
+  };
   const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), members: structuredClone([admin,member]), memberRequests: [], session: null, notes: {}, nextItemId: 100, posts: [], activitySessions:new Map(), activityViews:new Map(), activityRequests:[], activityNow:Date.parse('2026-10-24T15:00:00Z'), activityFailure:null };
   const code = `
     import { updateEventItems, updateSetlistConfirmation } from '/src/lib/event-storage.js';
@@ -540,6 +556,7 @@ async function fixture(browser) {
     };}};
   `;
   async function open(profile = admin, time = '2026-10-24T12:00:00-03:00', options = {}) {
+    if(options.attendance)await getAttendanceDb();
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block', ...options.device }); contexts.push(context);
     await context.addInitScript(profile => { try { localStorage.setItem('ls_profile', JSON.stringify(profile)); localStorage.removeItem('ls_last_activity'); } catch { /* Sandboxed media frames have no storage access. */ } }, profile);
     if(options.theme)await context.addInitScript(theme=>{try{if(!localStorage.getItem('ls_theme'))localStorage.setItem('ls_theme',theme);}catch{/* Sandboxed media frames have no storage access. */}},options.theme);
@@ -722,6 +739,23 @@ async function fixture(browser) {
       }
       return reply(400,{error:'Ação inválida.'});
     };
+    if(options.attendance){
+      const invoke=async payload=>{
+        (state.attendanceRequests||=[]).push(structuredClone(payload));
+        if(payload.action==='save')await state.attendanceSaveGate;
+        if(state.attendanceSaveError&&payload.action==='save')return {data:null,error:{code:'XX000',message:state.attendanceSaveError}};
+        if(state.attendanceReadError&&payload.action!=='save')return {data:null,error:{code:'XX000',message:state.attendanceReadError}};
+        try {const database=await getAttendanceDb();const result=await database.query('select public.louvesync_attendance($1::jsonb) as result',[JSON.stringify(payload)]);return {data:result.rows[0].result,error:null};}
+        catch(error){return {data:null,error:{code:error.code,message:error.message}};}
+      };
+      const handler=createAttendanceHandler(()=>({rpc:(_name,args)=>({abortSignal:()=>invoke(args.p_payload)})}),{SUPABASE_URL:'https://attendance-fixture.supabase.co',SUPABASE_ANON_KEY:'public-fixture-key'});
+      await page.route('**/api/attendance',async route=>{
+        const req={method:route.request().method(),headers:{...route.request().headers(),host:new URL(route.request().url()).host},body:route.request().postDataJSON()};
+        const res={code:200,headers:{},setHeader(name,value){this.headers[name]=value;},status(code){this.code=code;return this;},json(body){this.body=body;return this;}};
+        await handler(req,res);await route.fulfill({status:res.code,headers:res.headers,json:res.body});
+      });
+      if(options.directActivity)await page.route('https://activity-fixture.supabase.co/rest/v1/rpc/louvesync_attendance',async route=>{const result=await invoke(route.request().postDataJSON().p_payload);await route.fulfill({status:result.error?400:200,json:result.error||result.data});});
+    }
     if(options.activity)await page.route('**/api/activity',route=>handleActivity(route));
     await page.route('**/version.json', route => route.fulfill({ json: {version:'test'} }));
     await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/, route => route.abort());
@@ -731,7 +765,7 @@ async function fixture(browser) {
     await expect(page.getByRole('button', {name:'Escala',exact:true})).toBeVisible();
     return page;
   }
-  return { open, failures, state, async close(){for(const context of contexts)await context.close();} };
+  return { open, failures, state, async attendanceQuery(sql,params=[]){const db=await getAttendanceDb();await db.exec('reset role');try{return await db.query(sql,params);}finally{await db.exec('set role anon');}}, async close(){try{for(const context of contexts)await context.close();}finally{await attendanceDb?.close();}} };
 }
 
 test('five fixed destinations keep secondary screens reachable and respect member permissions',async({browser})=>{
@@ -749,7 +783,7 @@ test('five fixed destinations keep secondary screens reachable and respect membe
     await expect(nav.getByRole('button',{name:'Mais',exact:true})).toHaveAttribute('aria-current','page');
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
     await expect(nav.getByRole('button',{name:'Mural',exact:true}).locator('img')).toHaveAttribute('src','/brand/church-emblem-3d.webp');
-    await expect(menu.locator('.app-more-artwork')).toHaveCount(8);
+    await expect(menu.locator('.app-more-artwork')).toHaveCount(9);
     await expect.poll(()=>menu.locator('.app-more-artwork').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0))).toBe(true);
     for(const label of ['Músicas','Patrimônio','Ensaio','Treinar','Admin'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
@@ -1231,6 +1265,150 @@ test('event presence updates both open event panels and returning from a song re
     expect(app.failures).toEqual([]);
   } finally {await app.close();}
 });
+const attendanceToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const attendanceTime = attendanceToday + 'T12:00:00-03:00';
+function attendanceFixtures(app) {
+  for (const person of app.state.members) person.pin = 'SYNTHETIC_' + person.id;
+  for (let index = 3; index <= 10; index++) app.state.members.push({ ...member, id: 'called-' + index, name: `Integrante ${String(index).padStart(2, '0')}`, pin: 'SYNTHETIC_CALLED_' + index, instrument: index % 2 ? 'Violão' : 'Vocal' });
+  const called = [...app.state.members];
+  const leader = { ...member, id: 'leader', name: 'Líder Teste', role: 'Líder de Louvor', pin: 'SYNTHETIC_LEADER' };
+  app.state.members.push(leader);
+  app.state.events = [{ ...structuredClone(initialEvents[0]), date: attendanceToday, event_songs: [], event_members: called.map((person, index) => ({ member_id: person.id, confirmed: index === 0 ? true : index === 1 ? false : null })) }];
+  return { called, leader };
+}
+async function openAttendanceCall(page) {
+  await page.getByRole('button', { name: 'Escala', exact: true }).click();
+  const card = page.getByRole('article', { name: 'Culto de Teste', exact: true });
+  await card.getByRole('button', { name: 'Registrar presença', exact: true }).evaluate(element => element.scrollIntoView({ block: 'center' }));
+  await card.getByRole('button', { name: 'Registrar presença', exact: true }).click();
+  const screen = page.getByRole('region', { name: 'Presenças do ministério', exact: true });
+  await expect(screen.getByRole('listitem')).toHaveCount(10, { timeout: 15000 });
+  return screen;
+}
+
+test('leader attendance records five of ten present through the real SQL API and retains reports, exports and RSVP after reload', async ({ browser }) => {
+  const app = await fixture(browser); attendanceFixtures(app); let finishSave;
+  try {
+    const page = await app.open(admin, attendanceTime, { attendance: true });
+    const screen = await openAttendanceCall(page);
+    await expect(screen).toContainText('10 não marcados');
+    await expect(screen.locator('.attendance-choices [aria-pressed="true"]')).toHaveCount(0);
+    for (let index = 0; index < 10; index++) await screen.getByRole('listitem').nth(index).getByRole('button', { name: index < 5 ? /como presente$/ : /como ausente$/ }).click();
+    await expect(screen.getByRole('region', { name: 'Resumo da chamada' })).toContainText('5 ausentes');
+    app.state.attendanceSaveGate = new Promise(resolve => { finishSave = resolve; });
+    await screen.getByRole('button', { name: 'Concluir chamada', exact: true }).click();
+    await expect(screen.getByRole('button', { name: 'Salvando…', exact: true })).toBeDisabled();
+    await expect(screen).not.toContainText('Chamada concluída e salva'); finishSave();
+    await expect(screen.getByRole('status')).toContainText('Chamada concluída e salva');
+    const rsvp = (await app.attendanceQuery("select member_id,confirmed from event_members where event_id='event-1' order by member_id")).rows;
+    expect(rsvp.find(row => row.member_id === admin.id).confirmed).toBe(true); expect(rsvp.find(row => row.member_id === member.id).confirmed).toBe(false);
+    expect((await app.attendanceQuery('select count(*)::int as n from louvesync_attendance_revisions')).rows[0].n).toBe(1);
+    await screen.getByRole('button', { name: 'Eventos e frequência', exact: true }).click();
+    await expect(screen.getByRole('region', { name: 'Frequência no período' })).toContainText('50%');
+    await expect(screen.locator('.attendance-event-choice')).toContainText('5 presentes de 10 escalados');
+    await screen.getByRole('button', { name: 'Por integrante', exact: true }).click();
+    await expect(screen.locator('.attendance-frequency')).toHaveCount(10);
+    const csvEvent = page.waitForEvent('download'); await screen.getByRole('button', { name: 'CSV', exact: true }).click();
+    const download = await csvEvent, path = test.info().outputPath('attendance.csv'); await download.saveAs(path);
+    const csv = fs.readFileSync(path, 'utf8'); expect(csv).toContain('Admin Teste'); expect(csv).toContain('Ausente'); expect(csv).toContain('Presente');
+    await page.reload(); await page.getByRole('button', { name: 'Mais', exact: true }).click(); await page.getByRole('button', { name: 'Presenças', exact: true }).click();
+    await expect(page.locator('.attendance-overview')).toContainText('50%');
+    expect(app.failures).toEqual([]);
+  } finally { finishSave?.(); await app.close(); }
+});
+
+test('non-admin ministry leaders can save partial attendance through the native RPC without treating pending people as absent', async ({ browser }) => {
+  const app = await fixture(browser), { leader } = attendanceFixtures(app);
+  try {
+    const page = await app.open(leader, attendanceTime, { attendance: true, directActivity: true });
+    const screen = await openAttendanceCall(page);
+    await screen.getByRole('listitem', { name: 'Admin Teste', exact: true }).getByRole('button', { name: /como presente$/ }).click();
+    await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
+    await expect(screen.getByRole('status')).toContainText('Rascunho salvo');
+    await expect(screen).toContainText('9 não marcados'); await expect(screen).toContainText('0 ausentes');
+    await screen.getByRole('button', { name: 'Eventos e frequência', exact: true }).click();
+    await expect(screen.locator('.attendance-overview')).toContainText('0 chamadas concluídas');
+    await screen.getByRole('button', { name: 'Por integrante', exact: true }).click(); await expect(screen.locator('.attendance-frequency')).toHaveCount(0);
+    expect(app.state.attendanceRequests.filter(row => row.action === 'save')).toHaveLength(1);
+    expect(app.failures).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('leader attendance rejects stale concurrent edits, protects unsaved changes and lets the user refresh deliberately', async ({ browser }) => {
+  const app = await fixture(browser); attendanceFixtures(app);
+  try {
+    const one = await app.open(admin, attendanceTime, { attendance: true }), two = await app.open(admin, attendanceTime, { attendance: true });
+    const first = await openAttendanceCall(one), second = await openAttendanceCall(two);
+    await first.getByRole('listitem', { name: 'Admin Teste', exact: true }).getByRole('button', { name: /como presente$/ }).click();
+    await first.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(first.getByRole('status')).toContainText('Rascunho salvo');
+    await second.getByRole('listitem', { name: 'Admin Teste', exact: true }).getByRole('button', { name: /como ausente$/ }).click();
+    await second.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
+    await expect(second.getByRole('alert')).toContainText('alterada em outro aparelho');
+    await expect(second.getByRole('listitem', { name: 'Admin Teste', exact: true })).toHaveAttribute('data-status', 'absent');
+    await two.getByRole('button', { name: 'Início', exact: true }).click(); await expect(two.getByText('Descartar alterações da chamada?', { exact: true })).toBeVisible();
+    await two.getByRole('button', { name: 'Cancelar', exact: true }).click(); await expect(second).toBeVisible();
+    await two.getByRole('button', { name: 'Mais', exact: true }).click(); await two.getByRole('region', { name: 'Mais', exact: true }).getByRole('button', { name: 'Presenças', exact: true }).click();
+    await expect(two.getByText('Descartar alterações da chamada?', { exact: true })).toBeVisible(); await two.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    await two.getByRole('region', { name: 'Mais', exact: true }).getByRole('button', { name: 'Fechar', exact: true }).click();
+    await second.getByRole('button', { name: 'Atualizar chamada', exact: true }).click(); await two.getByRole('button', { name: 'OK', exact: true }).click();
+    await expect(second.getByRole('listitem', { name: 'Admin Teste', exact: true })).toHaveAttribute('data-status', 'present');
+    expect((await app.attendanceQuery('select version from louvesync_attendance_sheets')).rows[0].version).toBe(1);
+    expect(app.failures).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('leader attendance preserves notes on validation and network errors and requires a reason for justified absence', async ({ browser }) => {
+  const app = await fixture(browser); attendanceFixtures(app);
+  try {
+    const page = await app.open(admin, attendanceTime, { attendance: true }), screen = await openAttendanceCall(page);
+    const person = screen.getByRole('listitem', { name: 'Admin Teste', exact: true });
+    await person.getByRole('button', { name: /como falta justificada$/ }).click();
+    await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(screen.getByRole('alert')).toContainText('motivo');
+    await person.getByRole('textbox', { name: 'Observação de Admin Teste', exact: true }).fill('Avisou à liderança que estava doente.');
+    app.state.attendanceSaveError = 'Fixture unavailable';
+    await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(screen.getByRole('alert')).toContainText('Não foi possível');
+    await expect(person.getByRole('textbox')).toHaveValue('Avisou à liderança que estava doente.');
+    await page.context().setOffline(true); await expect(screen.getByRole('button', { name: 'Salvar rascunho', exact: true })).toBeDisabled();
+    await page.context().setOffline(false); app.state.attendanceSaveError = null;
+    await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(screen.getByRole('status')).toContainText('Rascunho salvo');
+    await expect(screen).toContainText('1 justificada'); expect(app.failures).toEqual([]);
+  } finally { await app.close(); }
+});
+
+test('ordinary members cannot open leader attendance or spoof leadership through the real attendance endpoint', async ({ browser }) => {
+  const app = await fixture(browser); attendanceFixtures(app);
+  try {
+    const page = await app.open(member, attendanceTime, { attendance: true });
+    await page.getByRole('button', { name: 'Escala', exact: true }).click(); await expect(page.getByRole('button', { name: 'Registrar presença', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Mais', exact: true }).click(); await expect(page.getByRole('button', { name: 'Presenças', exact: true })).toHaveCount(0);
+    const result = await page.evaluate(async body => { const response = await fetch('/api/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return { status: response.status, data: await response.json() }; }, { action: 'get', eventId: 'event-1', memberId: member.id, pin: 'SYNTHETIC_' + member.id, is_admin: true, role: 'Líder de Louvor' });
+    expect(result.status).toBe(403); expect(result.data.error).toContain('liderança'); expect(app.failures).toEqual([]);
+  } finally { await app.close(); }
+});
+
+for (const theme of ['light', 'dark']) test(`leader attendance keeps ten people, search and controls usable at 390 and 320 pixels in ${theme}`, async ({ browser }) => {
+  const app = await fixture(browser); attendanceFixtures(app);
+  try {
+    const page = await app.open(admin, attendanceTime, { attendance: true, theme, device: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } }, standalone: true });
+    const screen = await openAttendanceCall(page);
+    await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;}' });
+    await screen.getByRole('listitem', { name: 'Admin Teste', exact: true }).getByRole('button', { name: /como presente$/ }).click();
+    await screen.getByRole('listitem', { name: 'Membro Teste', exact: true }).getByRole('button', { name: /como ausente$/ }).click();
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 }); await page.locator('[data-main-scroll]').evaluate(element => { element.scrollTop = 0; });
+      expect(await screen.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await page.screenshot({ path: test.info().outputPath(`attendance-call-${theme}-${width}.png`), scale: 'css' });
+      await page.locator('[data-main-scroll]').evaluate(element => { element.scrollTop = element.scrollHeight; });
+      const footer = await screen.locator('.attendance-savebar').boundingBox(), nav = await page.locator('.app-nav .gNav').boundingBox(); expect(footer.y + footer.height).toBeLessThan(nav.y - 8);
+    }
+    await screen.getByRole('searchbox', { name: 'Buscar integrante na chamada', exact: true }).fill('Admin Teste'); await expect(screen.getByRole('listitem')).toHaveCount(1);
+    await expect(screen).toContainText('10 escalados'); await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(screen.getByRole('status')).toContainText('Rascunho salvo');
+    await screen.getByRole('button', { name: 'Eventos e frequência', exact: true }).click(); await page.locator('[data-main-scroll]').evaluate(element => { element.scrollTop = 0; });
+    await page.screenshot({ path: test.info().outputPath(`attendance-overview-${theme}.png`), scale: 'css' });
+    expect(app.failures).toEqual([]);
+  } finally { await app.close(); }
+});
+
 async function openSetlistCard(page, label = 'Culto de Teste') {
   await page.getByRole('button', { name: 'Escala', exact: true }).click();
   const card = page.getByRole('article', { name: label, exact: true });

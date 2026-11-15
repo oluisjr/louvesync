@@ -6,6 +6,7 @@ const artwork = {
   devocional: 'devotional',
   ia: 'maestro',
   membros: 'members',
+  presencas: 'members',
   admin: 'settings',
 };
 

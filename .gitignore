@@ -36,3 +36,6 @@ test-results/
 playwright-report/
 *.jks
 *.keystore
+
+# Supabase CLI local metadata
+supabase/.temp/

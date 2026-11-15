@@ -17,6 +17,8 @@ import EquipmentInventory from './components/EquipmentInventory.jsx';
 import Repertorio from './components/Repertoire.jsx';
 import Home from './components/HomeScreen.jsx';
 import ScheduleScreen from './components/ScheduleScreen.jsx';
+import AttendanceScreen from './components/AttendanceScreen.jsx';
+import { canManageAttendance } from './lib/attendance.js';
 import SetlistConfirmation, { SetlistBadge } from './components/SetlistConfirmation.jsx';
 import { isSetlistConfirmed } from './lib/setlist-confirmation.js';
 import AppNavigation from './components/AppNavigation.jsx';
@@ -2272,7 +2274,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
 });
 
 /* ─── EVENT SHEET ───────────────────────────────────────────── */
-const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,onReqDelEv,onSetSinger,onUpdateSongOptions,spawnConfetti,activity,setlistOnline,setlistSavingId,onSetlistConfirmation})=>{
+const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,onReqDelEv,onSetSinger,onUpdateSongOptions,spawnConfetti,activity,setlistOnline,setlistSavingId,onSetlistConfirmation,onRecordAttendance})=>{
   useVisibleView(() => activity.recordView('event', ev.id), ev?.id, { immediate:true, enabled:!!ev?.id });
   const [expandSong, setExpandSong] = useState(null);
   const [exporting,setExporting]=useState(false);
@@ -2328,6 +2330,7 @@ const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConf
           {profile?.is_admin&&<button onClick={()=>onEditEv&&onEditEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(245,158,11,.15)',color:"var(--app-warning, #D97706)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoEdit s={14}/>Editar</button>}
           {profile?.is_admin&&<button onClick={()=>onReqDelEv&&onReqDelEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.15)',color:"var(--app-negative, #DC2626)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX s={14}/>Excluir</button>}
         </div>}
+        {canManageAttendance(profile)&&<button type="button" className="schedule-record-presence" onClick={()=>onRecordAttendance(ev)}><Icon name="check" size={15}/>Registrar presença</button>}
         {ev.type !== 'ensaio' && (!['ebd','consagracao'].includes(ev.type)||evS.length>0) && <>{profile?.is_admin?<SetlistConfirmation event={ev} songs={songs} members={members} online={setlistOnline} savingId={setlistSavingId} onConfirm={onSetlistConfirmation}/>:<div style={{marginBottom:14}}><SetlistBadge event={ev} songs={songs}/></div>}
           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Setlist</div>
           {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map(it=>{
@@ -2443,6 +2446,9 @@ export default function LouveSync() {
   const [selectedSheet,setEvSheet]=useState(null);
   const evSheet = events.find(event=>event.id===selectedSheet?.id) || null;
   const [scheduleView,setScheduleView]=useState({week:null,day:null,scope:'all',history:false});
+  const [attendanceEventId,setAttendanceEventId]=useState(null);
+  const attendanceDirty=useRef(false),attendanceBusy=useRef(false);
+  const attendanceDirtyChanged=useCallback((value,busy=false)=>{attendanceDirty.current=value;attendanceBusy.current=busy;},[]);
   const mainScrollRef=useRef(null);
   const previousScroll=useRef(0);
   const returnToEvent=useRef(false);
@@ -2741,14 +2747,30 @@ export default function LouveSync() {
     return true;
   }
   function handleLogout() {
-    void notifications.detach();
-    localStorage.removeItem('ls_profile');
-    localStorage.removeItem('ls_last_activity');
-    setProfile(null); setMoreOpen(false); setSelSong(null); setSelEvent(null); setHomeDate(null); setScheduleView({week:null,day:null,scope:'all',history:false}); setTab('home');
+    const logout=()=>{
+      void notifications.detach();
+      localStorage.removeItem('ls_profile');
+      localStorage.removeItem('ls_last_activity');
+      setProfile(null); setMoreOpen(false); setSelSong(null); setSelEvent(null); setHomeDate(null); setScheduleView({week:null,day:null,scope:'all',history:false}); setTab('home');
+    };
+    if(tab==='presencas')leaveAttendance(logout);else logout();
   }
-  function navTo(t){
-    if(moreOpen){setMoreOpen(false);requestAnimationFrame(()=>mainScrollRef.current?.scrollTo({top:0}));}
-    vib();setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}
+  function leaveAttendance(action){
+    if(attendanceBusy.current){setConfirmState({title:'Salvando chamada',msg:'Aguarde a confirmação do servidor antes de sair desta tela.',isAlert:true,onConfirm:()=>setConfirmState(null)});return;}
+    if(!attendanceDirty.current){action();return;}
+    setConfirmState({title:'Descartar alterações da chamada?',msg:'Há marcações que ainda não foram salvas. Ao sair, essas alterações serão descartadas.',onConfirm:()=>{attendanceDirty.current=false;setConfirmState(null);action();},onCancel:()=>setConfirmState(null)});
+  }
+  function navTo(t,attendanceId=null){
+    const go=()=>{
+      if(moreOpen){setMoreOpen(false);requestAnimationFrame(()=>mainScrollRef.current?.scrollTo({top:0}));}
+      if(t==='presencas')setAttendanceEventId(attendanceId);
+      vib();setTab(t);if(t!=='repertorio'){setSelSong(null);setSelEvent(null);}
+    };
+    if(tab==='presencas'&&(t!==tab||attendanceId!==attendanceEventId))leaveAttendance(go);else go();
+  }
+  function openAttendance(event){
+    if(!canManageAttendance(allMembers.find(member=>member.id===profile?.id)||profile))return;
+    setEvSheet(null);navTo('presencas',event.id);
   }
   function openEvent(event){
     if(event.type==='ensaio'){setEvSheet(null);navTo('ensaio');}
@@ -2947,6 +2969,7 @@ export default function LouveSync() {
     {id:'home',ico:<IcoHome s={22}/>,l:'Início'},
     {id:'repertorio',ico:<IcoMusic s={22}/>,l:'Músicas'},
     {id:'escala',ico:<IcoCal s={22}/>,l:'Escala'},
+    {id:'presencas',ico:<IcoPeople s={22}/>,l:'Presenças'},
     {id:'mural',ico:<IcoMural s={22}/>,l:'Mural'},
     {id:'patrimonio',ico:<IcoBox s={22}/>,l:'Patrimônio'},
     {id:'ensaio',ico:<IcoMic s={22}/>,l:'Ensaio'},
@@ -2957,7 +2980,9 @@ export default function LouveSync() {
     {id:'membros',ico:<IcoPeople s={22}/>,l:'Membros'},
     {id:'admin',ico:<IcoPeople s={22}/>,l:'Admin'}
   ];
+  const attendanceLeader=canManageAttendance(allMembers.find(member=>member.id===profile?.id)||profile);
   const TABS = allTabs.filter(t => {
+     if(t.id==='presencas')return attendanceLeader;
      if(t.id==='admin'||t.id==='membros')return !!profile?.is_admin;
      if(!profile?.permissions) {
         if(t.id==='admin' && !profile?.is_admin) return false;
@@ -3024,7 +3049,8 @@ export default function LouveSync() {
             {tab==='mural'&&!inCifra&&<CommunityMural profile={profile} dark={dark} members={allMembers} activity={activity}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio connectionStatus={connectionStatus} dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
             {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
-            {tab==='escala'&&!inCifra&&<ScheduleScreen setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} view={scheduleView} onViewChange={setScheduleView} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} Avatar={Ava} onConfirm={handleConfirm} onOpenEvent={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
+            {tab==='escala'&&!inCifra&&<ScheduleScreen onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} view={scheduleView} onViewChange={setScheduleView} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} Avatar={Ava} onConfirm={handleConfirm} onOpenEvent={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
+            {attendanceLeader&&tab==='presencas'&&!inCifra&&<AttendanceScreen key={attendanceEventId||'overview'} dark={dark} credentials={activity.credentials} events={events} online={isOnline} initialEventId={attendanceEventId} onDirtyChange={attendanceDirtyChanged} onLeave={leaveAttendance}/>}
             {tab==='membros'&&!inCifra&&<Membros profile={profile} dark={dark} members={allMembers} events={events} selRole={selRole} setSelRole={setSelRole}/>}
             {tab==='ia'&&!inCifra&&<Maestro dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
@@ -3043,7 +3069,7 @@ export default function LouveSync() {
       {/* OVERLAYS */}
       {addOpen&&<AddSong dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
       {profile?.is_admin&&createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
-      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={openEventEditor} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
+      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={openEventEditor} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotificationInbox dark={dark} controller={notifications} onClose={()=>setNotifsOpen(false)} onOpen={handleOpenNotification}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
 

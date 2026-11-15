@@ -55,6 +55,10 @@ Bíblia, Ensaio e controles de cifra compartilham cores, campos, botões, ícone
 
 [Capturas da interface com dados de demonstração](docs/interface.md).
 
+## Chamada e presença real
+
+O registro de presença real da equipe está em **Mais → Presenças** e em **Registrar presença** nos eventos da Escala. A liderança marca presentes, ausentes e faltas justificadas, salva chamadas parciais ou concluídas e consulta frequência por integrante e CSV. Essa chamada é independente da resposta antecipada à escala. Veja [presenças e chamada da liderança](docs/attendance.md) para regras, persistência e validação.
+
 ## Exportação do setlist
 
 O repertório começa com o status **Setlist não confirmado**, inclusive quando é gerado automaticamente. Um admin pode usar **Confirmar setlist** na lista de músicas do card da Escala ou nos detalhes do evento. Depois de verificar a gravação no banco, o card passa a mostrar **Setlist definido** para toda a equipe; **Retirar confirmação** devolve o repertório ao estado provisório. Essa ação é independente da confirmação de presença.
