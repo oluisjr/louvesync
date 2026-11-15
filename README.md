@@ -21,6 +21,7 @@ O Maestro usa `/api/maestro`; configure `GROQ_API_KEY` somente no servidor/Verce
 npm run lint
 npm test
 npm run test:activity:sql
+npm run test:changes:sql
 npm run build
 npx playwright install chromium
 npm run test:e2e
@@ -47,7 +48,7 @@ O editor usa um painel com altura definida, fora dos contêineres da aplicação
 
 No catálogo do evento, as músicas aparecem em grupos de Júbilo, Hinário, Adoração, Oferta, Corinhos e Santa Ceia, com as cores das categorias e contagem de músicas selecionadas. Categorias adicionais e músicas sem categoria também aparecem. A busca filtra os grupos; as músicas escolhidas recebem categoria e cor na lista ordenada, e as setas continuam definindo a sequência do evento.
 
-O cadastro e a edição de membros usam o mesmo painel, renderizado diretamente no corpo da página para ficar acima do cabeçalho e da navegação. Perfil, acesso e participação na escala têm campos rotulados, opções de telas com nomes legíveis e seleção dos dias indisponíveis. As ações permanecem no rodapé durante a rolagem e a redução da área disponível. Um erro ao salvar mantém o formulário preenchido e permite tentar novamente; a lista de membros só é atualizada após o sucesso. O contrato existente de gravação no Supabase e a autenticação não foram alterados.
+O cadastro e a edição de membros usam o mesmo painel, renderizado diretamente no corpo da página para ficar acima do cabeçalho e da navegação. Perfil, acesso e participação na escala têm campos rotulados, opções de telas com nomes legíveis e seleção dos dias indisponíveis. As ações permanecem no rodapé durante a rolagem e a redução da área disponível. Um erro ao salvar mantém o formulário preenchido e permite tentar novamente; a lista de membros só é atualizada após o sucesso. O PIN atual não é exibido; para redefini-lo, o administrador preenche o campo Novo PIN.
 
 O cadastro e a edição de patrimônio também usam esse painel, com nome, marca, número de série, status e responsável pela custódia. Os campos rolam acima do teclado enquanto Salvar e Cancelar ficam acessíveis. Falhas de gravação mantêm os dados preenchidos, e a lista só muda após a confirmação do Supabase.
 
@@ -57,6 +58,8 @@ Bíblia, Ensaio e controles de cifra compartilham cores, campos, botões, ícone
 
 ## Chamada e presença real
 
+As políticas de alteração, pedidos de troca de música/tom e histórico de autoria estão descritos em [solicitações e permissões](docs/change-approvals.md). Após a atualização, sessões antigas precisam entrar novamente pelo PIN. A tela **Mais → Solicitações** reúne propostas e o histórico da liderança.
+
 O registro de presença real da equipe está em **Mais → Presenças** e em **Registrar presença** nos eventos da Escala. A liderança marca presentes, ausentes e faltas justificadas, salva chamadas parciais ou concluídas e consulta frequência por integrante e CSV. Essa chamada é independente da resposta antecipada à escala. Veja [presenças e chamada da liderança](docs/attendance.md) para regras, persistência e validação.
 
 ## Exportação do setlist
@@ -65,7 +68,7 @@ O repertório começa com o status **Setlist não confirmado**, inclusive quando
 
 A confirmação vale para as músicas, sua ordem, notas, vocal, tom e arranjo daquela versão. Alterações nessas escolhas exigem nova confirmação. Home, Ensaio, texto do WhatsApp e Excel mostram o mesmo status. A definição usa a nota interna de preferências de `event_songs`, sem novas colunas ou migração, e precisa de conexão para ser salva. Erros mantêm o controle disponível para nova tentativa, sem exibir uma confirmação local como se já estivesse compartilhada.
 
-Nos detalhes do evento, **Exportar para Excel** baixa uma planilha `.xlsx` com categoria, música, vocalista escalado e tom. **Copiar setlist para WhatsApp** usa os mesmos dados, com a categoria no lugar da numeração. Ambos preservam a sequência do evento e priorizam seu tom específico; sem vocalista vinculado, exibem “Vocalista não definido”. No APK 1.0.2, o Android oferece seu diálogo de salvamento para escolher a pasta, sem solicitar acesso geral ao armazenamento. APKs anteriores orientam a atualizar ou exportar pelo navegador. O salvamento nativo ainda precisa de conferência em um Android físico.
+Nos detalhes do evento, em **Compartilhar**, **Exportar para Excel** baixa uma planilha `.xlsx` com categoria, música, vocalista escalado e tom. **Copiar setlist para WhatsApp** usa os mesmos dados, com a categoria no lugar da numeração. Ambos preservam a sequência do evento e priorizam seu tom específico; sem vocalista vinculado, exibem “Vocalista não definido”. No APK 1.0.2, o Android oferece seu diálogo de salvamento para escolher a pasta, sem solicitar acesso geral ao armazenamento. APKs anteriores orientam a atualizar ou exportar pelo navegador. O salvamento nativo ainda precisa de conferência em um Android físico.
 
 ## Cifras dos PDFs e tons por ministro
 

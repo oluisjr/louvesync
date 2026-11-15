@@ -1,0 +1,104 @@
+begin;
+set local role anon;
+do $$ declare
+  junior jsonb:='{"memberId":"junior","pin":"JUNIOR_FIXTURE_PIN"}';
+  lead jsonb:='{"memberId":"leader","pin":"LEADER_FIXTURE_PIN"}';
+  other_actor jsonb:='{"memberId":"other","pin":"OTHER_FIXTURE_PIN"}';
+  result jsonb; req jsonb; swap jsonb; edit_request jsonb; n integer; secret text;
+begin
+  result:=public.louvesync_login(junior);
+  if result->>'ok'<>'true' or result->'member' ? 'pin' then raise exception 'Login leaks credentials or failed'; end if;
+  result:=public.louvesync_login(junior||'{"pin":"WRONG"}'); if result->>'ok'<>'false' then raise exception 'Wrong PIN allowed'; end if;
+  begin perform pin from public.members; raise exception 'PIN column readable'; exception when insufficient_privilege then null; end;
+  perform name from public.members;
+  perform set_config('request.headers','{"x-louvesync-member":"junior","x-louvesync-pin":"JUNIOR_FIXTURE_PIN","is_admin":"true"}',true);
+  update public.songs set key='B' where id='song-a'; get diagnostics n=row_count; if n<>0 then raise exception 'Direct member key write allowed'; end if;
+  update public.events set label='Forged' where id='event'; get diagnostics n=row_count; if n<>0 then raise exception 'Direct member event write allowed'; end if;
+  update public.event_songs set singer_member_id='junior' where song_id='song-c'; get diagnostics n=row_count; if n<>0 then raise exception 'Member reassigned a vocalist'; end if;
+  update public.members set is_admin=true where id='junior'; get diagnostics n=row_count; if n<>0 then raise exception 'Member escalated privileges'; end if;
+  update public.event_members set confirmed=true where event_id='event' and member_id='junior'; if not found then raise exception 'Own RSVP denied'; end if;
+  begin update public.event_members set event_id='another' where event_id='event' and member_id='junior'; raise exception 'RSVP moved to a different event'; exception when insufficient_privilege then null; end;
+  begin insert into public.events(id,date,label) values('forged','2026-11-15','Forged'); raise exception 'Member created event'; exception when insufficient_privilege then null; end;
+  begin perform count(*) from public.louvesync_app_audit; raise exception 'Private audit directly readable'; exception when insufficient_privilege then null; end;
+  begin perform count(*) from public.louvesync_change_requests; raise exception 'Requests directly readable'; exception when insufficient_privilege then null; end;
+  begin perform public.louvesync_changes(junior||'{"action":"audit"}'); raise exception 'Member read global audit'; exception when insufficient_privilege then null; end;
+  begin perform public.louvesync_changes(junior||'{"action":"request","kind":"key","eventId":"event","songId":"song-c","proposal":{"key":"D"},"reason":"Meu tom"}'); raise exception 'Member requested another vocalist key'; exception when insufficient_privilege then null; end;
+  result:=public.louvesync_changes(junior||'{"action":"request","kind":"key","eventId":"event","songId":"song-a","proposal":{"key":"D"},"reason":"Melhor para minha voz","requestId":"11111111-1111-4111-8111-111111111111","is_admin":true}');
+  req:=result->'request'; if req->>'actor_name'<>'Júnior' or req->>'status'<>'pending' then raise exception 'Request actor or state incorrect'; end if;
+  if (select sequence from event_songs where song_id='song-a')<>'Intro' then raise exception 'Request applied before approval'; end if;
+  result:=public.louvesync_changes(junior||'{"action":"request","kind":"key","eventId":"event","songId":"song-a","proposal":{"key":"D"},"reason":"Melhor para minha voz","requestId":"11111111-1111-4111-8111-111111111111"}');
+  if result->'request'->>'id'<>req->>'id' then raise exception 'Retry duplicated request'; end if;
+  begin perform public.louvesync_changes(junior||jsonb_build_object('action','decide','requestId',req->>'id','decision','approved','is_admin',true)); raise exception 'Member approved own request'; exception when insufficient_privilege then null; end;
+  result:=public.louvesync_changes(other_actor||'{"action":"list","eventId":"event"}'); if jsonb_array_length(result->'requests')<>0 then raise exception 'Another member read private requests'; end if;
+  result:=public.louvesync_changes(lead||jsonb_build_object('action','decide','requestId',req->>'id','decision','approved'));
+  if result->'request'->>'status'<>'approved' or result->'request'->>'decided_by'<>'leader' then raise exception 'Decision attribution failed'; end if;
+  if (select substr(sequence,length('louvesync:v1:')+1)::jsonb->>'key' from event_songs where song_id='song-a')<>'D' then raise exception 'Approved key was not applied'; end if;
+  if (select substr(sequence,length('louvesync:v1:')+1)::jsonb->>'text' from event_songs where song_id='song-a')<>'Intro' then raise exception 'Arrangement erased'; end if;
+  if (select key from songs where id='song-a')<>'C' or (select vocal_keys from songs where id='song-a')<>'{}' then raise exception 'Approval modified other vocalists or global key'; end if;
+  if exists(select 1 from event_songs where item_type='note' and note_text like '%"snapshot":%old%') then raise exception 'Approved change kept old setlist confirmation'; end if;
+  begin perform public.louvesync_changes(lead||jsonb_build_object('action','decide','requestId',req->>'id','decision','approved')); raise exception 'Already decided request reapplied'; exception when serialization_failure then null; end;
+  result:=public.louvesync_changes(junior||'{"action":"request","kind":"song","eventId":"event","songId":"song-b","proposal":{"songId":"replacement"},"reason":"Vamos ensaiar esta"}'); swap:=result->'request';
+  result:=public.louvesync_changes(lead||jsonb_build_object('action','decide','requestId',swap->>'id','decision','rejected','decisionNote','Manter o repertório ensaiado'));
+  if not exists(select 1 from event_songs where song_id='song-b') then raise exception 'Rejected request changed setlist'; end if;
+  result:=public.louvesync_changes(junior||'{"action":"request","kind":"song","eventId":"event","songId":"song-b","proposal":{"songId":"replacement"},"reason":"Vamos ensaiar esta"}'); swap:=result->'request';
+  result:=public.louvesync_changes(lead||jsonb_build_object('action','decide','requestId',swap->>'id','decision','approved'));
+  if not exists(select 1 from event_songs where song_id='replacement' and singer_member_id='junior' and order_index=2) then raise exception 'Song replacement lost slot or vocalist'; end if;
+  result:=public.louvesync_changes(junior||'{"action":"request","kind":"key","eventId":"event","songId":"song-a","proposal":{"key":"E"},"reason":"Novo pedido"}'); req:=result->'request';
+  perform set_config('louvesync.audit_actor','',true);
+  perform set_config('request.headers','{"x-louvesync-member":"leader","x-louvesync-pin":"LEADER_FIXTURE_PIN"}',true);
+  update event_songs set singer_member_id='other' where song_id='song-a';
+  begin perform public.louvesync_changes(lead||jsonb_build_object('action','decide','requestId',req->>'id','decision','approved')); raise exception 'Stale assignment approved'; exception when serialization_failure then null; end;
+  result:=public.louvesync_changes(junior||jsonb_build_object('action','cancel','requestId',req->>'id')); if result->'request'->>'status'<>'cancelled' then raise exception 'Cancellation failed'; end if;
+  result:=public.louvesync_changes(junior||'{"action":"request","kind":"song_edit","songId":"song-c","proposal":{"title":"Título revisado","lyrics":"[G]Nova letra"},"reason":"Corrigir a cifra"}'); edit_request:=result->'request';
+  if (select title from songs where id='song-c')<>'Bondade de Deus' then raise exception 'Catalog proposal applied early'; end if;
+  result:=public.louvesync_changes(lead||jsonb_build_object('action','decide','requestId',edit_request->>'id','decision','approved'));
+  if (select title from songs where id='song-c')<>'Título revisado' then raise exception 'Catalog edit not applied'; end if;
+  begin perform public.louvesync_changes(junior||'{"action":"request","kind":"song_edit","songId":"song-c","proposal":{"title":"Ataque","vocal_keys":{"other":"B"}},"reason":"Tentar"}'); raise exception 'Catalog proposal changed another vocal key'; exception when insufficient_privilege then null; end;
+  result:=public.louvesync_changes(junior||'{"action":"request","kind":"song_create","songId":"new-song","proposal":{"title":"Novo louvor","key":"C","cat":"adoracao","lyrics":"[C]Letra"},"reason":"Incluir repertório"}'); req:=result->'request';
+  result:=public.louvesync_changes(lead||jsonb_build_object('action','decide','requestId',req->>'id','decision','approved'));
+  if not exists(select 1 from songs where id='new-song' and created_by='junior') then raise exception 'New approved song missing'; end if;
+  perform set_config('request.headers','{"x-louvesync-member":"leader","x-louvesync-pin":"LEADER_FIXTURE_PIN"}',true);
+  update members set pin='RESET_FIXTURE_PIN' where id='other';
+  result:=public.louvesync_changes(lead||'{"action":"audit"}');
+  if jsonb_array_length(result->'entries')<8 then raise exception 'Missing app audit records'; end if;
+  if result::text like '%FIXTURE_PIN%' or result::text like '%"pin":%' then raise exception 'Audit leaked PIN'; end if;
+  if not exists(select 1 from jsonb_array_elements(result->'entries') e where e->>'actor_id'='junior' and e->>'entity_type'='louvesync_change_requests') then raise exception 'Requester missing from audit'; end if;
+  if not exists(select 1 from jsonb_array_elements(result->'entries') e where e->>'actor_id'='leader' and e->>'entity_type'='event_songs' and e->>'request_id' is not null) then raise exception 'Approver missing from applied-change audit'; end if;
+end; $$;
+-- Shared rehearsal notes remain editable by other assigned participants.
+select set_config('louvesync.audit_actor','',true);
+select set_config('request.headers','{"x-louvesync-member":"junior","x-louvesync-pin":"JUNIOR_FIXTURE_PIN"}',true);
+insert into rehearsal_notes(song_id,note_text,updated_by) values('song-c','Primeira anotação','junior');
+select set_config('request.headers','{"x-louvesync-member":"other","x-louvesync-pin":"RESET_FIXTURE_PIN"}',true);
+update rehearsal_notes set note_text='Anotação da equipe',updated_by='forged' where song_id='song-c';
+do $$ begin
+  if not exists(select 1 from rehearsal_notes where song_id='song-c' and note_text='Anotação da equipe' and updated_by='other') then raise exception 'Shared notes or canonical authorship broken'; end if;
+  begin insert into event_members(event_id,member_id) values('another','other'); raise exception 'Member inserted own assignment'; exception when insufficient_privilege then null; end;
+end; $$;
+reset role;
+-- Existing attendance RPC writes must keep their actual leader in the new audit.
+update events set date=to_char(clock_timestamp() at time zone 'America/Sao_Paulo','YYYY-MM-DD') where id='event';
+set role anon;
+select set_config('request.headers','{"x-louvesync-member":"leader","x-louvesync-pin":"LEADER_FIXTURE_PIN"}',true);
+do $$ declare result jsonb; entries jsonb; begin
+  result:=public.louvesync_attendance('{"action":"get","eventId":"event","memberId":"leader","pin":"LEADER_FIXTURE_PIN"}');
+  select jsonb_agg(jsonb_build_object('memberId',r->>'memberId','status','present','note','')) into entries from jsonb_array_elements(result->'sheet'->'roster') r;
+  result:=public.louvesync_attendance(jsonb_build_object('action','save','eventId','event','memberId','leader','pin','LEADER_FIXTURE_PIN','version',(result->'sheet'->>'version')::integer,'finalize',false,'entries',entries));
+  result:=public.louvesync_changes('{"action":"audit","eventId":"event","memberId":"leader","pin":"LEADER_FIXTURE_PIN"}');
+  if not exists(select 1 from jsonb_array_elements(result->'entries') e where e->>'entity_type'='louvesync_attendance_sheets' and e->>'actor_id'='leader') then raise exception 'Attendance lost leader audit identity'; end if;
+end; $$;
+-- New accounts can write an initial PIN while returning safe columns only.
+insert into members(id,name,pin,status,is_admin) values('new-member-fixture','Novo membro','NEW_MEMBER_FIXTURE','ativo',false) returning id,name;
+-- Updating a credential never needs SELECT on that column, including own PIN.
+select set_config('louvesync.audit_actor','',true);
+select set_config('request.headers','{"x-louvesync-member":"leader","x-louvesync-pin":"LEADER_FIXTURE_PIN"}',true);
+update members set pin='SELF_RESET_FIXTURE' where id='leader';
+do $$ declare result jsonb; begin
+  result:=public.louvesync_login('{"memberId":"leader","pin":"SELF_RESET_FIXTURE"}');
+  if not coalesce((result->>'ok')::boolean,false) then raise exception 'Own PIN change failed'; end if;
+  result:=public.louvesync_changes('{"action":"audit","memberId":"leader","pin":"SELF_RESET_FIXTURE"}');
+  if result::text like '%SELF_RESET_FIXTURE%' or result::text like '%"pin":%' then raise exception 'PIN reset leaked into audit'; end if;
+  if not exists(select 1 from jsonb_array_elements(result->'entries') e where e->>'entity_type'='members' and e->>'actor_id'='leader' and e->'changed_fields' ? 'pin') then raise exception 'Own credential change lost author'; end if;
+end; $$;
+reset role;
+commit;

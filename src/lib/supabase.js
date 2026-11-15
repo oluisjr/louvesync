@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { decodeSequence, encodeSequence } from './domain.js';
 import { deleteAdminContent } from './admin-delete-client.js';
 import { normalizeSupabaseUrl } from './supabase-url.js';
+import { authenticatedFetch, memberColumns } from './member-session.js';
+import { saveMemberRecord } from './member-storage.js';
 
 const url  = import.meta.env.VITE_SUPABASE_URL;
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -16,7 +18,7 @@ let publicConfig = null;
 if (url && anon) {
   try {
     const cleanUrl = normalizeSupabaseUrl(url);
-    client = createClient(cleanUrl, String(anon).trim());
+    client = createClient(cleanUrl, String(anon).trim(), { global: { fetch: authenticatedFetch(cleanUrl) } });
     publicConfig = Object.freeze({ url: cleanUrl.replace(/\/+$/, ''), anonKey: String(anon).trim() });
   } catch (err) {
     console.error('[LouveSync] Erro crítico ao inicializar o cliente Supabase. Verifique suas variáveis de ambiente no Vercel:', err);
@@ -34,21 +36,24 @@ export async function fetchMembers() {
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('members')
-    .select('*')
+    .select(memberColumns)
     .order('name');
   if (error) throw error;
   return data;
 }
 
+export async function authenticateMember(memberId, pin) {
+  if (!supabase) throw new Error('Conecte-se para validar seu acesso.');
+  const { data, error } = await supabase.rpc('louvesync_login', { p_payload: { memberId, pin } });
+  if (error) throw new Error(error.code === '28000' ? 'PIN incorreto ou membro inativo.' : error.code === '54000' ? 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.' : 'Não foi possível validar seu acesso.', { cause: error });
+  if (data?.ok === false) throw new Error(data.code === 'rate_limited' ? 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.' : 'PIN incorreto ou membro inativo.');
+  if (!data?.member?.id || data.member.id !== memberId) throw new Error('A sessão não foi confirmada pelo servidor.');
+  return data.member;
+}
+
 export async function upsertMember(member) {
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('members')
-    .upsert(member)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return saveMemberRecord(supabase, member);
 }
 
 export async function deleteMember(id) {

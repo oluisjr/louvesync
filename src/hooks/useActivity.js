@@ -10,9 +10,9 @@ function changed() {
   void broadcastUpdate({ type: 'activity_changed' }, { ensureConnection: false }).catch(() => {});
 }
 
-export function useActivity(profile, members) {
+export function useActivity(profile, actor) {
   const memberId = profile?.id;
-  const pin = members.find(member => member.id === memberId)?.pin;
+  const pin = memberId && actor?.memberId === memberId ? actor.pin : null;
   const credentials = useMemo(() => memberId && pin != null ? { memberId, pin: String(pin) } : null, [memberId, pin]);
   const recorder = useMemo(() => createViewRecorder({ send: activityRequest, onSaved: changed }), []);
   const recordView = useCallback((targetType, targetId) => {
@@ -98,7 +98,7 @@ export function useActivityQuery(credentials, action, targetType, targetId) {
 }
 
 // A mural card is viewed only after a meaningful portion stays visible for 1 s.
-export function useVisibleView(onView, key, { root = null, immediate = false, enabled = true } = {}) {
+export function useVisibleView(onView, key, { root = null, immediate = false, enabled = true, allowInertRoot = false } = {}) {
   const ref = useRef(null), callback = useRef(onView);
   callback.current = onView;
   useEffect(() => {
@@ -108,8 +108,8 @@ export function useVisibleView(onView, key, { root = null, immediate = false, en
     const cancel = () => clearTimeout(timer);
     const schedule = () => {
       cancel();
-      if (!recorded && visible && document.visibilityState === 'visible' && !document.getElementById('root')?.inert) timer = setTimeout(() => {
-        if (document.visibilityState === 'visible' && !document.getElementById('root')?.inert) { recorded = true; callback.current?.(); }
+      if (!recorded && visible && document.visibilityState === 'visible' && (allowInertRoot || !document.getElementById('root')?.inert)) timer = setTimeout(() => {
+        if (document.visibilityState === 'visible' && (allowInertRoot || !document.getElementById('root')?.inert)) { recorded = true; callback.current?.(); }
       }, immediate ? 0 : 1000);
     };
     let observer;
@@ -129,6 +129,6 @@ export function useVisibleView(onView, key, { root = null, immediate = false, en
     document.addEventListener('focusin', schedule);
     schedule();
     return () => { cancel(); observer?.disconnect(); document.removeEventListener('visibilitychange', schedule); document.removeEventListener('focusin', schedule); };
-  }, [key, root, immediate, enabled]);
+  }, [key, root, immediate, enabled, allowInertRoot]);
   return ref;
 }

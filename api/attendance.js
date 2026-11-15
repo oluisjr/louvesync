@@ -1,3 +1,4 @@
+import { actorHeaders } from '../src/lib/member-session.js';
 import { createClient } from '@supabase/supabase-js';
 import { attendanceFailure, attendancePayload, validAttendanceResponse } from '../src/lib/attendance.js';
 import { normalizeSupabaseUrl } from '../src/lib/supabase-url.js';
@@ -15,7 +16,7 @@ export function createAttendanceHandler(clientFactory = createClient, environmen
     const url = environment.SUPABASE_URL || environment.VITE_SUPABASE_URL, key = environment.SUPABASE_ANON_KEY || environment.VITE_SUPABASE_ANON_KEY;
     if (!url || !key) return res.status(503).json({ error: 'O registro de presença ainda não está configurado no servidor.' });
     try {
-      const client = clientFactory(normalizeSupabaseUrl(url), key.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
+      const client = clientFactory(normalizeSupabaseUrl(url), key.trim(), { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: actorHeaders(payload) } });
       const { data, error } = await client.rpc('louvesync_attendance', { p_payload: payload }).abortSignal(AbortSignal.timeout(10000));
       if (error) { const failure = attendanceFailure(error); return res.status(failure.status).json({ error: failure.error }); }
       if (!validAttendanceResponse(data, payload)) return res.status(503).json({ error: 'A gravação da chamada não foi confirmada pelo servidor.' });

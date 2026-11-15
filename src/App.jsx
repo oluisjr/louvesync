@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useId, memo, useCallback, Component } from 'react';
-import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, deleteEvent as dbDelEvent, rejectDeleteEvent, setEventItems, setSingerForSong, saveVocalKey, setSetlistConfirmation } from './lib/supabase';
+import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, deleteEvent as dbDelEvent, rejectDeleteEvent, setEventItems, setSingerForSong, saveVocalKey, setSetlistConfirmation, authenticateMember } from './lib/supabase';
 import {  searchSongCandidates, fetchCifraClubContent } from './lib/scraper';
 import { createPortal } from 'react-dom';
 import { printCifra } from './lib/native.js';
@@ -7,8 +7,11 @@ import { checkForAppUpdate } from './lib/app-updates.js';
 import Bible from './components/Bible.jsx';
 import Rehearsal from './components/Rehearsal.jsx';
 import { Dialog, Icon, Section, SearchField } from './components/Interface.jsx';
-import { downloadSetlistExcel, setlistWhatsAppText } from './lib/setlist-export.js';
-import { copyTextToClipboard } from './lib/clipboard.js';
+import { publicMember, readActorSession, setMutationActor } from './lib/member-session.js';
+import { canManageMinistry, songProposal } from './lib/change-requests.js';
+import EventDetails from './components/EventDetails.jsx';
+import ChangeRequestsScreen from './components/ChangeRequestsScreen.jsx';
+import ChangeRequestDialog from './components/ChangeRequestDialog.jsx';
 import { performanceKey, renderChordText } from './lib/chords.js';
 import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
@@ -19,7 +22,6 @@ import Home from './components/HomeScreen.jsx';
 import ScheduleScreen from './components/ScheduleScreen.jsx';
 import AttendanceScreen from './components/AttendanceScreen.jsx';
 import { canManageAttendance } from './lib/attendance.js';
-import SetlistConfirmation, { SetlistBadge } from './components/SetlistConfirmation.jsx';
 import { isSetlistConfirmed } from './lib/setlist-confirmation.js';
 import AppNavigation from './components/AppNavigation.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
@@ -33,9 +35,9 @@ import MetronomeControls from './components/MetronomeControls.jsx';
 import { useMetronome } from './hooks/useMetronome.js';
 import { useAppDisplay } from './hooks/useAppDisplay.js';
 import { useNavigationClearance } from './hooks/useNavigationClearance.js';
-import { useActivity, useVisibleView } from './hooks/useActivity.js';
+import { useActivity } from './hooks/useActivity.js';
 import { useLoginViewport } from './hooks/useLoginViewport.js';
-import { ActivityMonitor, ViewersButton } from './components/Activity.jsx';
+import { ActivityMonitor } from './components/Activity.jsx';
 import { publishAnnouncement } from './lib/announcement-storage.js';
 import { remapAnnouncementTask } from './lib/announcement-queue.js';
 
@@ -190,17 +192,17 @@ const IcoTap      = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill
 const IcoWifi     = ({s=14,off=false})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{off?<><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>:<><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>}</svg>;
 
 const M = [
-  { id:'aaaa0001-0001-0001-0001-000000000001', name:'Junior',       role:'Líder de Louvor', instrument:'Teclado / Vocal', avatar:'JR', color:'#4F46E5', status:'ativo', is_admin:true,  pin:'JR01', vocal_category:null },
-  { id:'aaaa0002-0002-0002-0002-000000000002', name:'Ignacio',      role:'Músico',          instrument:'Baixo',          avatar:'IG', color:'#10B981', status:'ativo', is_admin:false, pin:'IG02', vocal_category:null },
-  { id:'aaaa0003-0003-0003-0003-000000000003', name:'Cleide',       role:'Vocal',           instrument:'Vocal 1',        avatar:'CL', color:'#EC4899', status:'ativo', is_admin:false, pin:'CL03', vocal_category:'adoracao' },
-  { id:'aaaa0004-0004-0004-0004-000000000004', name:'Sonia',        role:'Vocal',           instrument:'Vocal 2',        avatar:'SO', color:'#F59E0B', status:'ativo', is_admin:false, pin:'SO04', vocal_category:'jubilo' },
-  { id:'aaaa0005-0005-0005-0005-000000000005', name:'Kassya',       role:'Vocal',           instrument:'Vocal 4',        avatar:'KA', color:'#8B5CF6', status:'ativo', is_admin:false, pin:'KA05', vocal_category:'adoracao' },
-  { id:'aaaa0006-0006-0006-0006-000000000006', name:'Maria Helena', role:'Vocal',           instrument:'Back Vocal',     avatar:'MH', color:'#06B6D4', status:'ativo', is_admin:false, pin:'MH06', vocal_category:'hinario' },
-  { id:'aaaa0007-0007-0007-0007-000000000007', name:'Lidia',        role:'Vocal',           instrument:'Vocal 5',        avatar:'LI', color:'#EF4444', status:'ativo', is_admin:false, pin:'LI07', vocal_category:'hinario' },
-  { id:'aaaa0008-0008-0008-0008-000000000008', name:'Josi',         role:'Vocal',           instrument:'Vocal 3',        avatar:'JO', color:'#14B8A6', status:'ativo', is_admin:false, pin:'JO08', vocal_category:'jubilo' },
-  { id:'aaaa0009-0009-0009-0009-000000000009', name:'Aragão',       role:'Músico',          instrument:'Violão',         avatar:'AR', color:'#F97316', status:'ativo', is_admin:false, pin:'AR09', vocal_category:null },
-  { id:'aaaa0010-0010-0010-0010-000000000010', name:'Samuel',       role:'Músico',          instrument:'Bateria',        avatar:'SA', color:'#84CC16', status:'ativo', is_admin:false, pin:'SA10', vocal_category:null },
-  { id:'aaaa0011-0011-0011-0011-000000000011', name:'Darci',        role:'Músico',          instrument:'Violão',         avatar:'DA', color:'#A855F7', status:'ativo', is_admin:false, pin:'DA11', vocal_category:null },
+  { id:'aaaa0001-0001-0001-0001-000000000001', name:'Junior',       role:'Líder de Louvor', instrument:'Teclado / Vocal', avatar:'JR', color:'#4F46E5', status:'ativo', is_admin:true, vocal_category:null },
+  { id:'aaaa0002-0002-0002-0002-000000000002', name:'Ignacio',      role:'Músico',          instrument:'Baixo',          avatar:'IG', color:'#10B981', status:'ativo', is_admin:false, vocal_category:null },
+  { id:'aaaa0003-0003-0003-0003-000000000003', name:'Cleide',       role:'Vocal',           instrument:'Vocal 1',        avatar:'CL', color:'#EC4899', status:'ativo', is_admin:false, vocal_category:'adoracao' },
+  { id:'aaaa0004-0004-0004-0004-000000000004', name:'Sonia',        role:'Vocal',           instrument:'Vocal 2',        avatar:'SO', color:'#F59E0B', status:'ativo', is_admin:false, vocal_category:'jubilo' },
+  { id:'aaaa0005-0005-0005-0005-000000000005', name:'Kassya',       role:'Vocal',           instrument:'Vocal 4',        avatar:'KA', color:'#8B5CF6', status:'ativo', is_admin:false, vocal_category:'adoracao' },
+  { id:'aaaa0006-0006-0006-0006-000000000006', name:'Maria Helena', role:'Vocal',           instrument:'Back Vocal',     avatar:'MH', color:'#06B6D4', status:'ativo', is_admin:false, vocal_category:'hinario' },
+  { id:'aaaa0007-0007-0007-0007-000000000007', name:'Lidia',        role:'Vocal',           instrument:'Vocal 5',        avatar:'LI', color:'#EF4444', status:'ativo', is_admin:false, vocal_category:'hinario' },
+  { id:'aaaa0008-0008-0008-0008-000000000008', name:'Josi',         role:'Vocal',           instrument:'Vocal 3',        avatar:'JO', color:'#14B8A6', status:'ativo', is_admin:false, vocal_category:'jubilo' },
+  { id:'aaaa0009-0009-0009-0009-000000000009', name:'Aragão',       role:'Músico',          instrument:'Violão',         avatar:'AR', color:'#F97316', status:'ativo', is_admin:false, vocal_category:null },
+  { id:'aaaa0010-0010-0010-0010-000000000010', name:'Samuel',       role:'Músico',          instrument:'Bateria',        avatar:'SA', color:'#84CC16', status:'ativo', is_admin:false, vocal_category:null },
+  { id:'aaaa0011-0011-0011-0011-000000000011', name:'Darci',        role:'Músico',          instrument:'Violão',         avatar:'DA', color:'#A855F7', status:'ativo', is_admin:false, vocal_category:null },
 ];
 
 const BIBLE_BOOKS = [
@@ -225,7 +227,6 @@ const BIBLE_BOOKS = [
 
 /* ─── HELPERS ───────────────────────────────────────────────── */
 function getKey(k,st){return transposeKey(k,st);}
-function fDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});}
 function today(){return localDate();}
 function parseLine(line){const segs=[];const parts=line.split(/(\[[^\]]+\])/);let i=0;while(i<parts.length){if(parts[i]?.startsWith('[')&&parts[i]?.endsWith(']')){const ch=parts[i].slice(1,-1);const nx=parts[i+1];const ly=(nx&&!nx.startsWith('['))?nx:'';segs.push({ch,ly});i+=(nx&&!nx.startsWith('['))?2:1;}else{if(parts[i])segs.push({ch:'',ly:parts[i]});i++;}}return segs;}
 // Garante que um evento já no formato do app tenha todos os campos obrigatórios
@@ -339,7 +340,6 @@ const IcoTrash   = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill=
 const IcoGuitar  = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.11 8.89L4 16l-1 3 3-1 7.11-7.11"/><path d="M14 7l3-3 1 1-3 3"/><circle cx="14.5" cy="9.5" r="2.5"/></svg>;
 const IcoMural   = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M7 7h10M7 11h8M7 15h5"/></svg>;
 const IcoMic     = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4"/><path d="M8 23h8"/></svg>;
-const IcoCheck   = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
 const IcoX       = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 const IcoEdit    = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
 const IcoArrowUp = ({s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>;
@@ -354,7 +354,6 @@ const Bdg = ({cat})=>{
   const c = CAT[sCat] || { cls: '', label: sCat || 'Sem Cat.' };
   return <span className={`bdg ${c.cls}`} style={!CAT[sCat]?{background:'rgba(0,0,0,.05)',color:'#64748B',border:'1px solid rgba(0,0,0,.1)'}:{}}>{String(c.label)}</span>;
 };
-const KeyChip = ({k,size=11})=><span style={{background:'rgba(123,63,242,.1)',color:'#7B3FF2',border:'1px solid rgba(123,63,242,.2)',borderRadius:100,padding:`${size<12?2:3}px ${size<12?8:12}px`,fontSize:size,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",flexShrink:0}}>{String(k || 'N/A')}</span>;
 const Loader = ()=><div style={{width:20,height:20,borderRadius:'50%',border:'2.5px solid rgba(123,63,242,.2)',borderTopColor:'#7B3FF2',animation:'spin .7s linear infinite'}}/>;
 const Skeleton = ({dark, h=60, count=3}) => <div style={{display:'flex', flexDirection:'column', gap:10, padding:16}}>{Array.from({length:count}).map((_,i) => <div key={i} style={{height:h, borderRadius:'var(--r-md)', background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)', animation:'pulse 1.5s infinite ease-in-out', animationDelay:`${i*0.15}s`}}/>)}</div>;
 const Sec = ({t})=><div style={{fontSize:'var(--fs-xs)',fontWeight:900,color:'#FF6B35',letterSpacing:'.14em',textTransform:'uppercase',margin:'18px 0 6px',display:'flex',alignItems:'center',gap:6}}><div style={{width:16,height:1.5,background:'#FF6B35',opacity:.5}}/>{t}<div style={{flex:1,height:1.5,background:'#FF6B35',opacity:.5}}/></div>;
@@ -1005,7 +1004,7 @@ const PatrimonioScreen = memo(({members, profile, dark, embedded = false}) => {
 });
 
 /* ─── PAINEL ADMIN ──────────────────────────────────────────── */
-const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState, setMembers, activity})=>{
+const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState, setMembers, activity, onUpdateOwnPin})=>{
   const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
 
@@ -1035,7 +1034,8 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     // fails, and update the list only after the save succeeds.
     const { permissions, unavailableDays, confirmRate, ...dbMember } = newMember;
     const saved = await upsertMember(dbMember);
-    const record = {...newMember,...saved};
+    if(member.id===profile.id&&dbMember.pin)onUpdateOwnPin(dbMember.pin);
+    const record = publicMember({...newMember,...saved});
     setMembers(list => list.some(item => item.id === record.id) ? list.map(item => item.id === record.id ? record : item) : [...list,record]);
     setEditMember(null);
   };
@@ -1311,6 +1311,7 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
   const [pin,setPin]=useState('');
   const [err,setErr]=useState('');
   const [shake,setShake]=useState(false);
+  const [signingIn,setSigningIn]=useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const tc=dark?'#F5F2FF':'#0F172A';
   const t2=dark?'#C9C3DD':'#64748B';
@@ -1333,10 +1334,12 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
     }
   }
 
-  function tryLogin(){
-    if(!sel||!pin)return;
-    const ok=onLogin(sel,pin);
-    if(!ok){setErr('PIN incorreto. Tente novamente.');setPin('');pinRef.current?.focus({preventScroll:true});setShake(true);setTimeout(()=>setShake(false),500);}
+  async function tryLogin(){
+    if(!sel||!pin||signingIn)return;
+    setSigningIn(true);setErr('');
+    try{await onLogin(sel,pin);}
+    catch(error){setErr(error.message||'Não foi possível entrar. Tente novamente.');pinRef.current?.focus({preventScroll:true});setShake(true);setTimeout(()=>setShake(false),500);}
+    finally{setSigningIn(false);}
   }
 
   return <div ref={viewportRef} data-step={step} className={`ls app-login${dark?' dark':''}`} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:0}}>
@@ -1380,7 +1383,7 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
             </div>
             {err&&<div id="login-error" role="alert" style={{marginTop:8,fontSize:'var(--fs-xs)',color:'var(--app-danger, #EF4444)',fontWeight:700}}>{err}</div>}
           </div>
-          <button className="bp" type="submit" disabled={!pin.trim()}>Entrar</button>
+          <button className="bp" type="submit" disabled={!pin.trim()||signingIn}>{signingIn?'Entrando…':'Entrar'}</button>
           </div>
         </form>
       </>}
@@ -1535,7 +1538,7 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metronome,setStageMod
       <div className="ui-vocal-key">
         <label className="ui-field">Tom por vocal<select aria-label="Vocal para o tom" value={vocalId} onChange={e=>{setVocalChoice({assigned:assignedVocal,id:e.target.value});const key=song.vocal_keys?.[e.target.value]||sKey;setTr(keyDistance(sKey,key));}}><option value="">Tom original</option>{members.filter(m=>(m.instrument||'').match(/vocal|voz/i)).map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label>
         <p className="ui-helper">A cifra acompanha o tom salvo do vocal selecionado, incluindo acordes com baixo e modulações.</p>
-        {vocalId&&(profile?.is_admin||vocalId===profile?.id)&&<button className="ui-button ui-button-soft ui-button-wide" style={{marginTop:10}} onClick={()=>onSaveVocalKey(song.id,vocalId,curKey)}><Icon name="check" size={15}/>Salvar tom deste vocal</button>}
+        {vocalId&&(canManageMinistry(profile)||(vocalId===profile?.id&&event?.singerBySong?.[song.id]===profile.id&&event?.members?.includes(profile.id)))&&<button className="ui-button ui-button-soft ui-button-wide" style={{marginTop:10}} onClick={()=>onSaveVocalKey(song.id,vocalId,curKey)}><Icon name="check" size={15}/>{canManageMinistry(profile)?'Salvar tom deste vocal':'Solicitar tom deste evento'}</button>}{!canManageMinistry(profile)&&<p className="ui-helper">A transposição é local. Para mudar o tom usado pela equipe, envie uma solicitação no evento em que você é o vocal principal.</p>}
       </div>
       {(isDirty||bpmDirty) && <div style={{display:'flex',gap:8,marginTop:12}}><button disabled={saving} onClick={handleSaveMetadata} className="bp" style={{flex:1,padding:'10px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>✓ Salvar</button><button onClick={()=>{setEditKey(String(song?.key||'')); setEditBpm(parseInt(song?.bpm)||80); setIsDirty(false);}} style={{flex:1,padding:'10px 14px',borderRadius:'var(--r-md)',border:`1.5px solid ${dark?'rgba(168,85,247,.2)':'rgba(79,70,229,.25)'}`,background:'transparent',color:tc,fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer'}}>✕ Cancelar</button></div>}
     </div>
@@ -1779,7 +1782,7 @@ const Maestro = memo(({dark,aiMsgs,aiIn,setAiIn,aiLoad,aiCount,onSendAI})=>{
 });
 
 /* ─── ADD SONG OVERLAY ──────────────────────────────────────── */
-const AddSong = memo(({dark,onSave,onClose,initialData})=>{
+const AddSong = memo(({dark,onSave,onClose,initialData,requestApproval})=>{
   const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1';
   const [step,setStep]=useState(initialData ? 3 : 1);
@@ -1943,7 +1946,7 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
             <div>
               <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Tom Original</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:6}}>
-                {KEYS.map(k=><button key={k} onClick={()=>setForm(f=>({...f,key:k}))} style={{padding:'8px 6px',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace",background:form.key===k?'#7B3FF2':'rgba(79,70,229,.08)',color:form.key===k?'#fff':'var(--app-link, #4F46E5)',transition:'all .15s'}}>{k}</button>)}
+                {KEYS.map(k=><button key={k} disabled={requestApproval&&!!initialData} onClick={()=>setForm(f=>({...f,key:k}))} style={{padding:'8px 6px',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace",background:form.key===k?'#7B3FF2':'rgba(79,70,229,.08)',color:form.key===k?'#fff':'var(--app-link, #4F46E5)',transition:'all .15s'}}>{k}</button>)}
               </div>
             </div>
           </div>
@@ -2274,121 +2277,6 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
 });
 
 /* ─── EVENT SHEET ───────────────────────────────────────────── */
-const EvSheet = memo(({ev,dark,songs,members,profile,onClose,onSelectSong,onConfirm,onEditEv,onReqDelEv,onSetSinger,onUpdateSongOptions,spawnConfetti,activity,setlistOnline,setlistSavingId,onSetlistConfirmation,onRecordAttendance})=>{
-  useVisibleView(() => activity.recordView('event', ev.id), ev?.id, { immediate:true, enabled:!!ev?.id });
-  const [expandSong, setExpandSong] = useState(null);
-  const [exporting,setExporting]=useState(false);
-  const [exportError,setExportError]=useState('');
-  const [sharing,setSharing]=useState(false);
-  const [shareStatus,setShareStatus]=useState('');
-  const [shareText,setShareText]=useState('');
-  if(!ev)return null;
-  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
-  const noteItems = (ev.items||[]).filter(it=>it.type !== 'song');
-  const songItems = (ev.songs||[]).map((songId, idx) => ({
-    id: `song_${songId}_${idx}`,
-    type: 'song',
-    song_id: songId,
-    singer_id: ev.singerBySong?.[songId] || null,
-    sequence: ev.sequenceBySong?.[songId] || null
-  }));
-  const sortedSongItems = songItems;
-  const evItems = (ev.items?.length ? ev.items.map(it=>({...it,singer_id:ev.singerBySong?.[it.song_id]})) : [...sortedSongItems,...noteItems]).map(it=>it.type==='song'?{...it,song:songs.find(s=>s.id===it.song_id)}:it).filter(it=>it.type==='note' || it.type==='text' || it.song);
-  const evS=(ev.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean);
-  const evM=(ev.members||[]).map(id=>members.find(m=>m.id===id)).filter(Boolean);
-  const myConf=(ev.confirmations||{})[profile?.id];
-  const isMyEvent=(ev.members||[]).includes(profile?.id);
-
-  return <>
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:99,backdropFilter:'blur(7px)',WebkitBackdropFilter:'blur(7px)',animation:'fadeIn .2s'}} onClick={onClose}/>
-    <div data-update-blocking={expandSong!==null||exporting||sharing||!!shareText} className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'90dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .4s cubic-bezier(.22,1,.36,1)'}}>
-      <div style={{display:'flex',justifyContent:'center',padding:'14px 0 0'}}><div style={{width:44,height:4,borderRadius:100,background:'rgba(127,127,127,.22)'}}/></div>
-      <div style={{padding:'16px 20px 52px'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
-          <div><div className="font-serif" style={{fontSize:24,fontWeight:900,color:tc}}>{ev.label}</div><div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:3}}>{fDate(ev.date)} · {ev.time}</div></div>
-          <button aria-label="Fechar detalhes do evento" onClick={onClose} style={{width:34,height:34,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.07)',color:t2,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={14}/></button>
-        </div>
-        {ev.theme&&<div style={{background:'rgba(79,70,229,.07)',borderRadius:'var(--r-sm)',padding:'9px 14px',marginBottom:14,fontSize:'var(--fs-sm)',color:'var(--app-link, #4F46E5)',fontWeight:700,border:'1px solid rgba(79,70,229,.15)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
-        {profile?.is_admin&&<ViewersButton activity={activity} targetType="event" targetId={ev.id} title={ev.label} context={`${new Date(ev.date+'T12:00:00').toLocaleDateString('pt-BR')} · ${String(ev.time||'').slice(0,5)}`} members={members} audience={ev.members} dark={dark}/>}
-        {/* Share setlist */}
-        {ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0&&<button disabled={sharing} onClick={async()=>{
-          setSharing(true);setShareText('');setShareStatus('');
-          const txt=setlistWhatsAppText(ev,songs,members);
-          try {
-            const copied=await copyTextToClipboard(txt);
-            if(copied)setShareStatus('Setlist copiado com as categorias e os vocais do evento.');
-            else {setShareText(txt);setShareStatus('A cópia automática não foi permitida. Selecione e copie o texto abaixo.');}
-          } finally {setSharing(false);}
-        }} id="shareBtn" style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.06)',color:'var(--app-link, #4F46E5)',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoShare s={14}/>Copiar setlist para WhatsApp</button>}
-        {shareStatus&&<p role="status" style={{fontSize:12,color:t2,marginBottom:12}}>{shareStatus}</p>}
-        {shareText&&<label style={{display:'block',fontSize:12,color:tc,marginBottom:12}}>Setlist para WhatsApp<textarea readOnly aria-label="Setlist para WhatsApp" value={shareText} onFocus={e=>e.target.select()} rows={9} style={{display:'block',width:'100%',padding:12,marginTop:6,borderRadius:12,border:'1px solid rgba(123,63,242,.3)',background:dark?'#160c26':'#fff',color:tc,fontSize:16,lineHeight:1.5}}/></label>}
-        {ev.type !== 'ebd' && ev.type !== 'consagracao' && evS.length>0&&<button disabled={exporting} onClick={async()=>{setExporting(true);setExportError('');try{await downloadSetlistExcel(ev,songs,members);}catch(error){setExportError(error.message||'Não foi possível salvar a planilha. Tente novamente.');}finally{setExporting(false);}}} style={{width:'100%',marginBottom:10,padding:'10px',borderRadius:'var(--r-md)',border:'1px solid rgba(16,185,129,.2)',background:'rgba(16,185,129,.06)',color:dark?'#65D5B6':"var(--app-positive, #059669)",fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>{exporting?'Preparando planilha…':'📥 Exportar para Excel'}</button>}
-        {exportError&&<p role="alert" style={{fontSize:12,color:dark?'#FCA5A5':'#B91C1C',marginBottom:12}}>{exportError}</p>}
-        {(isMyEvent||profile?.is_admin)&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
-          {isMyEvent&&<button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===true?'#10B981':'rgba(16,185,129,.1)',color:myConf===true?'#fff':"var(--app-positive, #059669)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoCheck/>Confirmar</button>}
-          {isMyEvent&&<button onClick={()=>onConfirm(ev.id,false)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:myConf===false?'#EF4444':'rgba(239,68,68,.08)',color:myConf===false?'#fff':"var(--app-negative, #DC2626)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX/>Recusar</button>}
-          {profile?.is_admin&&<button onClick={()=>onEditEv&&onEditEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(245,158,11,.15)',color:"var(--app-warning, #D97706)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoEdit s={14}/>Editar</button>}
-          {profile?.is_admin&&<button onClick={()=>onReqDelEv&&onReqDelEv(ev)} style={{padding:'10px',borderRadius:'var(--r-full)',border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.15)',color:"var(--app-negative, #DC2626)",display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcoX s={14}/>Excluir</button>}
-        </div>}
-        {canManageAttendance(profile)&&<button type="button" className="schedule-record-presence" onClick={()=>onRecordAttendance(ev)}><Icon name="check" size={15}/>Registrar presença</button>}
-        {ev.type !== 'ensaio' && (!['ebd','consagracao'].includes(ev.type)||evS.length>0) && <>{profile?.is_admin?<SetlistConfirmation event={ev} songs={songs} members={members} online={setlistOnline} savingId={setlistSavingId} onConfirm={onSetlistConfirmation}/>:<div style={{marginBottom:14}}><SetlistBadge event={ev} songs={songs}/></div>}
-          <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Setlist</div>
-          {evItems.length===0?<EmptyState icon={<IcoMusic s={24}/>} title="Sem músicas definidas"/>:evItems.map(it=>{
-            if(it.type==='note' || it.type==='text') return <div key={it.id} style={{padding:'8px 12px', background:'rgba(245,158,11,.08)', color:"var(--app-warning, #D97706)", borderRadius:'var(--r-md)', marginBottom:7, fontSize:'var(--fs-sm)', fontWeight:700, fontStyle:'italic', borderLeft:'3px solid #F59E0B'}}>📝 {it.text}</div>;
-            const s = it.song;
-            const category = CAT[s.cat] || {label:s.cat||'Sem categoria',color:'#94A3B8'};
-            const activeKey = performanceKey(s,ev);
-            return <div key={it.id} className="event-setlist-song" style={{'--song-category':category.color,display:'flex',flexDirection:'column',gap:5,padding:11,borderRadius:'var(--r-md)',marginBottom:7,background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
-              <div style={{display:'flex',alignItems:'center',gap:11}}>
-                <button type="button" className="event-setlist-song-open" aria-label={'Abrir cifra de '+(s.title||'Sem Título')} onClick={()=>onSelectSong(s, ev, activeKey)}>
-                  <span className="font-serif" style={{fontSize:16,fontWeight:800,color:tc}}>{String(s.title || 'Sem Título')}</span>
-                  <span className="event-setlist-meta" style={{color:t2}}><span className="event-setlist-category">{category.label}</span><span aria-hidden="true">·</span><span>{String(s.artist || 'Ministério')}</span></span>
-                </button>
-                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,flexShrink:0}}>
-                  <KeyChip k={activeKey} size={10}/>
-                  {profile?.is_admin&&<button onClick={()=>setExpandSong(expandSong===s.id?null:s.id)} style={{background:'none',border:'none',color:'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',cursor:'pointer',fontWeight:700}}>Ajustar</button>}
-                </div>
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4,paddingTop:8,borderTop:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
-                <span style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700}}>🎤 Vocal principal:</span>
-                <select className="fi" aria-label={'Vocal principal de '+s.title} style={{flex:1,padding:'4px 8px',fontSize:'var(--fs-xs)'}} disabled={!profile?.is_admin} value={ev.singerBySong?.[s.id]||''} onChange={e=>onSetSinger&&onSetSinger(ev.id,s.id,e.target.value)}>
-                  <option value="">- Ninguém -</option>
-                  {evM.filter(m=>m.instrument?.toLowerCase().match(/vocal|voz/)).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-                </select>
-              </div>
-              {expandSong === s.id && <div style={{marginTop:8,padding:10,background:'rgba(0,0,0,.05)',borderRadius:'var(--r-sm)',display:'flex',flexDirection:'column',gap:8}}>
-                <div style={{fontSize:'var(--fs-xs)',fontWeight:700,color:t2}}>Tom na escala:</div>
-                <select id={`adj-key-${s.id}`} className="fi" style={{padding:'4px 8px'}} defaultValue={activeKey}>
-                  {KEYS.map(k=><option key={k} value={k}>{k}</option>)}
-                </select>
-                <div style={{display:'flex',gap:10}}>
-                  <div style={{flex:1}}><div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700}}>BPM</div><input type="number" id={`adj-bpm-${s.id}`} className="fi" style={{padding:'4px 8px'}} defaultValue={s.bpm||''} placeholder="Ex: 120"/></div>
-                  <div style={{flex:1}}><div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700}}>Compasso</div><select id={`adj-ts-${s.id}`} className="fi" style={{padding:'4px 8px'}} defaultValue={s.time_signature||'4/4'}>{TIME_SIGS.map(ts=><option key={ts} value={ts}>{ts}</option>)}</select></div>
-                </div>
-                <button onClick={()=>{
-                  const nk = document.getElementById(`adj-key-${s.id}`).value;
-                  const updOff = !!ev.singerBySong?.[s.id];
-                  const nbpm = document.getElementById(`adj-bpm-${s.id}`).value;
-                  const nts = document.getElementById(`adj-ts-${s.id}`).value;
-                  onUpdateSongOptions(s.id, nk, updOff, nbpm, nts, ev.singerBySong?.[s.id], ev.id);
-                  setExpandSong(null);
-                }} className="bp" style={{padding:'6px 12px',fontSize:'var(--fs-xs)',marginTop:4}}>Salvar Ajustes</button>
-              </div>}
-            </div>
-          })}
-        </>}
-        <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',margin:'16px 0 10px'}}>Equipe ({evM.length})</div>
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {evM.map(m=>{const conf=(ev.confirmations||{})[m.id];return <div key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:'var(--r-md)',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
-            <Ava m={m} size={32} ring/>
-            <div style={{flex:1}}><div style={{fontSize:'var(--fs-sm)',fontWeight:700,color:tc}}>{m.name}</div><div style={{fontSize:'var(--fs-xs)',color:t2}}>{m.instrument}</div></div>
-            <span style={{fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 9px',borderRadius:100,background:conf===true?'rgba(16,185,129,.12)':conf===false?'rgba(239,68,68,.1)':'rgba(0,0,0,.05)',color:conf===true?"var(--app-positive, #059669)":conf===false?"var(--app-negative, #DC2626)":t2}}>{conf===true?'Confirmado':conf===false?'Recusou':'Pendente'}</span>
-          </div>;})}
-        </div>
-      </div>
-    </div>
-  </>;
-});
 
 /* ─── NOTIFS SHEET ──────────────────────────────────────────── */
 /* ─── MODO ENSAIO COLABORATIVO ─── */
@@ -2403,7 +2291,10 @@ export default function LouveSync() {
   const [profile,setProfile]=useState(null);
   const [allMembers,setAllMembers]=useState([]);
   const [authLoading,setAuthLoading]=useState(true);
-  const activity=useActivity(profile,allMembers);
+  const [actorSession,setActorSession]=useState(readActorSession);
+  const activity=useActivity(profile,actorSession);
+  const [changeDraft,setChangeDraft]=useState(null);
+  const [changeNotice,setChangeNotice]=useState('');
   const notifications=useNotifications(activity.credentials);
   const notifyChanges=notifications.changed;
 
@@ -2620,53 +2511,28 @@ export default function LouveSync() {
   },[pushLink,profile,dataLoading,addOpen,createEvOpen,confirmState,inCifra,stageMode,openNotificationTarget]);
   function handleOpenNotification(item){void notifications.markRead([item.id]);openNotificationTarget(item);}
 
-  /* ── Load auth members ── */
+  /* Authenticate on the server; member lists and cached profiles never contain PINs. */
   useEffect(()=>{
+    let disposed=false;
     async function loadMembers(){
       try{
-        // Supabase é sempre a fonte primária enquanto houver internet
-        const data = await fetchMembers();
-        if (data !== null) {
-          // Resposta válida do Supabase (pode ser array vazio)
-          const members = data && data.length > 0 ? data : M;
-          setAllMembers(members);
-          // Atualiza cache offline
-          localStorage.setItem('ls_members', JSON.stringify(members));
-        } else {
-          // Supabase retornou null = problema de config, usa cache
-          const lsM = localStorage.getItem('ls_members');
-          setAllMembers(lsM ? JSON.parse(lsM) : M);
-        }
-      } catch {
-        // Falha de rede = offline, usa cache local
-        const lsM = localStorage.getItem('ls_members');
-        setAllMembers(lsM ? JSON.parse(lsM) : M);
-      }
-      setAuthLoading(false);
+        const data=await fetchMembers();
+        const cachedMembers=readCache('ls_members',M);
+        const safe=(Array.isArray(data)&&data.length?data:Array.isArray(cachedMembers)?cachedMembers:M).map(publicMember);
+        if(!disposed){setAllMembers(safe);writeCache('ls_members',safe);}
+      }catch{const cache=readCache('ls_members',M);const safe=(Array.isArray(cache)?cache:M).map(publicMember);if(!disposed){setAllMembers(safe);writeCache('ls_members',safe);}}
+      if(!disposed)setAuthLoading(false);
     }
-    // Restaurar sessão do localStorage — com verificação de expiração (4h)
-    const stored = localStorage.getItem('ls_profile');
-    if (stored) {
-      try {
-        const lastAct = parseInt(localStorage.getItem('ls_last_activity') || '0', 10);
-        const FOUR_HOURS = 4 * 60 * 60 * 1000;
-        const expired = lastAct && (Date.now() - lastAct) > FOUR_HOURS;
-        if (expired) {
-          localStorage.removeItem('ls_profile');
-          localStorage.removeItem('ls_last_activity');
-        } else {
-          const p = JSON.parse(stored);
-          setProfile(p);
-          setAuthLoading(false);
-        }
-      } catch {
-        localStorage.removeItem('ls_profile');
-      }
+    const cached=readCache('ls_profile',null),actor=readActorSession();
+    const last=Number(localStorage.getItem('ls_last_activity')||0);
+    if(cached?.id&&actor?.memberId===cached.id&&(!last||Date.now()-last<4*60*60*1000)){
+      const safe=publicMember(cached);writeCache('ls_profile',safe);setMutationActor(actor);setProfile(safe);
+    }else{
+      setMutationActor(null);setActorSession(null);
+      ['ls_profile','ls_actor_session','ls_last_activity'].forEach(key=>localStorage.removeItem(key));
     }
-    loadMembers();
+    void loadMembers();return()=>{disposed=true;};
   },[]);
-
-
 
   const backFromSong=useCallback(()=>{
     stopMetronome();setSelSong(null);setSelEvent(null);
@@ -2705,7 +2571,7 @@ export default function LouveSync() {
         if(disposed)return;
         if(results[0].status==='fulfilled' && results[0].value!==null)setSongs(results[0].value);
         if(results[1].status==='fulfilled' && results[1].value!==null)setEvents(results[1].value.map(normalizeEvent));
-        if(results[2].status==='fulfilled' && results[2].value?.length){setAllMembers(results[2].value);writeCache('ls_members',results[2].value);}
+        if(results[2].status==='fulfilled' && results[2].value?.length){const safe=results[2].value.map(publicMember);setAllMembers(safe);writeCache('ls_members',safe);}
         const failure=results.find(result=>result.status==='rejected');
         if(failure)setSyncError(`Não foi possível atualizar os dados: ${failure.reason.message}`);
       }finally{
@@ -2738,17 +2604,22 @@ export default function LouveSync() {
   /* ── Handlers ── */
   const handleAppUpdate = () => checkForAppUpdate();
 
-  function handleLogin(member, pin) {
-    if (member.pin !== pin) return false;
-    const {pin:_, ...safe} = member;
-    localStorage.setItem('ls_profile', JSON.stringify(safe));
-    localStorage.setItem('ls_last_activity', String(Date.now())); // registra momento do login
-    setProfile(safe);
+  async function handleLogin(member, pin) {
+    const safe=publicMember(await authenticateMember(member.id,pin));
+    const actor={memberId:safe.id,pin};
+    localStorage.setItem('ls_actor_session',JSON.stringify(actor));
+    localStorage.setItem('ls_profile',JSON.stringify(safe));
+    localStorage.setItem('ls_last_activity',String(Date.now()));
+    setMutationActor(actor);setActorSession(actor);setProfile(safe);
     return true;
+  }
+  function handleOwnPinChanged(pin){
+    const actor={memberId:profile.id,pin};setMutationActor(actor);setActorSession(actor);writeCache('ls_actor_session',actor);
   }
   function handleLogout() {
     const logout=()=>{
       void notifications.detach();
+      localStorage.removeItem('ls_actor_session');setMutationActor(null);setActorSession(null);
       localStorage.removeItem('ls_profile');
       localStorage.removeItem('ls_last_activity');
       setProfile(null); setMoreOpen(false); setSelSong(null); setSelEvent(null); setHomeDate(null); setScheduleView({week:null,day:null,scope:'all',history:false}); setTab('home');
@@ -2817,7 +2688,7 @@ export default function LouveSync() {
   }
 
   const handleSetlistConfirmation=async(eventId,snapshot,confirmed)=>{
-    if(!profile?.is_admin)return {ok:false,error:'Somente administradores podem definir o setlist.'};
+    if(!canManageMinistry(profile))return {ok:false,error:'Somente a liderança pode definir o setlist.'};
     if(!isOnline||!navigator.onLine||!supabase)return {ok:false,error:'Conecte-se para salvar a confirmação para toda a equipe.'};
     if(setlistWriteRef.current)return {ok:false,error:'Aguarde a confirmação em andamento.'};
     setlistWriteRef.current=true;setSetlistSavingId(eventId);
@@ -2831,7 +2702,7 @@ export default function LouveSync() {
   };
 
   const handleSetSinger=async(eventId,songId,singerMemberId)=>{
-    if(!profile?.is_admin)return;
+    if(!canManageMinistry(profile))return;
     const memberId=singerMemberId||null;
     try{
       await setSingerForSong(eventId,songId,memberId);
@@ -2840,7 +2711,7 @@ export default function LouveSync() {
     }catch(error){setSyncError(`Vocal não salvo: ${error.message}`);}
   };
   const handleUpdateSongOptions=async(songId,newKey,updateOfficial,newBpm,newTs,singerId,eventId)=>{
-    if(!profile?.is_admin)return;
+    if(!canManageMinistry(profile))return;
     try{
       if(supabase){
         await setSequenceForSong(eventId,songId,undefined,newKey);
@@ -2853,7 +2724,7 @@ export default function LouveSync() {
       setEvents(evs=>evs.map(e=>e.id===eventId?{...e,keyBySong:{...e.keyBySong,[songId]:newKey}}:e));
       setSongs(list=>list.map(song=>song.id===songId?{...song,...(newBpm?{bpm:Number(newBpm)}:{}),...(newTs?{time_signature:newTs}:{}),...(updateOfficial&&singerId?{vocal_keys:{...song.vocal_keys,[singerId]:newKey}}:{})}:song));
       await broadcastUpdate({type:'data_changed'});notifyChanges();
-    }catch(error){setSyncError(`Ajustes não salvos: ${error.message}`);}
+    }catch(error){setSyncError(`Ajustes não salvos: ${error.message}`);throw error;}
   };
 
   const handleRequestDeleteEvent=useCallback(ev=>{
@@ -2901,7 +2772,17 @@ export default function LouveSync() {
 
 
 
+  async function handleChangesSaved(){
+    const [freshSongs,freshEvents]=await Promise.all([fetchSongs(),fetchEvents()]);
+    if(freshSongs)setSongs(freshSongs);
+    if(freshEvents)setEvents(freshEvents.map(normalizeEvent));
+    await broadcastUpdate({type:'data_changed'});notifyChanges();
+  }
   async function handleSaveSong(song){
+    if(!canManageMinistry(profile)){
+      const existing=songRecords.some(record=>record.id===song.id);
+      return new Promise((resolve,reject)=>setChangeDraft({kind:existing?'song_edit':'song_create',song:{...song,id:song.id||crypto.randomUUID()},proposal:songProposal(song,!existing),resolve,reject}));
+    }
     const newSong={...song,id:song.id||crypto.randomUUID(),created_at:song.created_at||new Date().toISOString()};
     try{
       const saved=isOnline&&supabase?await upsertSong({...newSong,created_by:profile?.id}):newSong;
@@ -2913,7 +2794,10 @@ export default function LouveSync() {
     }catch(error){setSyncError(`Música não salva: ${error.message}`);throw error;}
   }
   async function handleSaveVocalKey(songId,singerId,key){
-    if(!profile?.is_admin && singerId!==profile?.id)return;
+    if(!canManageMinistry(profile)){
+      if(singerId!==profile?.id||selEvent?.singerBySong?.[songId]!==profile.id||!selEvent.members?.includes(profile.id)){setSyncError('Solicite tons na escala em que você é o vocal principal.');return;}
+      setChangeDraft({kind:'key',song:songs.find(song=>song.id===songId),event:selEvent,proposal:{key}});return;
+    }
     try{
       const keys=await saveVocalKey(songId,singerId,key);
       setSongs(prev=>prev.map(song=>song.id===songId?{...song,vocal_keys:keys||{...song.vocal_keys,[singerId]:key}}:song));
@@ -2969,6 +2853,7 @@ export default function LouveSync() {
     {id:'home',ico:<IcoHome s={22}/>,l:'Início'},
     {id:'repertorio',ico:<IcoMusic s={22}/>,l:'Músicas'},
     {id:'escala',ico:<IcoCal s={22}/>,l:'Escala'},
+    {id:'solicitacoes',ico:<IcoEdit s={22}/>,l:'Solicitações'},
     {id:'presencas',ico:<IcoPeople s={22}/>,l:'Presenças'},
     {id:'mural',ico:<IcoMural s={22}/>,l:'Mural'},
     {id:'patrimonio',ico:<IcoBox s={22}/>,l:'Patrimônio'},
@@ -2982,6 +2867,7 @@ export default function LouveSync() {
   ];
   const attendanceLeader=canManageAttendance(allMembers.find(member=>member.id===profile?.id)||profile);
   const TABS = allTabs.filter(t => {
+     if(t.id==='solicitacoes')return true;
      if(t.id==='presencas')return attendanceLeader;
      if(t.id==='admin'||t.id==='membros')return !!profile?.is_admin;
      if(!profile?.permissions) {
@@ -3011,6 +2897,7 @@ export default function LouveSync() {
       {!stageMode&&<>
         {/* OFFLINE BANNER */}
         {!isOnline&&<div style={{background:'rgba(239,68,68,.9)',color:'#fff',textAlign:'center',padding:'5px',fontSize:'var(--fs-xs)',fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',gap:6,flexShrink:0}}><IcoWifi s={12} off/>Sem conexão — usando dados locais</div>}
+        {changeNotice&&<div role="status" className="change-success-notice">{changeNotice}<button type="button" aria-label="Fechar confirmação da solicitação" onClick={()=>setChangeNotice('')}>×</button></div>}
         {syncError&&<div role="alert" style={{padding:10,background:'#FEF3C7',color:'#92400E',fontSize:12,flexShrink:0}}>{syncError}<button onClick={()=>{setSyncError('');setRetrySync(n=>n+1);}} style={{marginLeft:8}}>Tentar novamente</button></div>}
         {/* TOP BAR */}
         <div className="app-header" style={{padding:'11px 16px', paddingTop:'calc(var(--app-safe-top) + 11px)', display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${dark?'rgba(168,85,247,.1)':'rgba(123,63,242,.06)'}`,position:'sticky',top:0,zIndex:30,flexShrink:0}}>
@@ -3046,6 +2933,7 @@ export default function LouveSync() {
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} categories={CAT} loading={dataLoading} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
             {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metronome={metronome} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} onSaveSong={handleSaveSong} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
 
+            {tab==='solicitacoes'&&!inCifra&&<ChangeRequestsScreen dark={dark} profile={profile} credentials={activity.credentials} songs={songs} events={events} onChangeSaved={handleChangesSaved}/>}
             {tab==='mural'&&!inCifra&&<CommunityMural profile={profile} dark={dark} members={allMembers} activity={activity}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio connectionStatus={connectionStatus} dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
             {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
@@ -3056,7 +2944,7 @@ export default function LouveSync() {
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
             {tab==='treinamento'&&!inCifra&&<Treinamento dark={dark} profile={profile}/>}
             {tab==='biblia'&&!inCifra&&<Biblia dark={dark} profileId={profile?.id}/>}
-            {profile?.is_admin&&tab==='admin'&&!inCifra&&<PainelAdmin dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState} setMembers={setAllMembers} activity={activity}/>}
+            {profile?.is_admin&&tab==='admin'&&!inCifra&&<PainelAdmin onUpdateOwnPin={handleOwnPinChanged} dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState} setMembers={setAllMembers} activity={activity}/>}
           </>}
         </div>
           {moreOpen&&!inCifra&&<div className="app-more-scroll"><MoreMenu tabs={TABS} currentTab={tab} onNavigate={navTo} onClose={closeMore} dark={dark}/></div>}
@@ -3067,10 +2955,11 @@ export default function LouveSync() {
       </>}
 
       {/* OVERLAYS */}
-      {addOpen&&<AddSong dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
+      {addOpen&&<AddSong requestApproval={!canManageMinistry(profile)} dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
       {profile?.is_admin&&createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
-      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EvSheet onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={openEventEditor} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
+      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EventDetails categories={CAT} onChangeSaved={handleChangesSaved} onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={openEventEditor} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotificationInbox dark={dark} controller={notifications} onClose={()=>setNotifsOpen(false)} onOpen={handleOpenNotification}/>}
+      {changeDraft&&<ChangeRequestDialog dark={dark} draft={changeDraft} songs={songs} credentials={activity.credentials} onClose={()=>{changeDraft.reject?.(new Error('Solicitação cancelada.'));setChangeDraft(null);}} onSaved={async request=>{const draft=changeDraft;setChangeDraft(null);draft.resolve?.(draft.song);if(draft.resolve)setAddOpen(false);setChangeNotice('Solicitação enviada. A música vigente será mantida até a aprovação da liderança.');await handleChangesSaved();return request;}}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}
 
       {/* Global Stage Toast Notification */}

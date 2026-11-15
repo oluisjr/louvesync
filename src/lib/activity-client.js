@@ -1,3 +1,4 @@
+import { actorHeaders } from './member-session.js';
 import { activityFailure } from './activity-errors.js';
 import { normalizeSupabaseUrl } from './supabase-url.js';
 
@@ -16,7 +17,7 @@ export async function activityRequest(credentials, payload, options = {}) {
   const body = { ...payload, memberId: credentials.memberId, pin: credentials.pin };
   const send = async (url, headers, rpc = false) => {
     const response = await (options.fetcher || fetch)(url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, cache: 'no-store',
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...actorHeaders(credentials), ...headers }, cache: 'no-store',
       body: JSON.stringify(rpc ? { p_payload: body } : body),
       signal: controller.signal, keepalive: !!options.keepalive,
     });

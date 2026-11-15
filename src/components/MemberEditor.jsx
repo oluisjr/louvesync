@@ -25,9 +25,9 @@ export default function MemberEditor({ dark, member, isNew, canDelete, onSave, o
   const submit = async event => {
     event.preventDefault();
     if (saving) return;
-    if (!form.name?.trim() || !form.pin?.trim()) { setError('Preencha o nome e o PIN de acesso.'); return; }
+    if (!form.name?.trim() || (isNew && !form.pin?.trim())) { setError('Preencha o nome e o PIN de acesso.'); return; }
     setSaving(true); setError('');
-    try { await onSave({ ...form, name: form.name.trim() }); }
+    try { const update = { ...form, name: form.name.trim() }; if (!update.pin?.trim()) delete update.pin; await onSave(update); }
     catch (failure) { setError('Não foi possível salvar o membro. ' + (failure.message || 'Tente novamente.')); }
     finally { setSaving(false); }
   };
@@ -47,7 +47,7 @@ export default function MemberEditor({ dark, member, isNew, canDelete, onSave, o
           <label className="ui-field">Função ou instrumento<input value={form.instrument || ''} onChange={event => update({ instrument: event.target.value })} placeholder="Ex.: Vocal 1, teclado, bateria"/></label>
         </Section>
         <Section icon="settings" title="Acesso ao app" description="Defina como este membro participa do LouveSync.">
-          <label className="ui-field">PIN de acesso<input type="text" value={form.pin || ''} onChange={event => update({ pin: event.target.value })} placeholder="PIN numérico ou alfanumérico" autoComplete="off" autoCapitalize="none" spellCheck={false} required/></label>
+          <label className="ui-field">{isNew ? 'PIN de acesso' : 'Novo PIN (opcional)'}<input type="password" value={form.pin || ''} onChange={event => update({ pin: event.target.value })} placeholder={isNew ? 'PIN numérico ou alfanumérico' : 'Deixe em branco para manter o atual'} autoComplete="new-password" autoCapitalize="none" spellCheck={false} required={isNew}/></label>
           <label className="ui-member-option"><input type="checkbox" checked={!!form.is_admin} onChange={event => update({ is_admin: event.target.checked })}/><span><strong>Administrador</strong><small>Acesso completo à gestão do ministério.</small></span></label>
           <fieldset className="ui-member-permissions"><legend>Acesso às telas</legend><div className="ui-member-screen-grid">
             {screens.map(([id, label]) => <label className="ui-member-check" key={id}><input type="checkbox" checked={(form.permissions || []).includes(id) || (form.is_admin && id === 'admin')} disabled={form.is_admin && id === 'admin'} onChange={event => toggleList('permissions', id, event.target.checked)}/><span>{label}</span></label>)}

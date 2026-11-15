@@ -7,13 +7,13 @@ const localApi = () => ({
     for (const name of ['VITE_SUPABASE_URL','VITE_SUPABASE_ANON_KEY','SUPABASE_SERVICE_KEY','SCRAPERAPI_KEY','GROQ_API_KEY','VITE_GROQ_API_KEY']) if (env[name] && !process.env[name]) process.env[name] = env[name];
     server.middlewares.use(async (req,res,next) => {
       const url = new URL(req.url,'http://localhost');
-      const name = url.pathname.match(/^\/api\/(proxy|cifra|maestro|setlist|version|activity|bible|admin-delete|delete-event|notifications)$/)?.[1];
+      const name = url.pathname.match(/^\/api\/(proxy|cifra|maestro|setlist|version|activity|attendance|changes|bible|admin-delete|delete-event|notifications)$/)?.[1];
       if (!name) return next();
       try {
         req.query = Object.fromEntries(url.searchParams);
         if (req.method === 'POST') {
           let body = '';
-          for await (const chunk of req) { body += chunk; if(body.length>70000){res.statusCode=413;return res.end('Request too large');} }
+          for await (const chunk of req) { body += chunk; if(body.length>(name==='changes'?220000:70000)){res.statusCode=413;return res.end('Request too large');} }
           req.body = JSON.parse(body || '{}');
         }
         res.status = code => {res.statusCode=code;return res;};

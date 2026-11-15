@@ -1,3 +1,4 @@
+import { actorHeaders } from './member-session.js';
 import { attendanceFailure, attendancePayload, validAttendanceResponse } from './attendance.js';
 import { normalizeSupabaseUrl } from './supabase-url.js';
 
@@ -10,7 +11,7 @@ export async function attendanceRequest(credentials, payload, options = {}) {
   options.signal?.addEventListener('abort', abort, { once: true });
   const timer = setTimeout(abort, 12000);
   const send = async (url, headers = {}, rpc = false) => {
-    const response = await (options.fetcher || fetch)(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, cache: 'no-store', signal: controller.signal, body: JSON.stringify(rpc ? { p_payload: body } : body) });
+    const response = await (options.fetcher || fetch)(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...actorHeaders(credentials), ...headers }, cache: 'no-store', signal: controller.signal, body: JSON.stringify(rpc ? { p_payload: body } : body) });
     const data = await response.json().catch(() => null);
     if (!response.ok) {
       const failure = rpc ? attendanceFailure(data) : { status: response.status, error: data?.error || 'Não foi possível salvar a chamada.' };

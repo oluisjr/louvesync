@@ -1,3 +1,4 @@
+import { actorHeaders } from '../src/lib/member-session.js';
 import { createClient } from '@supabase/supabase-js';
 import { activityFailure } from '../src/lib/activity-errors.js';
 import { normalizeSupabaseUrl } from '../src/lib/supabase-url.js';
@@ -51,7 +52,7 @@ export function createActivityHandler(clientFactory = createClient) {
       error: `Configure ${missing.map(name => `${name} (ou VITE_${name})`).join(' e ')} na Vercel em Production. Salve e faça Redeploy.`,
     });
     try {
-      const client = clientFactory(normalizeSupabaseUrl(url), key.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
+      const client = clientFactory(normalizeSupabaseUrl(url), key.trim(), { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: actorHeaders(payload) } });
       const { data, error, status } = await client.rpc('louvesync_activity', { p_payload: payload }).abortSignal(AbortSignal.timeout(8000));
       if (error) return databaseFailure(res, error, status);
       const valid = typeof data?.serverTime === 'string' && Number.isFinite(Date.parse(data.serverTime)) &&
