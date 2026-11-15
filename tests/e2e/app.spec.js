@@ -165,6 +165,91 @@ async function navigate(page, name) {
   await expect(menu).toHaveCount(0);
 }
 
+for(const theme of ['light','dark'])test(`3D repertoire preserves songs, favorites, filters, editing and chart navigation in ${theme} theme`,async({browser})=>{
+  const app=await fixture(browser);
+  app.state.songs[0]={...app.state.songs[0],artist:'João da Equipe',key:'D'};
+  app.state.songs.push({...songs[0],id:'hino',title:'Hino para o culto de domingo',cat:'hinario',key:'G'},
+    {...songs[0],id:'custom',title:'Arranjo acústico',cat:'Acústico',key:'Eb'},
+    {...songs[0],id:'uncategorized',title:'Música ainda sem categoria',cat:null});
+  try{
+    const page=await app.open(admin,undefined,{theme,device:{viewport:{width:390,height:844}}});
+    await navigate(page,'Músicas');
+    const library=page.getByRole('region',{name:'Repertório',exact:true}),summary=library.getByRole('region',{name:'Resumo do repertório',exact:true});
+    await expect(summary).toContainText('6 músicas');await expect(summary).toContainText('6 categorias');
+    await expect(summary).toContainText('0 favoritas');await expect(library.getByRole('article')).toHaveCount(6);
+    await expect.poll(()=>summary.locator('img').evaluate(element=>element.complete&&element.naturalWidth>0)).toBe(true);
+    await expect(summary.locator('img')).toHaveAttribute('src','/images/more/music.webp');
+    await expect(page.locator('.app-nav [aria-current="page"]')).toHaveCount(1);
+    await expect(page.locator('.app-nav [aria-current="page"]')).toHaveAccessibleName('Mais');
+    for(const width of [390,320]){
+      await page.setViewportSize({width,height:844});
+      await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=0;});
+      await page.screenshot({path:test.info().outputPath(`repertoire-${theme}-${width}.png`),scale:'css'});
+      expect(await library.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+      await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=element.scrollHeight;});
+      const last=library.getByRole('article').last(),lastBox=await last.boundingBox(),navBox=await page.locator('.app-nav .gNav').boundingBox();
+      expect(lastBox.y+lastBox.height).toBeLessThan(navBox.y-8);
+      expect(navBox.y-lastBox.y-lastBox.height).toBeLessThan(36);
+    }
+    await library.getByRole('button',{name:'Favoritar Teste adoracao',exact:true}).click();
+    await library.getByRole('button',{name:'Favoritar Teste ceia',exact:true}).click();
+    await expect(summary).toContainText('2 favoritas');
+    const categories=library.getByRole('group',{name:'Filtrar por categoria'});
+    await categories.getByRole('button',{name:'Favoritas',exact:true}).click();
+    await expect(library.getByRole('article')).toHaveCount(2);
+    await expect(library.getByRole('region',{name:'Adoração',exact:true})).toBeVisible();
+    await expect(library.getByRole('region',{name:'Santa Ceia',exact:true})).toBeVisible();
+    await library.getByRole('combobox',{name:'Filtrar por tom',exact:true}).selectOption('D');
+    await expect(library.getByRole('article')).toHaveCount(1);
+    const search=library.getByRole('searchbox',{name:'Buscar música ou artista',exact:true});
+    await search.fill(' JOAO ');await expect(library.getByRole('article')).toHaveCount(1);
+    await search.fill('inexistente');await expect(library.getByText('Nenhuma música encontrada',{exact:true})).toBeVisible();
+    await library.getByRole('button',{name:'Limpar filtros',exact:true}).click();
+    await expect(search).toHaveValue('');await expect(library.getByRole('combobox',{name:'Filtrar por tom'})).toHaveValue('');
+    await expect(library.getByRole('article')).toHaveCount(6);
+    await categories.getByRole('button',{name:'Acústico',exact:true}).click();
+    await expect(library.getByRole('article')).toHaveAccessibleName('Arranjo acústico');
+    await categories.getByRole('button',{name:'Sem categoria',exact:true}).click();
+    await expect(library.getByRole('article')).toHaveAccessibleName('Música ainda sem categoria');
+    await page.reload();await navigate(page,'Músicas');
+    await expect(summary).toContainText('2 favoritas');
+    await library.getByRole('button',{name:'Editar Teste adoracao',exact:true}).click();
+    await expect(page.getByText('Editar Música',{exact:true})).toBeVisible();
+    await expect(page.getByPlaceholder('Título da música *')).toHaveValue('Teste adoracao');
+    await page.getByPlaceholder('Título da música *').fill('Teste adoracao atualizado');
+    await page.getByRole('button',{name:'Salvar Alterações',exact:true}).click();
+    await expect(page.getByPlaceholder('Título da música *')).toHaveCount(0);
+    expect(app.state.songs).toHaveLength(6);expect(app.state.songs[0].title).toBe('Teste adoracao atualizado');
+    await categories.getByRole('button',{name:'Adoração',exact:true}).click();
+    const open=library.getByRole('button',{name:'Abrir cifra de Teste adoracao atualizado',exact:true});
+    await open.focus();await page.keyboard.press('Enter');
+    await expect(page.locator('.lyrics-content')).toContainText('Letra para');
+    await expect(page.locator('.app-nav')).toHaveCount(0);
+    await page.getByRole('button',{name:'Voltar',exact:true}).click();
+    await expect(categories.getByRole('button',{name:'Adoração',exact:true})).toHaveAttribute('aria-pressed','true');
+    await categories.getByRole('button',{name:'Favoritas',exact:true}).click();
+    await library.getByRole('button',{name:'Remover Teste adoracao atualizado dos favoritos',exact:true}).click();
+    await expect(library.getByRole('article')).toHaveCount(1);
+    await library.getByRole('button',{name:'Remover Teste ceia dos favoritos',exact:true}).click();
+    await expect(library.getByText('Suas favoritas ficam aqui',{exact:true})).toBeVisible();
+    await library.getByRole('button',{name:'Ver todas as músicas',exact:true}).click();
+    await expect(library.getByRole('article')).toHaveCount(6);expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('an empty repertoire offers the actual add-song flow without invented library counts',async({browser})=>{
+  const app=await fixture(browser);app.state.songs=[];
+  try{
+    const page=await app.open();await navigate(page,'Músicas');
+    const library=page.getByRole('region',{name:'Repertório',exact:true});
+    await expect(library.getByRole('region',{name:'Resumo do repertório'})).toContainText('0 músicas');
+    await expect(library.getByText('Seu repertório começa aqui',{exact:true})).toBeVisible();
+    await library.getByRole('button',{name:'Adicionar música',exact:true}).click();
+    await expect(page.getByText('Nova Música',{exact:true})).toBeVisible();
+    await expect(page.getByPlaceholder('Título da música *')).toBeVisible();expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
 test('saved dark theme covers the document before application JavaScript loads',async({browser})=>{
   const context=await browser.newContext();
   try{
@@ -1456,13 +1541,15 @@ for(const uploadFails of [false,true])test(`compact studio records real browser 
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
-test('starting the actual app without Supabase preserves cached offline songs',async({browser})=>{
+test('starting the actual app shows cached offline songs while remote data is unavailable',async({browser})=>{
   const context=await browser.newContext({serviceWorkers:'block'});
   try{
     await context.addInitScript(({profile,songs})=>{localStorage.setItem('ls_profile',JSON.stringify(profile));localStorage.removeItem('ls_last_activity');localStorage.setItem('ls_songs',JSON.stringify(songs));},{profile:member,songs});
     const page=await context.newPage();await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/,route=>route.abort());await page.goto('http://127.0.0.1:5174/');
     await navigate(page,'Músicas');await expect(page.getByText('Teste ceia',{exact:true})).toBeVisible();
     expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ls_songs')).length)).toBe(3);
+    await page.getByRole('button',{name:'Abrir cifra de Teste ceia',exact:true}).click();
+    await expect(page.locator('.lyrics-content')).toContainText('Letra para');
   }finally{await context.close();}
 });
 

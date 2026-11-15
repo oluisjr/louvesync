@@ -14,6 +14,7 @@ import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
 import EquipmentEditor from './components/EquipmentEditor.jsx';
 import EquipmentInventory from './components/EquipmentInventory.jsx';
+import Repertorio from './components/Repertoire.jsx';
 import AppNavigation from './components/AppNavigation.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import CommunityMural from './components/CommunityMural.jsx';
@@ -407,8 +408,6 @@ const Bdg = ({cat})=>{
   return <span className={`bdg ${c.cls}`} style={!CAT[sCat]?{background:'rgba(0,0,0,.05)',color:'#64748B',border:'1px solid rgba(0,0,0,.1)'}:{}}>{String(c.label)}</span>;
 };
 const KeyChip = ({k,size=11})=><span style={{background:'rgba(123,63,242,.1)',color:'#7B3FF2',border:'1px solid rgba(123,63,242,.2)',borderRadius:100,padding:`${size<12?2:3}px ${size<12?8:12}px`,fontSize:size,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",flexShrink:0}}>{String(k || 'N/A')}</span>;
-const BpmChip = ({bpm})=><span style={{background:'rgba(255,107,53,.1)',color:'#D94E1A',border:'1px solid rgba(255,107,53,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700}}>♩{String(bpm || '80')}</span>;
-const TimeSigChip = ({ts})=><span style={{background:'rgba(0,201,167,.08)',color:'#00956E',border:'1px solid rgba(0,201,167,.2)',borderRadius:100,padding:'2px 8px',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{String(ts || '4/4')}</span>;
 const Loader = ()=><div style={{width:20,height:20,borderRadius:'50%',border:'2.5px solid rgba(123,63,242,.2)',borderTopColor:'#7B3FF2',animation:'spin .7s linear infinite'}}/>;
 const Skeleton = ({dark, h=60, count=3}) => <div style={{display:'flex', flexDirection:'column', gap:10, padding:16}}>{Array.from({length:count}).map((_,i) => <div key={i} style={{height:h, borderRadius:'var(--r-md)', background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)', animation:'pulse 1.5s infinite ease-in-out', animationDelay:`${i*0.15}s`}}/>)}</div>;
 const Sec = ({t})=><div style={{fontSize:'var(--fs-xs)',fontWeight:900,color:'#FF6B35',letterSpacing:'.14em',textTransform:'uppercase',margin:'18px 0 6px',display:'flex',alignItems:'center',gap:6}}><div style={{width:16,height:1.5,background:'#FF6B35',opacity:.5}}/>{t}<div style={{flex:1,height:1.5,background:'#FF6B35',opacity:.5}}/></div>;
@@ -1662,70 +1661,6 @@ const Home = memo(({profile,dark,songs,events,members,onNavTo,onSelectSong,onSet
         </div>)}
       </div>
     </div>
-  </div>;
-});
-
-/* ─── REPERTÓRIO ────────────────────────────────────────────── */
-const Repertorio = memo(({dark,songs,catF,setCatF,search,setSearch,keyF,setKeyF,favorites,onToggleFav,onSelectSong,onSetAddOpen})=>{
-  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
-  const gc='gL1';
-  const allKeys=useMemo(()=>[...new Set(songs.map(s=>s.key))].filter(Boolean).sort(),[songs]);
-  const filtered=useMemo(()=>{let s=catF==='fav'?songs.filter(x=>favorites?.includes(x.id)):catF==='all'?songs:songs.filter(x=>x.cat===catF);if(keyF)s=s.filter(x=>x.key===keyF);if(search.trim())s=s.filter(x=>x.title.toLowerCase().includes(search.toLowerCase())||(x.artist || '').toLowerCase().includes(search.toLowerCase()));return s;},[songs,catF,keyF,search,favorites]);
-
-  return <div className="app-page">
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
-      <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoMusic s={20}/>Repertório</div>
-      <button onClick={()=>onSetAddOpen(true)} style={{display:'flex',alignItems:'center',gap:6,padding:'9px 16px',borderRadius:100,border:'none',background:'#4F46E5',color:'#fff',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer',boxShadow:'0 4px 14px rgba(79,70,229,.35)'}}><IcoPlus s={14}/>Adicionar</button>
-    </div>
-    <div className="gIn aUp" style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',marginBottom:14,animationDelay:'.04s'}}>
-      <span style={{opacity:.35,flexShrink:0}}><IcoMusic s={15}/></span>
-      <input className="fi" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar música ou artista..." style={{color:tc,flex:1,padding:0}}/>
-      {search&&<button onClick={()=>setSearch('')} style={{border:'none',background:'transparent',color:t2,cursor:'pointer',display:'flex'}}><IcoX s={14}/></button>}
-    </div>
-    {/* Key filter */}
-    <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:8,paddingBottom:2}} className="aUp">
-      <button onClick={()=>setKeyF('')} style={{flexShrink:0,padding:'5px 12px',borderRadius:100,border:'none',cursor:'pointer',background:!keyF?'rgba(245,158,11,.18)':'rgba(0,0,0,.05)',color:!keyF?"var(--app-warning, #D97706)":'#475569',fontSize:'var(--fs-xs)',fontWeight:800,fontFamily:"'JetBrains Mono',monospace"}}>Todos os tons</button>
-      {allKeys.map(k=><button key={k} onClick={()=>setKeyF(k===keyF?'':k)} style={{flexShrink:0,padding:'5px 10px',borderRadius:100,border:'none',cursor:'pointer',background:keyF===k?'#F59E0B':'rgba(245,158,11,.06)',color:keyF===k?'#fff':"var(--app-warning, #D97706)",fontSize:'var(--fs-xs)',fontWeight:800,fontFamily:"'JetBrains Mono',monospace",transition:'all .18s'}}>{k}</button>)}
-    </div>
-    <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:18,paddingBottom:2}} className="aUp">
-      {[{id:'fav',label:'⭐ Fav',cnt:songs.filter(s=>favorites?.includes(s.id)).length},{id:'all',label:'Todos',cnt:songs.length},...Object.entries(CAT).map(([id,c])=>({id,label:c.label,cnt:songs.filter(s=>s.cat===id).length}))].map(c=>
-        <button key={c.id} onClick={()=>setCatF(c.id)} style={{flexShrink:0,padding:'7px 14px',borderRadius:100,border:'none',cursor:'pointer',background:catF===c.id?'#4F46E5':dark?'rgba(255,255,255,.08)':'rgba(79,70,229,.07)',color:catF===c.id?'#fff':tc,fontSize:'var(--fs-sm)',fontWeight:700,transition:'all .2s',boxShadow:catF===c.id?'0 4px 12px rgba(79,70,229,.3)':''}}>
-          {c.label} <span style={{opacity:.55,fontSize:'var(--fs-xs)'}}>({c.cnt})</span>
-        </button>)}
-    </div>
-    {filtered.length===0&&<EmptyState icon={<IcoMusic s={32}/>} title="Nenhuma música encontrada" sub="Tente outro termo de busca ou categoria."/>}
-    {Object.entries(CAT).map(([catId,catC])=>{
-      if(catF!=='all'&&catF!==catId)return null;
-      const cs=filtered.filter(s=>s.cat===catId).sort((a,b)=>a.title.localeCompare(b.title));if(!cs.length)return null;
-      return <div key={catId} style={{marginBottom:22}}>
-        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-          <div style={{width:4,height:18,borderRadius:2,background:catC.color}}/>
-          <span style={{fontSize:'var(--fs-xs)',fontWeight:900,color:catC.color,letterSpacing:'.08em',textTransform:'uppercase'}}>{catC.label}</span>
-          <span style={{fontSize:'var(--fs-xs)',color:t2}}>({cs.length})</span>
-        </div>
-        {cs.map((s,i)=><div key={s.id} className={`${gc} sc ${catC.acc} aUp`} style={{animationDelay:`${i*.05}s`}} onClick={()=>onSelectSong(s)}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:800,fontSize:'var(--fs-base)',color:tc,marginBottom:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{String(s.title || 'Sem Título')}</div>
-              <div style={{fontSize:'var(--fs-sm)',color:t2,marginBottom:8}}>{String(s.artist || 'Ministério')}</div>
-              <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
-                <Bdg cat={s.cat}/>
-                {s.time_signature&&s.time_signature!=='4/4'&&<TimeSigChip ts={s.time_signature}/>}
-                {s.tags?.slice(0,2).map(tg=><span key={tg} style={{fontSize:'var(--fs-xs)',color:t2,background:dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.05)',padding:'2px 8px',borderRadius:100,fontWeight:600}}>{tg}</span>)}
-              </div>
-            </div>
-            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:5,marginLeft:10,flexShrink:0}}>
-              <div style={{display:'flex', gap:4}}>
-                <button onClick={e=>{e.stopPropagation();onSetAddOpen?.(s);}} style={{background:'transparent',border:'none',cursor:'pointer',padding:'2px 4px',fontSize:14,color:t2,transition:'color .15s'}}>✏️</button>
-                <button onClick={e=>{e.stopPropagation();onToggleFav?.(s.id);}} style={{background:'transparent',border:'none',cursor:'pointer',padding:'2px 4px',fontSize:16,color:favorites?.includes(s.id)?'#F59E0B':'rgba(127,127,127,.3)',transition:'color .15s'}}>{favorites?.includes(s.id)?'★':'☆'}</button>
-              </div>
-              <KeyChip k={s.key}/><BpmChip bpm={s.bpm}/>
-            </div>
-          </div>
-        </div>)}
-      </div>;
-    })}
-    <div style={{height:8}}/>
   </div>;
 });
 
@@ -3177,7 +3112,7 @@ export default function LouveSync() {
   const [keyF,setKeyF]=useState('');
   // inCifra: qualquer tab pode abrir a cifra de uma música
   const inCifra = !!selSong;
-  const homeTheme = !!profile && (moreOpen || ['home','mural','treinamento','ensaio','patrimonio'].includes(tab)) && !inCifra;
+  const homeTheme = !!profile && (moreOpen || ['home','mural','treinamento','ensaio','patrimonio','repertorio'].includes(tab)) && !inCifra;
   useAppDisplay(dark,homeTheme);
   const unread=notifications.items.filter(item=>!item.read_at).length;
   const [pushLink,setPushLink]=useState(()=>new URL(window.location.href).searchParams.has('tab')?window.location.href:null);
@@ -3590,9 +3525,9 @@ export default function LouveSync() {
         {/* MAIN SCROLL */}
         <div className="app-content">
         <div ref={mainScrollRef} className="app-main" data-main-scroll data-song-open={inCifra} inert={moreOpen&&!inCifra} aria-hidden={moreOpen&&!inCifra ? true : undefined}>
-          {dataLoading&&!inCifra?<Skeleton dark={dark} count={6}/>:<>
+          {dataLoading&&!inCifra&&(tab!=='repertorio'||!songs.length)?<Skeleton dark={dark} count={6}/>:<>
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} songs={songs} events={events} members={allMembers} onNavTo={navTo} onSelectSong={s=>{selectSong(s);}} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
-            {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
+            {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} categories={CAT} loading={dataLoading} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
             {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metronome={metronome} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} onSaveSong={handleSaveSong} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
 
             {tab==='mural'&&!inCifra&&<CommunityMural profile={profile} dark={dark} members={allMembers} activity={activity}/>}
