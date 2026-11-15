@@ -1210,16 +1210,105 @@ test('event presence updates both open event panels and returning from a song re
     expect(app.failures).toEqual([]);
   } finally {await app.close();}
 });
+function scheduleFixtures(app) {
+  app.state.events[0].event_songs[0].sequence=encodeSequence('Intro','Eb');
+  app.state.events.unshift({...structuredClone(initialEvents[0]),id:'tuesday',date:'2026-10-20',time:'19:30:00',type:'ebd',label:'Estudo bíblico',theme:'Crescendo na Palavra',event_songs:[],event_members:[{member_id:admin.id,confirmed:true}]},
+    {...structuredClone(initialEvents[0]),id:'thursday',date:'2026-10-22',time:'19:00:00',label:'Culto da quinta',event_members:[{member_id:member.id,confirmed:true}]},rehearsalEvent(),
+    {...structuredClone(initialEvents[0]),id:'sunday-morning',time:'09:00:00',type:'consagracao',label:'Consagração da manhã',event_songs:[],event_members:[{member_id:member.id,confirmed:null}]});
+  app.state.events.push({...structuredClone(initialEvents[0]),id:'following-week',date:'2026-10-26',time:'20:00:00',type:'outro',label:'Reunião de planejamento',event_songs:[{song_id:'song-2',order_index:1}]},
+    {...structuredClone(initialEvents[0]),id:'previous-week',date:'2026-10-18',label:'Culto anterior',event_members:[{member_id:admin.id,confirmed:false}]});
+}
+
+for(const theme of ['light','dark'])test(`weekly schedule groups the full week and retains its context without the Home hero in ${theme}`,async({browser})=>{
+  const app=await fixture(browser);scheduleFixtures(app);
+  try{
+    const page=await app.open(admin,undefined,{theme,device:{...devices['iPhone 13'],viewport:{width:390,height:844}},standalone:true});
+    await page.addStyleTag({content:'*,*::before,*::after{animation:none!important;transition:none!important;}'});
+    await page.getByRole('button',{name:'Escala',exact:true}).click();
+    const screen=page.getByRole('region',{name:'Escala semanal',exact:true}),week=screen.getByRole('region',{name:'Semana da escala',exact:true});
+    await expect(screen.locator('.schedule-event')).toHaveCount(5);
+    expect(await screen.locator('.schedule-event').evaluateAll(cards=>cards.map(card=>card.getAttribute('aria-label')))).toEqual(['Estudo bíblico','Culto da quinta','Ensaio da equipe','Consagração da manhã','Culto de Teste']);
+    await expect(screen.locator('.schedule-day')).toHaveCount(4);await expect(week.getByRole('group',{name:'Dias da semana'}).getByRole('button')).toHaveCount(7);
+    await expect(week).toContainText('5 eventos');await expect(week).toContainText('3 na sua escala · 1 a confirmar');
+    await expect(screen.locator('.home-hero')).toHaveCount(0);await expect(screen.locator('img[src="/images/home/worship-stage.webp"]')).toHaveCount(0);
+    for(const [label,art] of [['Estudo bíblico','devotional'],['Ensaio da equipe','rehearsal'],['Culto de Teste','music']]){
+      const image=screen.getByRole('article',{name:label,exact:true}).locator('.schedule-event-art img');await image.scrollIntoViewIfNeeded();await expect(image).toHaveAttribute('src',`/images/more/${art}.webp`);await expect.poll(()=>image.evaluate(element=>element.complete&&element.naturalWidth>0)).toBe(true);
+    }
+    for(const width of [390,320]){
+      await page.setViewportSize({width,height:844});await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=0;});
+      expect(await screen.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+      await page.screenshot({path:test.info().outputPath(`weekly-schedule-${theme}-${width}.png`),scale:'css'});
+      await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=element.scrollHeight;});
+      const last=await screen.locator('.schedule-event').last().boundingBox();expect(last.y+last.height).toBeLessThan((await page.locator('.app-nav .gNav').boundingBox()).y-8);
+    }
+    await page.setViewportSize({width:390,height:844});await week.evaluate(element=>element.scrollIntoView({block:'center'}));
+    await week.locator('[data-date="2026-10-24"]').click();await expect(screen.locator('.schedule-event')).toHaveCount(5);
+    const practice=screen.getByRole('article',{name:'Ensaio da equipe',exact:true});await expect(practice).not.toContainText('Músicas');
+    await practice.locator('.schedule-team > summary').click();await expect(practice.locator('.schedule-team li strong')).toHaveText(['Admin Teste','Membro Teste']);
+    const service=screen.getByRole('article',{name:'Culto de Teste',exact:true});await service.locator('.schedule-music > summary').evaluate(element=>element.scrollIntoView({block:'center'}));await service.locator('.schedule-music > summary').click();
+    await expect(service.locator('.schedule-music li > span')).toHaveText(['Teste adoracao','Teste ceia','Teste jubilo']);await expect(service.locator('.schedule-music li > small').first()).toHaveText('Eb');
+    await week.evaluate(element=>element.scrollIntoView({block:'center'}));await week.getByRole('button',{name:'Próxima semana',exact:true}).click();await expect(screen.getByRole('article',{name:'Reunião de planejamento',exact:true})).toBeVisible();
+    const nextRange=await week.getByRole('heading').innerText();await screen.getByRole('group',{name:'Filtrar escala'}).getByRole('button',{name:'Minha escala',exact:true}).click();
+    await screen.getByRole('button',{name:'Ver detalhes →',exact:true}).click();await page.locator('.gL2').getByRole('button',{name:'Abrir cifra de Teste jubilo',exact:true}).click();
+    await page.getByRole('button',{name:'Voltar',exact:true}).click();await page.getByRole('button',{name:'Fechar detalhes do evento',exact:true}).click();
+    await expect(week.getByRole('heading')).toHaveText(nextRange);await expect(screen.getByRole('button',{name:'Minha escala',exact:true})).toHaveAttribute('aria-pressed','true');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('weekly schedule gives members a complete agenda and personal filter while creation and editing remain admin-only',async({browser})=>{
+  const app=await fixture(browser);scheduleFixtures(app);
+  try{
+    const page=await app.open(member);await page.getByRole('button',{name:'Escala',exact:true}).click();const screen=page.getByRole('region',{name:'Escala semanal',exact:true});
+    await expect(screen.locator('.schedule-event')).toHaveCount(5);await expect(screen.getByRole('button',{name:'Novo',exact:true})).toHaveCount(0);await expect(screen.getByRole('button',{name:/^(Editar|Excluir) evento/})).toHaveCount(0);
+    await screen.getByRole('button',{name:'Minha escala',exact:true}).click();await expect(screen.locator('.schedule-event')).toHaveCount(4);await expect(screen.getByRole('article',{name:'Estudo bíblico',exact:true})).toHaveCount(0);
+    await screen.getByRole('button',{name:'Semana anterior',exact:true}).click();await expect(screen).toContainText('Você não está escalado nesta semana');
+    await screen.getByRole('button',{name:'Ver todos os eventos',exact:true}).click();await expect(screen.getByRole('article',{name:'Culto anterior',exact:true})).toBeVisible();
+    await screen.getByRole('button',{name:'Ir para Hoje',exact:true}).click();await expect(screen.locator('.schedule-event')).toHaveCount(5);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('weekly schedule creates on the chosen empty day and exports filtered event history with correct attendance',async({browser})=>{
+  const app=await fixture(browser);scheduleFixtures(app);
+  try{
+    const page=await app.open();await page.getByRole('button',{name:'Escala',exact:true}).click();const screen=page.getByRole('region',{name:'Escala semanal',exact:true});
+    await screen.getByRole('button',{name:'Próxima semana',exact:true}).click();await screen.getByRole('button',{name:'Próxima semana',exact:true}).click();
+    await expect(screen).toContainText('Nenhum evento esta semana');await screen.locator('.schedule-week-days [data-date="2026-11-04"]').click();await screen.getByRole('button',{name:'Criar neste dia',exact:true}).click();
+    const editor=page.getByRole('dialog',{name:'Novo evento',exact:true});await expect(editor.getByLabel('Data',{exact:true})).toHaveValue('2026-11-04');await page.keyboard.press('Escape');await expect(editor).toHaveCount(0);
+    await screen.getByRole('button',{name:'Histórico',exact:true}).click();await expect(screen.locator('.schedule-event')).toHaveCount(3);
+    expect(await screen.locator('.schedule-event').evaluateAll(cards=>cards.map(card=>card.getAttribute('aria-label')))).toEqual(['Culto da quinta','Estudo bíblico','Culto anterior']);
+    await screen.getByRole('button',{name:'Minha escala',exact:true}).click();await expect(screen.locator('.schedule-event')).toHaveCount(2);
+    const downloadEvent=page.waitForEvent('download');await screen.getByRole('button',{name:'Exportar CSV',exact:true}).click();const download=await downloadEvent;const path=test.info().outputPath('schedule-history.csv');await download.saveAs(path);const csv=fs.readFileSync(path,'utf8');
+    expect(csv).toContain('Estudo bíblico');expect(csv).toContain('Culto anterior');expect(csv).not.toContain('Culto da quinta');expect(csv).toContain('"0","1","0"');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('weekly schedule attendance updates the correct card and restores a failed response',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.events.push({...structuredClone(initialEvents[0]),id:'second-service',time:'20:00:00',label:'Segundo culto'});
+  try{
+    const page=await app.open();await page.getByRole('button',{name:'Escala',exact:true}).click();const screen=page.getByRole('region',{name:'Escala semanal',exact:true});
+    const first=screen.getByRole('article',{name:'Culto de Teste',exact:true}),second=screen.getByRole('article',{name:'Segundo culto',exact:true});
+    app.state.presenceSaveError='Falha de teste';await first.getByRole('button',{name:'Confirmar',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Presença não salva');await expect(first.getByRole('button',{name:'Confirmar',exact:true})).toBeEnabled();
+    delete app.state.presenceSaveError;await second.evaluate(element=>element.scrollIntoView({block:'center'}));await second.getByRole('button',{name:'Confirmar',exact:true}).click();await expect.poll(()=>app.state.events.find(event=>event.id==='second-service').event_members[0].confirmed).toBe(true);
+    expect(app.state.events.find(event=>event.id==='event-1').event_members[0].confirmed).toBeNull();await expect(second).toContainText('Presença confirmada');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
 test('today calendar navigation completes and ordinary members cannot create or edit events', async ({browser})=>{
   const app=await fixture(browser);
   try{
     const page=await app.open(member);await page.getByRole('button',{name:'Escala',exact:true}).click();
     await expect(page.getByRole('button',{name:'Novo',exact:true})).toHaveCount(0);
-    const carousel=page.locator('.hide-scroll').filter({has:page.locator('[style*="scroll-snap-align"]')}).first();
-    await carousel.locator(':scope > div').first().locator(':scope > div').first().evaluate(el=>el.click());
+    const calendar=page.getByRole('region',{name:'Semana da escala',exact:true});
+    const initialRange=await calendar.getByRole('heading').innerText();
+    await calendar.getByRole('button',{name:'Semana anterior',exact:true}).click();
     await page.getByRole('button',{name:'Ir para Hoje',exact:true}).click();
     await expect(page.getByRole('button',{name:'Ir para Hoje',exact:true})).toHaveCount(0);
-    expect(await carousel.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);
+    await expect(calendar.getByRole('heading')).toHaveText(initialRange);
     await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
     await expect(page.getByRole('button',{name:'Editar',exact:true})).toHaveCount(0);
     await expect(page.getByRole('button',{name:'Excluir',exact:true})).toHaveCount(0);

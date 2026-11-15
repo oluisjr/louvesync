@@ -16,6 +16,7 @@ import EquipmentEditor from './components/EquipmentEditor.jsx';
 import EquipmentInventory from './components/EquipmentInventory.jsx';
 import Repertorio from './components/Repertoire.jsx';
 import Home from './components/HomeScreen.jsx';
+import ScheduleScreen from './components/ScheduleScreen.jsx';
 import AppNavigation from './components/AppNavigation.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import CommunityMural from './components/CommunityMural.jsx';
@@ -182,7 +183,6 @@ const IcoHeart    = ({s=16,filled=false})=><svg width={s} height={s} viewBox="0 
 const IcoScroll   = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="7 11 12 16 17 11"/><polyline points="7 7 12 12 17 7"/><line x1="12" y1="20" x2="12" y2="16"/></svg>;
 const IcoShare    = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>;
 const IcoTap      = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 6v6l4 2"/></svg>;
-const IcoCalPlus  = ({s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg>;
 const IcoWifi     = ({s=14,off=false})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{off?<><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>:<><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>}</svg>;
 
 const M = [
@@ -247,50 +247,6 @@ function readableTextColor(color,dark){
   return typeof color==='string'?(tints[color.toUpperCase()]||color):color;
 }
 function vib(){if(navigator.vibrate)navigator.vibrate(10);}
-
-function useDraggableScroll(ref) {
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    let isDown = false;
-    let startX;
-    let scrollLeft;
-
-    const onMouseDown = (e) => {
-      isDown = true;
-      el.style.cursor = 'grabbing';
-      startX = e.pageX - el.offsetLeft;
-      scrollLeft = el.scrollLeft;
-    };
-    const onMouseLeave = () => {
-      isDown = false;
-      el.style.cursor = 'pointer';
-    };
-    const onMouseUp = () => {
-      isDown = false;
-      el.style.cursor = 'pointer';
-    };
-    const onMouseMove = (e) => {
-      if (!isDown) return;
-      e.preventDefault();
-      const x = e.pageX - el.offsetLeft;
-      const walk = (x - startX) * 2;
-      el.scrollLeft = scrollLeft - walk;
-    };
-
-    el.addEventListener('mousedown', onMouseDown);
-    el.addEventListener('mouseleave', onMouseLeave);
-    el.addEventListener('mouseup', onMouseUp);
-    el.addEventListener('mousemove', onMouseMove);
-
-    return () => {
-      el.removeEventListener('mousedown', onMouseDown);
-      el.removeEventListener('mouseleave', onMouseLeave);
-      el.removeEventListener('mouseup', onMouseUp);
-      el.removeEventListener('mousemove', onMouseMove);
-    };
-  }, [ref]);
-}
 
 function generateDynamicSetlist(eventDate, eventType, allSongs, recentEvents=[], requestedSongs=[], santaCeiaSong=null){
   // Returns array of song IDs for dynamic setlist based on event type
@@ -1704,253 +1660,6 @@ const Stage = memo(({song,tr,mode,stageFs,setStageFs,dark,onClose,chordColor,set
   </div>;
 });
 
-/* ─── ESCALA ────────────────────────────────────────────────── */
-function RehearsalEventActions({ event, admin, onOpen, onEdit, onDelete }) {
-  const actionStyle={display:'grid',placeItems:'center',width:32,height:32,border:'1px solid rgba(148,163,184,.3)',borderRadius:8,color:'var(--app-link, #4F46E5)',background:'transparent',cursor:'pointer'};
-  return <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:7,flexWrap:'wrap',marginLeft:'auto'}}>
-    {admin&&<><button type="button" style={actionStyle} aria-label={`Editar evento ${event.label}`} onClick={()=>onEdit(event)}><IcoEdit s={14}/></button><button type="button" style={actionStyle} aria-label={`Excluir evento ${event.label}`} onClick={()=>onDelete(event)}><IcoTrash s={14}/></button></>}
-    <button type="button" onClick={()=>onOpen(event)} style={{minHeight:32,fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',border:'none',background:'transparent',cursor:'pointer',fontWeight:800}}>Abrir Ensaio →</button>
-  </div>;
-}
-
-const Escala = memo(({selWeekIdx:weekIndex,setSelWeekIdx:setWeekIndex,profile,dark,events,songs,members,onConfirm,onEvSheet,onEditEvent,onDeleteEvent,spawnConfetti,onCreateEvent})=>{
-  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
-  const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
-  const todayStr=today();
-
-  const monthKey=todayStr.slice(0,7);
-  const monthWeeks = useMemo(() => {
-    const [year,month]=monthKey.split('-').map(Number);
-    const now = new Date(year,month-1,1);
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const fDayNum = firstDay.getDay() || 7;
-    const startCal = new Date(firstDay);
-    startCal.setDate(firstDay.getDate() - fDayNum + 1);
-
-    const weeks = [];
-    let cur = new Date(startCal);
-    while (cur <= lastDay || (cur.getDay() || 7) !== 1) {
-      const w = [];
-      for (let i = 0; i < 7; i++) {
-        w.push(new Date(cur));
-        cur.setDate(cur.getDate() + 1);
-      }
-      weeks.push(w);
-      if (cur > lastDay) break;
-    }
-    return weeks;
-  }, [monthKey]);
-
-  const todayWeek=Math.max(0,monthWeeks.findIndex(week=>week.some(date=>localDate(date)===todayStr)));
-  const selWeekIdx=weekIndex===null?todayWeek:Math.min(weekIndex,monthWeeks.length-1);
-  const setSelWeekIdx=index=>setWeekIndex(index);
-  const [showHistory, setShowHistory] = useState(false);
-  const pastEvents = useMemo(()=>events
-    .filter(e=>e.date<todayStr)
-    .sort((a,b)=>b.date.localeCompare(a.date))
-  ,[events,todayStr]);
-
-  const weekEvents = useMemo(()=>{
-    const w = monthWeeks[selWeekIdx];
-    if(!w) return [];
-    const d1 = w[0].toLocaleDateString('sv-SE');
-    const d2 = w[6].toLocaleDateString('sv-SE');
-    let evs = events.filter(e => e.date >= d1 && e.date <= d2).sort((a,b)=>a.date.localeCompare(b.date));
-    if (!profile?.is_admin) {
-      evs = evs.filter(e => (e.members||[]).includes(profile?.id));
-    }
-    return evs;
-  },[events, monthWeeks, selWeekIdx, profile]);
-
-  const confirmed=events.reduce((a,e)=>a+((e.confirmations||{})[profile?.id]===true?1:0),0);
-
-  // Sync scroll with index
-  const scrollRef = useRef(null);
-  useDraggableScroll(scrollRef);
-  useEffect(()=>{
-    const element=scrollRef.current;
-    if(element)element.scrollTo({left:selWeekIdx*element.clientWidth,behavior:'instant'});
-  },[selWeekIdx,monthKey]);
-
-  const exportCSV = () => {
-    let csv = '\uFEFFData,Compromisso,Tipo,Confirmados,Recusados,Pendentes\n';
-    pastEvents.forEach(ev => {
-      const confirmedCount = Object.values(ev.confirmations || {}).filter(v => v === true).length;
-      const rejectedCount = Object.values(ev.confirmations || {}).filter(v => v === false).length;
-      const pendingCount = ev.members.length - confirmedCount - rejectedCount;
-      csv += `"${ev.date}","${ev.label}","${ev.type || 'culto'}",${confirmedCount},${rejectedCount},${pendingCount}\n`;
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `historico_escalas_${new Date().toLocaleDateString('sv-SE')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  return <div className="app-page">
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
-      <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoCal s={20}/>{showHistory?'Histórico':'Escala'}</div>
-      <div style={{display:'flex',gap:6}}>
-        {showHistory && pastEvents.length > 0 && (
-          <button onClick={exportCSV} style={{display:'flex',alignItems:'center',gap:5,padding:'7px 12px',borderRadius:100,border:'none',background:'rgba(16,185,129,.15)',color:"var(--app-positive, #059669)",fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>📥 Exportar CSV</button>
-        )}
-        <button onClick={()=>setShowHistory(h=>!h)} style={{display:'flex',alignItems:'center',gap:5,padding:'7px 12px',borderRadius:100,border:'none',background:showHistory?'rgba(245,158,11,.15)':'rgba(79,70,229,.08)',color:showHistory?"var(--app-warning, #D97706)":'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer'}}>{showHistory?'← Agenda':'📋 Histórico'}</button>
-        {profile?.is_admin&&!showHistory&&<button onClick={onCreateEvent} style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:100,border:'none',background:'#4F46E5',color:'#fff',fontSize:'var(--fs-sm)',fontWeight:700,cursor:'pointer',boxShadow:'0 4px 14px rgba(79,70,229,.35)'}}><IcoCalPlus s={14}/>Novo</button>}
-      </div>
-    </div>
-
-    {/* My summary */}
-    <div className={`${gc} aUp`} style={{...CS,animationDelay:'.04s'}}>
-      <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:10}}>Minha Confirmação</div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:10}}>
-        {[{l:'Confirmados',v:confirmed,c:'#10B981'},{l:'Recusados',v:events.reduce((a,e)=>a+((e.confirmations||{})[profile?.id]===false?1:0),0),c:'#EF4444'},{l:'Eventos',v:events.filter(e=>e.members.includes(profile?.id)).length,c:'#4F46E5'}].map(s=>
-          <div key={s.l} style={{textAlign:'center',padding:'10px 6px',borderRadius:'var(--r-sm)',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
-            <div style={{fontSize:19,fontWeight:900,color:readableTextColor(s.c,dark),lineHeight:1}}>{s.v}</div>
-            <div style={{fontSize:8,color:t2,marginTop:3,fontWeight:700}}>{s.l}</div>
-          </div>)}
-      </div>
-      <div className="pbar"><div className="pbar-fill" style={{width:`${(confirmed/Math.max(events.filter(e=>(e.members||[]).includes(profile?.id)).length,1))*100}%`}}/></div>
-    </div>
-
-    {/* Monthly Carousel */}
-    <div className="aUp" style={{marginBottom:16, animationDelay:'.07s'}}>
-      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
-         <div style={{fontSize:'var(--fs-sm)', fontWeight:800, color:tc, textTransform:'uppercase', letterSpacing:'.1em'}}>Agenda do Mês</div>
-         {selWeekIdx !== Math.max(0, monthWeeks.findIndex(w=>w.some(d=>d.toLocaleDateString('sv-SE')===todayStr))) &&
-           <button onClick={()=>setSelWeekIdx(Math.max(0, monthWeeks.findIndex(w=>w.some(d=>d.toLocaleDateString('sv-SE')===todayStr))))} style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',border:'none',background:'transparent',cursor:'pointer',fontWeight:700}}>Ir para Hoje</button>}
-      </div>
-      <div ref={scrollRef} style={{display:'flex', overflowX:'auto', scrollSnapType:'x mandatory', scrollBehavior:'smooth', paddingBottom:5, scrollbarWidth:'none'}} className="hide-scroll"
-           onScroll={e=>{
-             if(e.currentTarget.style.cursor === 'grabbing') return; // Do not update selWeekIdx while dragging
-             const el = e.currentTarget;
-             const childWidth = el.firstChild?.clientWidth || el.clientWidth;
-             const idx = Math.round(el.scrollLeft / childWidth);
-             if(idx !== selWeekIdx && Number.isFinite(idx)) setSelWeekIdx(idx);
-           }}>
-        {monthWeeks.map((week, wi) => (
-          <div key={wi} style={{minWidth:'100%', flexShrink:0, scrollSnapAlign:'start', display:'flex', justifyContent:'space-between', padding:'12px 14px', background:dark?'rgba(255,255,255,.04)':'rgba(255,255,255,.65)', backdropFilter:'blur(24px)', border:'1px solid rgba(79,70,229,.12)', borderRadius:'var(--r-xl)', boxSizing:'border-box'}}>
-            {week.map(day => {
-              const ds = day.toLocaleDateString('sv-SE');
-              const isToday = ds === todayStr;
-              const hasEv = events.some(e=>e.date === ds);
-              const isOtherMonth = day.getMonth() !== new Date().getMonth();
-
-              return <div key={ds} onClick={()=>setSelWeekIdx(wi)} style={{display:'flex', flexDirection:'column', alignItems:'center', gap:6, opacity: isOtherMonth?(dark?0.75:0.4):1, cursor:'pointer'}}>
-                <div style={{fontSize:10, fontWeight:700, color:t2, textTransform:'uppercase'}}>{day.toLocaleDateString('pt-BR',{weekday:'short'}).slice(0,3)}</div>
-                <div style={{width:32, height:32, borderRadius:'50%', background:isToday?'linear-gradient(135deg,#4F46E5,#6D28D9)':hasEv?'rgba(79,70,229,.12)':'transparent', color:isToday?'#fff':tc, display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, fontWeight:800, boxShadow:isToday?'0 4px 12px rgba(79,70,229,.3)':''}}>
-                  {day.getDate()}
-                </div>
-                <div style={{width:5, height:5, borderRadius:'50%', background:hasEv&&!isToday?'#4F46E5':'transparent'}}/>
-              </div>
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
-
-    {/* ── HISTÓRICO de eventos passados ── */}
-    {showHistory&&<div className="aUp">
-      {pastEvents.length===0&&<EmptyState icon={<IcoCal s={32}/>} title="Nenhum evento anterior encontrado"/>}
-      {pastEvents.map((ev,ei)=>{
-        const evS=(ev.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean);
-        const evM=(ev.members||[]).map(id=>members.find(m=>m.id===id)).filter(Boolean);
-        const myConf=(ev.confirmations||{})[profile?.id];
-        return <div key={ev.id} className={`${gc} aUp`} style={{...CS,animationDelay:`${ei*.04}s`,opacity:.85,borderLeft:`3px solid ${ev.type==='culto'?'#4F46E5':'#10B981'}`}} onClick={event=>{if(!event.target.closest('button'))onEvSheet(ev);}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
-            <div>
-              <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.08em',marginBottom:3}}>{ev.type?.toUpperCase()} · {fDate(ev.date)}</div>
-              <div style={{fontSize:15,fontWeight:800,color:tc}}>{ev.label}</div>
-              {ev.theme&&<div style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',marginTop:2}}>📖 {ev.theme}</div>}
-            </div>
-            <div style={{padding:'4px 10px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:800,background:myConf===true?'rgba(16,185,129,.15)':myConf===false?'rgba(239,68,68,.12)':'rgba(148,163,184,.1)',color:myConf===true?'#10B981':myConf===false?'var(--app-danger, #EF4444)':'#94A3B8'}}>
-              {myConf===true?'✓ Conf.':myConf===false?'✗ Rec.':'—'}
-            </div>
-          </div>
-          {evS.length>0&&<div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:8}}>
-            {evS.map(s=><span key={s.id} style={{padding:'3px 9px',borderRadius:100,fontSize:11,fontWeight:700,background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}14`,color:readableTextColor((CAT[s.cat]||{color:'#94A3B8'}).color,dark)}}>{s.title}</span>)}
-          </div>}
-          <div style={{display:'flex',gap:3}}>{evM.slice(0,6).map((m,i)=><div key={m.id} style={{marginLeft:i?-6:0}}><Ava m={m} size={22} ring/></div>)}</div>
-          {ev.type==='ensaio'&&<RehearsalEventActions event={ev} admin={profile?.is_admin} onOpen={onEvSheet} onEdit={onEditEvent} onDelete={onDeleteEvent}/>}
-        </div>;
-      })}
-    </div>}
-
-    {/* Agenda normal */}
-    {!showHistory&&<>
-    {/* Events */}
-    {weekEvents.length===0&&<EmptyState icon={<IcoCal s={32}/>} title="Nenhum evento esta semana" sub="Use as setas para navegar para outra semana."/>}
-    {weekEvents.map((ev,ei)=>{
-      const evM=(ev.members||[]).map(id=>members.find(m=>m.id===id)).filter(Boolean);
-      const evS=(ev.songs||[]).map(id=>songs.find(s=>s.id===id)).filter(Boolean);
-      const isMyEvent=(ev.members||[]).includes(profile?.id);
-      let myConf=(ev.confirmations||{})[profile?.id];
-
-      // Dynamic status
-      const evDateTime = new Date(`${ev.date}T${String(ev.time||'00:00').slice(0,8)}`);
-      const now = new Date();
-      const diffMs = evDateTime - now;
-      const isExpired = diffMs < -2 * 60 * 60 * 1000;
-      const isHappening = diffMs <= 0 && !isExpired;
-      const isLocked = diffMs < 24 * 60 * 60 * 1000;
-
-
-      const t = ev.type || 'culto';
-      const badgeLabel = t === 'culto' ? 'CULTO' : t === 'ensaio' ? 'ENSAIO' : t === 'ebd' ? 'EBD' : 'CONSAGRAÇÃO';
-      const showSetlist = t !== 'ensaio' && t !== 'ebd' && t !== 'consagracao';
-
-      return <div key={ev.id} className={`${gc} aUp touch-scale`} style={{...CS,animationDelay:`${ei*.06}s`,borderLeft:`3px solid ${t==='culto'?'#4F46E5':'#10B981'}`,opacity:dark?1:isExpired?0.5:!isMyEvent&&!profile?.is_admin?0.7:1}} onClick={(e)=>{ if(!e.target.closest('button')) onEvSheet(ev); }}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
-          <div>
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
-              <span style={{display:'inline-block',fontSize:'var(--fs-xs)',fontWeight:800,padding:'3px 10px',borderRadius:100,background:t==='culto'?'rgba(79,70,229,.1)':'rgba(16,185,129,.1)',color:t==='culto'?'var(--app-link, #4F46E5)':"var(--app-positive, #059669)",border:`1px solid ${t==='culto'?'rgba(79,70,229,.2)':'rgba(16,185,129,.2)'}`}}>{badgeLabel.toUpperCase()}</span>
-              {isExpired && <span style={{fontSize:'10px',fontWeight:800,color:'var(--app-danger, #EF4444)',background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4}}>EXPIRADO</span>}
-              {isHappening && <span style={{fontSize:'10px',fontWeight:800,color:'#F59E0B',background:'rgba(245,158,11,.1)',padding:'2px 6px',borderRadius:4}}>ACONTECENDO</span>}
-            </div>
-            <div style={{fontSize:15,fontWeight:900,color:tc}}>{ev.label}</div>
-            <div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:1}}>{fDate(ev.date)} · {ev.time}</div>
-          </div>
-          {isMyEvent&&!isExpired&&!isHappening&&<div style={{display:'flex',flexDirection:'column',gap:5,alignItems:'flex-end',flexShrink:0}}>
-            {myConf !== true && <button onClick={()=>{onConfirm(ev.id,true);if(myConf!==true)spawnConfetti();}} style={{padding:'6px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(16,185,129,.1)',color:"var(--app-positive, #059669)",transition:'all .2s',display:'flex',alignItems:'center',gap:5}}><IcoCheck s={12}/>Confirmar</button>}
-            {myConf === true && <div style={{padding:'6px 14px',borderRadius:100,fontSize:'var(--fs-sm)',fontWeight:800,background:'#10B981',color:'#fff',display:'flex',alignItems:'center',gap:5}}><IcoCheck s={12}/>Confirmado</div>}
-
-            {myConf !== false && <button onClick={()=>onConfirm(ev.id,false)} style={{padding:'6px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-sm)',fontWeight:800,background:'rgba(239,68,68,.08)',color:"var(--app-negative, #DC2626)",transition:'all .2s',display:'flex',alignItems:'center',gap:5}}><IcoX s={12}/>Recusar</button>}
-            {myConf === false && <div style={{padding:'6px 14px',borderRadius:100,fontSize:'var(--fs-sm)',fontWeight:800,background:'#EF4444',color:'#fff',display:'flex',alignItems:'center',gap:5}}><IcoX s={12}/>Recusado</div>}
-          </div>}
-          {isMyEvent && isLocked && myConf === false && !isHappening && !isExpired && (
-             <div style={{fontSize:'10px',fontWeight:800,color:'var(--app-danger, #EF4444)',textAlign:'right'}}>Auto-recusa<br/>(Prazo esgotado)</div>
-          )}
-        </div>
-        {ev.theme&&<div style={{background:'rgba(79,70,229,.06)',borderRadius:'var(--r-sm)',padding:'7px 12px',marginBottom:10,fontSize:'var(--fs-sm)',color:'var(--app-link, #4F46E5)',fontWeight:700,border:'1px solid rgba(79,70,229,.14)',display:'flex',alignItems:'center',gap:6}}><IcoBook s={12}/>{ev.theme}</div>}
-
-        {showSetlist && <div style={{marginBottom:10}}>
-          <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Músicas</div>
-          {evS.length===0?<div style={{fontSize:'var(--fs-xs)',color:t2,opacity:.6}}>Nenhuma música definida</div>:
-          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-            {evS.map(s=><span key={s.id} style={{padding:'4px 11px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:700,cursor:'pointer',background:`${(CAT[s.cat]||{color:'#94A3B8'}).color}14`,color:readableTextColor((CAT[s.cat]||{color:'#94A3B8'}).color,dark),border:`1px solid ${(CAT[s.cat]||{color:'#94A3B8'}).color}28`}}>{s.title}</span>)}
-          </div>}
-        </div>}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
-          <div style={{display:'flex',alignItems:'center',gap:3}}>
-            {evM.length > 0 ? (
-              <>
-                {evM.slice(0,6).map((m,i)=><div key={m.id} style={{marginLeft:i?-7:0,zIndex:10-i}}><Ava m={m} size={24} ring/></div>)}
-                {evM.length>6&&<span style={{fontSize:'var(--fs-xs)',color:t2,marginLeft:5,fontWeight:600}}>+{evM.length-6}</span>}
-              </>
-            ) : (
-               <span style={{fontSize:'var(--fs-xs)',color:t2,fontStyle:'italic'}}>Nenhum escalado</span>
-            )}
-          </div>
-          {t==='ensaio'?<RehearsalEventActions event={ev} admin={profile?.is_admin} onOpen={onEvSheet} onEdit={onEditEvent} onDelete={onDeleteEvent}/>:<button onClick={()=>onEvSheet(ev)} style={{fontSize:'var(--fs-xs)',color:'var(--app-link, #4F46E5)',border:'none',background:'transparent',cursor:'pointer',fontWeight:700}}>Ver detalhes →</button>}
-        </div>
-      </div>;
-    })}
-    </>}
-  </div>;
-});
-
 /* ─── MEMBROS ─── */
 const Membros = memo(({profile,dark,members,events,selRole,setSelRole})=>{
   const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
@@ -2731,7 +2440,7 @@ export default function LouveSync() {
   const [search,setSearch]=useState('');
   const [selectedSheet,setEvSheet]=useState(null);
   const evSheet = events.find(event=>event.id===selectedSheet?.id) || null;
-  const [escalaWeek,setEscalaWeek]=useState(null);
+  const [scheduleView,setScheduleView]=useState({week:null,day:null,scope:'all',history:false});
   const mainScrollRef=useRef(null);
   const previousScroll=useRef(0);
   const returnToEvent=useRef(false);
@@ -3031,7 +2740,7 @@ export default function LouveSync() {
     void notifications.detach();
     localStorage.removeItem('ls_profile');
     localStorage.removeItem('ls_last_activity');
-    setProfile(null); setMoreOpen(false); setSelSong(null); setSelEvent(null); setHomeDate(null); setTab('home');
+    setProfile(null); setMoreOpen(false); setSelSong(null); setSelEvent(null); setHomeDate(null); setScheduleView({week:null,day:null,scope:'all',history:false}); setTab('home');
   }
   function navTo(t){
     if(moreOpen){setMoreOpen(false);requestAnimationFrame(()=>mainScrollRef.current?.scrollTo({top:0}));}
@@ -3296,7 +3005,7 @@ export default function LouveSync() {
             {tab==='mural'&&!inCifra&&<CommunityMural profile={profile} dark={dark} members={allMembers} activity={activity}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio connectionStatus={connectionStatus} dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
             {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
-            {tab==='escala'&&!inCifra&&<Escala selWeekIdx={escalaWeek} setSelWeekIdx={setEscalaWeek} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} onConfirm={handleConfirm} onEvSheet={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
+            {tab==='escala'&&!inCifra&&<ScheduleScreen view={scheduleView} onViewChange={setScheduleView} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} Avatar={Ava} onConfirm={handleConfirm} onOpenEvent={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
             {tab==='membros'&&!inCifra&&<Membros profile={profile} dark={dark} members={allMembers} events={events} selRole={selRole} setSelRole={setSelRole}/>}
             {tab==='ia'&&!inCifra&&<Maestro dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
