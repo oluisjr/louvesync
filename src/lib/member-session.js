@@ -10,6 +10,7 @@ export function readActorSession() {
 export function setMutationActor(actor) {
   currentActor = actor?.memberId && typeof actor.pin === 'string' && actor.pin ? { memberId: String(actor.memberId), pin: actor.pin } : null;
 }
+export function mutationActor() { return currentActor ? { ...currentActor } : null; }
 export function actorHeaders(actor) {
   return actor?.memberId && actor.pin ? { 'x-louvesync-member': String(actor.memberId), 'x-louvesync-pin': String(actor.pin) } : {};
 }

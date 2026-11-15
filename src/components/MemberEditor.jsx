@@ -1,21 +1,17 @@
 import { useId, useState } from 'react';
 import { Dialog, Icon, Section } from './Interface.jsx';
+import { effectiveScreens, memberScreens, normalizeMember, roleAllowsScreen } from '../lib/member-settings.js';
 
-const screens = [
-  ['home', 'Início'], ['repertorio', 'Repertório'], ['escala', 'Escala'],
-  ['devocional', 'Devocional'], ['treinamento', 'Treinamento'],
-  ['patrimonio', 'Patrimônio'], ['membros', 'Membros'], ['admin', 'Painel administrativo'],
-];
 const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export default function MemberEditor({ dark, member, isNew, canDelete, onSave, onDelete, onClose }) {
-  const [form, setForm] = useState(() => ({ ...member }));
+  const [form, setForm] = useState(() => normalizeMember(member));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const formId = useId();
   const update = patch => setForm(previous => ({ ...previous, ...patch }));
   const toggleList = (key, value, checked) => setForm(previous => ({ ...previous,
-    [key]: checked ? [...new Set([...(previous[key] || []), value])] : (previous[key] || []).filter(item => item !== value),
+    [key]: checked ? [...new Set([...(key === 'permissions' ? effectiveScreens({...previous,status:'ativo'}) : previous[key] || []), value])] : (key === 'permissions' ? effectiveScreens({...previous,status:'ativo'}) : previous[key] || []).filter(item => item !== value),
   }));
   const updateName = name => {
     const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -49,12 +45,13 @@ export default function MemberEditor({ dark, member, isNew, canDelete, onSave, o
         <Section icon="settings" title="Acesso ao app" description="Defina como este membro participa do LouveSync.">
           <label className="ui-field">{isNew ? 'PIN de acesso' : 'Novo PIN (opcional)'}<input type="password" value={form.pin || ''} onChange={event => update({ pin: event.target.value })} placeholder={isNew ? 'PIN numérico ou alfanumérico' : 'Deixe em branco para manter o atual'} autoComplete="new-password" autoCapitalize="none" spellCheck={false} required={isNew}/></label>
           <label className="ui-member-option"><input type="checkbox" checked={!!form.is_admin} onChange={event => update({ is_admin: event.target.checked })}/><span><strong>Administrador</strong><small>Acesso completo à gestão do ministério.</small></span></label>
+          <label className="ui-member-option"><input type="checkbox" checked={form.status !== 'inativo'} onChange={event => update({ status: event.target.checked ? 'ativo' : 'inativo' })}/><span><strong>Conta ativa</strong><small>Permite entrar no app. É independente da participação na escala.</small></span></label>
           <fieldset className="ui-member-permissions"><legend>Acesso às telas</legend><div className="ui-member-screen-grid">
-            {screens.map(([id, label]) => <label className="ui-member-check" key={id}><input type="checkbox" checked={(form.permissions || []).includes(id) || (form.is_admin && id === 'admin')} disabled={form.is_admin && id === 'admin'} onChange={event => toggleList('permissions', id, event.target.checked)}/><span>{label}</span></label>)}
-          </div></fieldset>
+            {memberScreens.map(([id, label]) => <label className="ui-member-check" key={id}><input type="checkbox" checked={effectiveScreens({ ...form, status: 'ativo' }).includes(id)} disabled={!roleAllowsScreen({ ...form, status: 'ativo' }, id) || (form.is_admin && id === 'admin')} onChange={event => toggleList('permissions', id, event.target.checked)}/><span>{label}</span></label>)}
+          </div><p className="ui-helper">As escolhas são salvas para este membro. Telas de gestão também exigem o cargo correspondente.</p></fieldset>
         </Section>
         <Section icon="calendar" title="Participação na escala">
-          <label className="ui-member-option"><input type="checkbox" checked={form.status === 'ativo'} onChange={event => update({ status: event.target.checked ? 'ativo' : 'inativo' })}/><span><strong>Ativo na escala</strong><small>Participa da seleção da equipe para os eventos.</small></span></label>
+          <label className="ui-member-option"><input type="checkbox" checked={form.scheduleEnabled} onChange={event => update({ scheduleEnabled: event.target.checked, schedule_enabled: event.target.checked })}/><span><strong>Ativo na escala</strong><small>Participa da seleção da equipe. Desmarcar mantém o acesso ao app.</small></span></label>
           {/vocal|voz/i.test(form.instrument || '') && <label className="ui-field">Categoria vocal<select aria-label="Categoria vocal" value={form.vocal_category || ''} onChange={event => update({ vocal_category: event.target.value || null })}><option value="">Nenhuma</option><option value="adoracao">Adoração</option><option value="jubilo">Júbilo</option><option value="hinario">Hinário</option><option value="oferta">Oferta</option></select></label>}
           <fieldset className="ui-member-permissions"><legend>Dias indisponíveis</legend><p className="ui-helper">Marque os dias em que este membro não pode participar.</p><div className="ui-member-days">
             {weekdays.map((day, index) => <label className="ui-member-check" key={day}><input type="checkbox" aria-label={'Indisponível: ' + day} checked={(form.unavailableDays || []).includes(index)} onChange={event => toggleList('unavailableDays', index, event.target.checked)}/><span>{day}</span></label>)}

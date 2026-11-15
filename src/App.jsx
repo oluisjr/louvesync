@@ -15,6 +15,9 @@ import ChangeRequestDialog from './components/ChangeRequestDialog.jsx';
 import { performanceKey, renderChordText } from './lib/chords.js';
 import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
+import MaestroScreen from './components/MaestroScreen.jsx';
+import { canSeeScreen, effectiveScreens, normalizeMember, availableMembers, availabilityReason, rosterConflicts } from './lib/member-settings.js';
+import { maestroRequest } from './lib/maestro-client.js';
 import EquipmentEditor from './components/EquipmentEditor.jsx';
 import EquipmentInventory from './components/EquipmentInventory.jsx';
 import Repertorio from './components/Repertoire.jsx';
@@ -182,9 +185,7 @@ const CAT = {
 };
 const TIME_SIGS = ['4/4','3/4','2/4','6/8','12/8'];
 const KEYS     = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const GROQ_URL = '/api/maestro';
 
-const GROQ_MODEL_BEST = 'llama-3.3-70b-versatile';
 const IcoHeart    = ({s=16,filled=false})=><svg width={s} height={s} viewBox="0 0 24 24" fill={filled?'currentColor':'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>;
 const IcoScroll   = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="7 11 12 16 17 11"/><polyline points="7 7 12 12 17 7"/><line x1="12" y1="20" x2="12" y2="16"/></svg>;
 const IcoShare    = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>;
@@ -342,7 +343,6 @@ const IcoMural   = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill=
 const IcoMic     = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4"/><path d="M8 23h8"/></svg>;
 const IcoX       = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 const IcoEdit    = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
-const IcoArrowUp = ({s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>;
 const IcoBook    = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>;
 const IcoLogout  = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;
 const IcoBox     = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>;
@@ -1032,12 +1032,12 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     }
     // Preserve the existing database contract. Keep the form open if this write
     // fails, and update the list only after the save succeeds.
-    const { permissions, unavailableDays, confirmRate, ...dbMember } = newMember;
+    const { confirmRate, ...dbMember } = newMember;
     const saved = await upsertMember(dbMember);
     if(member.id===profile.id&&dbMember.pin)onUpdateOwnPin(dbMember.pin);
-    const record = publicMember({...newMember,...saved});
+    const record = normalizeMember(publicMember({...newMember,...saved}));
     setMembers(list => list.some(item => item.id === record.id) ? list.map(item => item.id === record.id ? record : item) : [...list,record]);
-    setEditMember(null);
+    setEditMember(null);await broadcastUpdate({type:'data_changed'});
   };
 
   const delMember = (id) => {
@@ -1188,7 +1188,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     <div className={`${gc} aUp`} style={CS}>
        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
          <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>Gerenciar Membros</div>
-         <button aria-label="Adicionar membro" onClick={()=>setEditMember({id:crypto.randomUUID(), name:'', pin:'', role:'Membro', instrument:'', is_admin:false, status:'ativo', permissions:['home','repertorio','escala','devocional','treinamento','membros','patrimonio'], unavailableDays:[], color: '#4F46E5', avatar: 'NM'})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo membro</button>
+         <button aria-label="Adicionar membro" onClick={()=>setEditMember({id:crypto.randomUUID(), name:'', pin:'', role:'Membro', instrument:'', is_admin:false, status:'ativo', permissions:null, unavailableDays:[], scheduleEnabled:true, color: '#4F46E5', avatar: 'NM'})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo membro</button>
        </div>
        {members.map(m => (
          <div key={m.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'6px 0',borderBottom:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
@@ -1728,61 +1728,8 @@ const Membros = memo(({profile,dark,members,events,selRole,setSelRole})=>{
 });
 
 /* ─── MAESTRO (IA) ──────────────────────────────────────────── */
-const Maestro = memo(({dark,aiMsgs,aiIn,setAiIn,aiLoad,aiCount,onSendAI})=>{
-  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
-  const gc='gL1';
-  const aiEnd=useRef(null);
-  const MAX_MSGS=10;
-  useEffect(()=>{aiEnd.current?.scrollIntoView({behavior:'smooth'});},[aiMsgs]);
-
-  const qp=[
-    {l:'Setlist Domingo',p:'Monte um setlist de 5 músicas para culto dominical com tema de gratidão, fluxo progressivo de Júbilo até Adoração. Indique categoria, tom e BPM.'},
-    {l:'Músicas de Abertura',p:'Sugira 3 músicas animadas de Júbilo para abrir o culto com celebração.'},
-    {l:'Adoração Profunda',p:'Quais músicas de adoração você recomenda para o momento mais íntimo do culto?'},
-    {l:'Reflexão Bíblica',p:'Escreva uma reflexão sobre adoração verdadeira baseada em João 4:23-24 para compartilhar com a equipe.'},
-    {l:'Transições',p:'Como fazer transições fluidas entre Júbilo e Adoração? Dicas práticas para o líder de louvor.'},
-    {l:'Estrutura de Ensaio',p:'Estruture um ensaio eficiente de 2 horas para ministério de louvor, com divisão de tempo.'},
-  ];
-
-  return <div className="app-page" style={{display:'flex',flexDirection:'column',height:'100%',minHeight:0}}>
-    <div style={{marginBottom:12}} className="aUp">
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2}}>
-        <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoSpark s={20}/>Maestro</div>
-        <div style={{fontSize:'var(--fs-xs)',color:aiCount>=MAX_MSGS?'var(--app-danger, #EF4444)':t2,fontWeight:700}}>{aiCount}/{MAX_MSGS} mensagens</div>
-      </div>
-      <div style={{fontSize:'var(--fs-sm)',color:t2}}>Assistente IA do ministério IMWAL</div>
-    </div>
-    <div style={{display:'flex',gap:7,overflowX:'auto',marginBottom:12,paddingBottom:2,flexShrink:0}} className="aUp">
-      {qp.map(q=><button key={q.l} onClick={()=>onSendAI(q.p)} disabled={aiCount>=MAX_MSGS} style={{flexShrink:0,padding:'7px 12px',borderRadius:100,border:'1px solid rgba(79,70,229,.2)',background:'rgba(79,70,229,.07)',color:'var(--app-link, #4F46E5)',fontSize:'var(--fs-xs)',fontWeight:700,cursor:aiCount>=MAX_MSGS?'not-allowed':'pointer',whiteSpace:'nowrap',opacity:aiCount>=MAX_MSGS?.5:1}}>{q.l}</button>)}
-    </div>
-    {aiCount>=MAX_MSGS&&<div style={{marginBottom:10,padding:'10px 14px',borderRadius:'var(--r-md)',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.2)',fontSize:'var(--fs-sm)',color:"var(--app-negative, #DC2626)",fontWeight:700}}>Limite de {MAX_MSGS} mensagens por sessão atingido. Recarregue a página para uma nova sessão.</div>}
-    <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:11,paddingBottom:8,minHeight:0}}>
-      {aiMsgs.map((msg,i)=><div key={i} style={{display:'flex',justifyContent:msg.r==='u'?'flex-end':'flex-start',animation:'slideUp .3s ease both',animationDelay:`${Math.min(i,.2)*.04}s`}}>
-        {msg.r==='a'&&<div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,#4F46E5,#7C3AED)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:8,alignSelf:'flex-end',boxShadow:'0 4px 12px rgba(79,70,229,.32)'}}><IcoSpark s={14}/></div>}
-        <div style={{maxWidth:'80%',padding:'12px 15px',borderRadius:msg.r==='u'?'20px 20px 5px 20px':'5px 20px 20px 20px',background:msg.r==='u'?'linear-gradient(135deg,#4F46E5,#6D28D9)':msg.err?(dark?'rgba(239,68,68,.15)':'rgba(239,68,68,.08)'):dark?'rgba(20,28,52,.9)':'rgba(255,255,255,.9)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',border:msg.r==='u'?'none':`1px solid ${msg.err?'rgba(239,68,68,.25)':dark?'rgba(255,255,255,.09)':'rgba(0,0,0,.07)'}`,color:msg.r==='u'?'#fff':msg.err?"var(--app-negative, #DC2626)":tc,fontSize:'var(--fs-sm)',lineHeight:1.7,whiteSpace:'pre-wrap',wordBreak:'break-word',boxShadow:msg.r==='u'?'0 4px 16px rgba(79,70,229,.3)':'0 2px 10px rgba(0,0,0,.06)'}}>
-          {msg.c}
-          {msg.err&&<button onClick={()=>onSendAI(aiMsgs[aiMsgs.length-2]?.c||'')} style={{display:'block',marginTop:8,fontSize:'var(--fs-xs)',color:"var(--app-negative, #DC2626)",border:'1px solid rgba(239,68,68,.3)',background:'transparent',borderRadius:100,padding:'4px 12px',cursor:'pointer',fontWeight:700}}>Tentar novamente</button>}
-        </div>
-      </div>)}
-      {aiLoad&&<div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
-        <div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,#4F46E5,#7C3AED)',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoSpark s={14}/></div>
-        <div className={gc} style={{borderRadius:'5px 20px 20px 20px',padding:'13px 17px'}}>
-          <div style={{display:'flex',gap:4,alignItems:'center'}}>{[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:'50%',background:'#4F46E5',animation:`bounce .9s ease-in-out ${i*.18}s infinite`}}/>)}</div>
-        </div>
-      </div>}
-      <div ref={aiEnd}/>
-    </div>
-    <div className="gIn" style={{display:'flex',gap:8,alignItems:'flex-end',marginTop:8,flexShrink:0,marginBottom:8,padding:'10px 10px 10px 16px'}}>
-      <textarea data-update-blocking={!!aiIn.trim()} value={aiIn} onChange={e=>setAiIn(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSendAI();}}} placeholder="Pergunte sobre setlists, adoração, ministério..." rows={1} disabled={aiCount>=MAX_MSGS} style={{flex:1,background:'transparent',border:'none',resize:'none',fontSize:'var(--fs-sm)',color:tc,lineHeight:1.6,maxHeight:100,padding:0}}/>
-      <button onClick={()=>onSendAI()} disabled={aiLoad||!aiIn.trim()||aiCount>=MAX_MSGS} style={{width:38,height:38,borderRadius:'var(--r-sm)',border:'none',flexShrink:0,cursor:aiIn.trim()&&aiCount<MAX_MSGS?'pointer':'not-allowed',background:aiIn.trim()&&aiCount<MAX_MSGS?'linear-gradient(135deg,#4F46E5,#6D28D9)':'rgba(79,70,229,.1)',color:aiIn.trim()&&aiCount<MAX_MSGS?'#fff':'var(--app-link, #4F46E5)',fontSize:17,transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center'}}>
-        {aiLoad?<Loader/>:<IcoArrowUp s={16}/>}
-      </button>
-    </div>
-  </div>;
-});
-
 /* ─── ADD SONG OVERLAY ──────────────────────────────────────── */
-const AddSong = memo(({dark,onSave,onClose,initialData,requestApproval})=>{
+const AddSong = memo(({dark,onSave,onClose,initialData,requestApproval,credentials})=>{
   const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1';
   const [step,setStep]=useState(initialData ? 3 : 1);
@@ -1880,11 +1827,7 @@ ${seqInst}
 MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acordes. Não mude a posição de nenhum acorde. Retorne APENAS o texto puro sem markdown.\n\nCIFRA BRUTA:\n${sText.slice(0,3500)}`;
     }
     try{
-      const res=await fetch(GROQ_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:GROQ_MODEL_BEST,max_tokens:1300,messages:[{role:'system',content:'Especialista em cifras gospel brasileiras. REGRA CRÍTICA: Se a música solicitada NÃO for gospel/religiosa/cristã, você deve RECUSAR e retornar EXATAMENTE: "ERRO: O LouveSync aceita apenas músicas de cunho religioso/gospel." Caso seja gospel, retorne APENAS a cifra limpa em plain text (sem markdown), fundindo os acordes na mesma linha da letra, delimitados por colchetes (exemplo: [D9], [F#m7]). Mantenha a harmonia EXATAMENTE igual a original. É EXPRESSAMENTE PROIBIDO ESCREVER AS PALAVRAS Refrão, Estrofe, Ponte, Coro, Verso, Pré-refrão na resposta. Nunca use marcadores de seção. Apague-os completamente do texto.'},{role:'user',content:userPrompt}]})});
-      const data=await res.json();
-      if(!res.ok)throw new Error(data.error||'Falha no Maestro.');
-      const lyric=data.choices?.[0]?.message?.content||'';
-
+      const lyric=await maestroRequest(credentials,[{role:'system',content:'Especialista em cifras gospel brasileiras. Preserve os acordes e a letra enviados; use [Acorde]Palavra em texto puro. Não invente cifras. Se não houver informação suficiente, explique a limitação. Aceite apenas música cristã/religiosa.'},{role:'user',content:userPrompt}],{purpose:'chart',maxTokens:1300});
       if(lyric.includes('ERRO: O LouveSync aceita apenas músicas de cunho religioso/gospel')) {
         alert(lyric);
       } else {
@@ -2073,12 +2016,12 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
   const PRESETS = [
     { label: 'Culto de Quinta', time: '19:30', type: 'culto', members: [] },
     { label: 'Culto de Domingo', time: '18:00', type: 'culto', members: [] },
-    { label: 'Consagração', time: '08:00', type: 'consagracao', members: members.filter(m=>m.status==='ativo').map(m=>m.id) },
-    { label: 'Escola Bíblica (EBD)', time: '09:00', type: 'ebd', members: members.filter(m=>m.status==='ativo').map(m=>m.id) },
-    { label: 'Ensaio Geral', time: '15:00', type: 'ensaio', members: members.filter(m=>m.status==='ativo').map(m=>m.id) }
+    { label: 'Consagração', time: '08:00', type: 'consagracao', members: availableMembers(members,form.date).map(m=>m.id) },
+    { label: 'Escola Bíblica (EBD)', time: '09:00', type: 'ebd', members: availableMembers(members,form.date).map(m=>m.id) },
+    { label: 'Ensaio Geral', time: '15:00', type: 'ensaio', members: availableMembers(members,form.date).map(m=>m.id) }
   ];
 
-  function toggleMember(id){setForm(f=>({...f,selMembers:f.selMembers.includes(id)?f.selMembers.filter(x=>x!==id):[...f.selMembers,id]}));}
+  function toggleMember(id){if(!form.selMembers.includes(id)&&availabilityReason(members.find(member=>member.id===id),form.date))return;setForm(f=>({...f,selMembers:f.selMembers.includes(id)?f.selMembers.filter(x=>x!==id):[...f.selMembers,id]}));}
   function toggleSong(id){setForm(f=>({...f,selSongs:f.selSongs.includes(id)?f.selSongs.filter(x=>x!==id):[...f.selSongs,id]}));}
   function toggleRequestedSong(id){setForm(f=>({...f,requestedSongs:f.requestedSongs.includes(id)?f.requestedSongs.filter(x=>x!==id):[...f.requestedSongs,id]}));}
 
@@ -2088,7 +2031,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
     let draftedMembers = form.selMembers;
     if (form.selMembers.length === 0) {
       const day = new Date(form.date+'T12:00:00').getDay();
-      const ativos = members.filter(m=>m.status==='ativo');
+      const ativos = availableMembers(members,form.date);
       if (form.type === 'culto') {
          const instr = ativos.filter(m => !(m.instrument||'').toLowerCase().includes('vocal') && !(m.instrument||'').toLowerCase().includes('voz'));
          const vocais = ativos.filter(m => ((m.instrument||'').toLowerCase().includes('vocal') || (m.instrument||'').toLowerCase().includes('voz')) && !(m.unavailableDays||[]).includes(day));
@@ -2139,7 +2082,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
        if (form.type === 'culto' && (d.getDay()===0 || d.getDay()===4)) {
            if (membersToUse.length === 0) {
               const day = d.getDay();
-              const ativos = members.filter(m=>m.status==='ativo');
+              const ativos = availableMembers(members,dStr);
               const instr = ativos.filter(m => !(m.instrument||'').toLowerCase().includes('vocal') && !(m.instrument||'').toLowerCase().includes('voz'));
               const vocais = ativos.filter(m => ((m.instrument||'').toLowerCase().includes('vocal') || (m.instrument||'').toLowerCase().includes('voz')) && !(m.unavailableDays||[]).includes(day));
               const shuffledVocais = [...vocais].sort(()=>Math.random()-0.5).slice(0,3);
@@ -2163,9 +2106,10 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
                }
            }
        } else if ((form.type === 'ebd' || form.type === 'consagracao' || form.type === 'ensaio') && membersToUse.length === 0) {
-           membersToUse = members.filter(m=>m.status==='ativo').map(m=>m.id);
+           membersToUse = availableMembers(members,dStr).map(m=>m.id);
        }
 
+       sbsToUse=Object.fromEntries(Object.entries(sbsToUse).filter(([,id])=>membersToUse.includes(id)));
        const evId = editEvent ? editEvent.id : crypto.randomUUID();
        const itemsToUse = songsToUse.map((songId, idx) => ({
          id: `song_${songId}_${idx}`,
@@ -2182,9 +2126,11 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
        if (!editEvent && form.type === 'culto' && d.getDay() === 0) {
            const dSat = new Date(d);
            dSat.setDate(dSat.getDate() - 1);
-           evs.push({id:crypto.randomUUID(),date:dSat.toLocaleDateString('sv-SE'),time:'15:00',type:'ensaio',label:'Ensaio (Sáb)',theme:form.theme||null,songs:[],members:membersToUse,confirmations:{},singerBySong:{},sequenceBySong:{},requested_songs:[],santa_ceia_song:null,items:[]});
+           evs.push({id:crypto.randomUUID(),date:dSat.toLocaleDateString('sv-SE'),time:'15:00',type:'ensaio',label:'Ensaio (Sáb)',theme:form.theme||null,songs:[],members:membersToUse.filter(id=>{const person=members.find(member=>member.id===id);return person&&!availabilityReason(person,localDate(dSat));}),confirmations:{},singerBySong:{},sequenceBySong:{},requested_songs:[],santa_ceia_song:null,items:[]});
        }
     }
+    const conflicts=evs.flatMap(event=>rosterConflicts(event,members,editEvent).map(conflict=>conflict.name+' · '+event.date.split('-').reverse().join('/')+' · '+conflict.reason));
+    if(conflicts.length){setSaveError('Revise a equipe antes de salvar: '+conflicts.join('; '));setTab('team');return;}
     setSaving(true);setSaveError('');
     try{await onSave(evs);}catch(error){setSaveError(error.message);}finally{setSaving(false);}
   }
@@ -2266,9 +2212,9 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
     </>}
     {activeTab==='team'&&<Section icon="users" title="Equipe escalada" description="Selecione quem vai participar deste evento.">
       <SearchField label="Buscar membro" value={memberSearch} onChange={e=>setMemberSearch(e.target.value)} placeholder="Buscar membro..."/>
-      <div className="ui-section-label"><span>{form.selMembers.length} pessoas selecionadas</span><span>{filtM.length} disponíveis</span></div>
-      <div className="ui-list">{filtM.map(member=><button key={member.id} className="ui-list-row ui-song-choice" aria-label={member.name} aria-pressed={form.selMembers.includes(member.id)} onClick={()=>toggleMember(member.id)}>
-        <span className="ui-avatar" style={{'--avatar-tint':member.color?member.color+'18':undefined,'--avatar-color':member.color}}>{member.avatar||member.name.split(' ').map(part=>part[0]).slice(0,2).join('')}</span><div className="ui-row-copy"><strong>{member.name}</strong><small>{member.instrument||member.role||'Membro'}</small></div><span className="ui-selection">{form.selMembers.includes(member.id)&&<Icon name="check" size={14}/>}</span>
+      <div className="ui-section-label"><span>{form.selMembers.length} pessoas selecionadas</span><span>{availableMembers(filtM,form.date).length} disponíveis</span></div>
+      <div className="ui-list">{filtM.map(member=><button key={member.id} className="ui-list-row ui-song-choice" aria-label={member.name} disabled={!form.selMembers.includes(member.id)&&!!availabilityReason(member,form.date)} aria-pressed={form.selMembers.includes(member.id)} onClick={()=>toggleMember(member.id)}>
+        <span className="ui-avatar" style={{'--avatar-tint':member.color?member.color+'18':undefined,'--avatar-color':member.color}}>{member.avatar||member.name.split(' ').map(part=>part[0]).slice(0,2).join('')}</span><div className="ui-row-copy"><strong>{member.name}</strong><small>{availabilityReason(member,form.date)||member.instrument||member.role||'Membro'}</small></div><span className="ui-selection">{form.selMembers.includes(member.id)&&<Icon name="check" size={14}/>}</span>
       </button>)}</div>
       {!filtM.length&&<div className="ui-empty"><Icon name="users"/><strong>Nenhuma pessoa encontrada</strong><p>Tente buscar por outro nome.</p></div>}
     </Section>}
@@ -2295,6 +2241,7 @@ export default function LouveSync() {
   const activity=useActivity(profile,actorSession);
   const [changeDraft,setChangeDraft]=useState(null);
   const [changeNotice,setChangeNotice]=useState('');
+  useEffect(()=>{if(profile)writeCache('ls_profile',publicMember(profile));},[profile]);
   const notifications=useNotifications(activity.credentials);
   const notifyChanges=notifications.changed;
 
@@ -2318,7 +2265,8 @@ export default function LouveSync() {
     catch { return document.documentElement.dataset.theme==='dark'; }
   });
   const navigationRef=useNavigationClearance();
-  const [tab,setTab]=useState('home');
+  const [requestedTab,setTab]=useState('home');
+  const tab=canSeeScreen(profile,requestedTab)?requestedTab:(effectiveScreens(profile)[0]||'access-denied');
   const [homeDate,setHomeDate]=useState(null);
   const [moreOpen,setMoreOpen]=useState(false);
   const closeMore=useCallback(()=>setMoreOpen(false),[]);
@@ -2477,6 +2425,8 @@ export default function LouveSync() {
   // ── AI
   const [aiMsgs,setAiMsgs]=useState([{r:'a',c:'Olá! Sou o Maestro, assistente de adoração do IMWAL.\n\nPosso ajudar com:\n• Setlists por tema bíblico\n• Fluxo progressivo de adoração\n• Reflexões ministeriais\n• Dicas de condução e ensaio\n\nComo posso servir hoje?'}]);
   const [aiIn,setAiIn]=useState('');
+  const aiRequestRef=useRef(null);
+  useEffect(()=>()=>aiRequestRef.current?.abort(),[profile?.id]);
   const [aiLoad,setAiLoad]=useState(false);
   const [aiCount,setAiCount]=useState(0);
 
@@ -2490,7 +2440,7 @@ export default function LouveSync() {
   const [pushLink,setPushLink]=useState(()=>new URL(window.location.href).searchParams.has('tab')?window.location.href:null);
   const openNotificationTarget=useCallback(item=>{
     const target=notificationDestination(item,window.location.origin);
-    if(!profile||!target||profile.permissions&&!profile.permissions.includes(target.tab))return;
+    if(!profile||!target||!canSeeScreen(profile,target.tab))return;
     const targetEvent=target.eventId?events.find(event=>event.id===target.eventId)||null:null;
     stopMetronome();setMoreOpen(false);setTab(targetEvent?.type==='ensaio'?'ensaio':target.tab);setSelEvent(null);setNotifsOpen(false);
     if(target.tab==='repertorio')setSelSong(songs.find(song=>song.id===target.songId)||null);
@@ -2518,15 +2468,15 @@ export default function LouveSync() {
       try{
         const data=await fetchMembers();
         const cachedMembers=readCache('ls_members',M);
-        const safe=(Array.isArray(data)&&data.length?data:Array.isArray(cachedMembers)?cachedMembers:M).map(publicMember);
-        if(!disposed){setAllMembers(safe);writeCache('ls_members',safe);}
-      }catch{const cache=readCache('ls_members',M);const safe=(Array.isArray(cache)?cache:M).map(publicMember);if(!disposed){setAllMembers(safe);writeCache('ls_members',safe);}}
+        const safe=(Array.isArray(data)&&data.length?data:Array.isArray(cachedMembers)?cachedMembers:M).map(member=>normalizeMember(publicMember(member)));
+        if(!disposed){setAllMembers(safe);writeCache('ls_members',safe);setProfile(previous=>{const fresh=safe.find(member=>member.id===previous?.id);if(!previous||!fresh)return previous;const next={...previous,...fresh};return JSON.stringify(previous)===JSON.stringify(next)?previous:next;});}
+      }catch{const cache=readCache('ls_members',M);const safe=(Array.isArray(cache)?cache:M).map(member=>normalizeMember(publicMember(member)));if(!disposed){setAllMembers(safe);writeCache('ls_members',safe);setProfile(previous=>{const fresh=safe.find(member=>member.id===previous?.id);if(!previous||!fresh)return previous;const next={...previous,...fresh};return JSON.stringify(previous)===JSON.stringify(next)?previous:next;});}}
       if(!disposed)setAuthLoading(false);
     }
     const cached=readCache('ls_profile',null),actor=readActorSession();
     const last=Number(localStorage.getItem('ls_last_activity')||0);
     if(cached?.id&&actor?.memberId===cached.id&&(!last||Date.now()-last<4*60*60*1000)){
-      const safe=publicMember(cached);writeCache('ls_profile',safe);setMutationActor(actor);setProfile(safe);
+      const safe=normalizeMember(publicMember(cached));writeCache('ls_profile',safe);setMutationActor(actor);setProfile(safe);
     }else{
       setMutationActor(null);setActorSession(null);
       ['ls_profile','ls_actor_session','ls_last_activity'].forEach(key=>localStorage.removeItem(key));
@@ -2571,7 +2521,7 @@ export default function LouveSync() {
         if(disposed)return;
         if(results[0].status==='fulfilled' && results[0].value!==null)setSongs(results[0].value);
         if(results[1].status==='fulfilled' && results[1].value!==null)setEvents(results[1].value.map(normalizeEvent));
-        if(results[2].status==='fulfilled' && results[2].value?.length){const safe=results[2].value.map(publicMember);setAllMembers(safe);writeCache('ls_members',safe);}
+        if(results[2].status==='fulfilled' && results[2].value?.length){const safe=results[2].value.map(member=>normalizeMember(publicMember(member)));setAllMembers(safe);writeCache('ls_members',safe);setProfile(previous=>{const fresh=safe.find(member=>member.id===previous?.id);if(!previous||!fresh)return previous;const next={...previous,...fresh};return JSON.stringify(previous)===JSON.stringify(next)?previous:next;});}
         const failure=results.find(result=>result.status==='rejected');
         if(failure)setSyncError(`Não foi possível atualizar os dados: ${failure.reason.message}`);
       }finally{
@@ -2605,7 +2555,7 @@ export default function LouveSync() {
   const handleAppUpdate = () => checkForAppUpdate();
 
   async function handleLogin(member, pin) {
-    const safe=publicMember(await authenticateMember(member.id,pin));
+    const safe=normalizeMember(publicMember(await authenticateMember(member.id,pin)));
     const actor={memberId:safe.id,pin};
     localStorage.setItem('ls_actor_session',JSON.stringify(actor));
     localStorage.setItem('ls_profile',JSON.stringify(safe));
@@ -2618,7 +2568,7 @@ export default function LouveSync() {
   }
   function handleLogout() {
     const logout=()=>{
-      void notifications.detach();
+      void notifications.detach();aiRequestRef.current?.abort();aiRequestRef.current=null;setAiLoad(false);setAiCount(0);setAiIn('');setAiMsgs([{r:'a',c:'Olá! Sou o Maestro. Como posso ajudar sua equipe hoje?'}]);
       localStorage.removeItem('ls_actor_session');setMutationActor(null);setActorSession(null);
       localStorage.removeItem('ls_profile');
       localStorage.removeItem('ls_last_activity');
@@ -2632,6 +2582,7 @@ export default function LouveSync() {
     setConfirmState({title:'Descartar alterações da chamada?',msg:'Há marcações que ainda não foram salvas. Ao sair, essas alterações serão descartadas.',onConfirm:()=>{attendanceDirty.current=false;setConfirmState(null);action();},onCancel:()=>setConfirmState(null)});
   }
   function navTo(t,attendanceId=null){
+    if(!canSeeScreen(profile,t)){setChangeNotice('A liderança não liberou esta tela para seu perfil.');return;}
     const go=()=>{
       if(moreOpen){setMoreOpen(false);requestAnimationFrame(()=>mainScrollRef.current?.scrollTo({top:0}));}
       if(t==='presencas')setAttendanceEventId(attendanceId);
@@ -2640,10 +2591,11 @@ export default function LouveSync() {
     if(tab==='presencas'&&(t!==tab||attendanceId!==attendanceEventId))leaveAttendance(go);else go();
   }
   function openAttendance(event){
-    if(!canManageAttendance(allMembers.find(member=>member.id===profile?.id)||profile))return;
+    if(!canManageAttendance(allMembers.find(member=>member.id===profile?.id)||profile)||!canSeeScreen(profile,'presencas'))return;
     setEvSheet(null);navTo('presencas',event.id);
   }
   function openEvent(event){
+    if(!canSeeScreen(profile,event.type==='ensaio'?'ensaio':'escala')){setChangeNotice('A liderança não liberou esta tela para seu perfil.');return;}
     if(event.type==='ensaio'){setEvSheet(null);navTo('ensaio');}
     else setEvSheet(event);
   }
@@ -2652,6 +2604,7 @@ export default function LouveSync() {
     setEvSheet(null);setCreateEvDate(null);setEditEvState(event);setCreateEvOpen(true);
   }
   function selectSong(s,ev=null,activeKey=null){
+    if(!canSeeScreen(profile,'repertorio')){setChangeNotice('A liderança não liberou a tela de músicas para seu perfil.');return;}
     if(!s) return alert('Ops! Esta música ainda não foi adicionada no Repertório.');
     console.log('🎵 selectSong called with:', {title: s.title, artist: s.artist, id: s.id});
     returnToEvent.current=!!ev&&!!evSheet;
@@ -2746,6 +2699,9 @@ export default function LouveSync() {
     if(!profile?.is_admin)return;
     const toAdd=(Array.isArray(evs)?evs:[evs]).map(withoutRehearsalSongs);
     try {
+      const currentMembers=isOnline&&supabase?await fetchMembers():allMembers;
+      const conflicts=toAdd.flatMap(event=>rosterConflicts(event,currentMembers||allMembers,events.find(previous=>previous.id===event.id)).map(conflict=>conflict.name+' · '+event.date+' · '+conflict.reason));
+      if(conflicts.length)throw new Error('Há integrantes indisponíveis. Revise a equipe: '+conflicts.join('; '));
       for(const ev of toAdd){
         ev.items=ev.items?.length?ev.items:(ev.songs||[]).map(song_id=>({type:'song',song_id,singer_id:ev.singerBySong?.[song_id]||null,text:''}));
         ev.songs=ev.items.filter(item=>item.type==='song').map(item=>item.song_id);
@@ -2806,30 +2762,19 @@ export default function LouveSync() {
   }
 
   async function sendAI(msg=''){
-    const txt=(msg||aiIn).trim();if(!txt||aiLoad||aiCount>=10)return;
-    setAiIn('');
-    const msgs=[...aiMsgs,{r:'u',c:txt}];
-    setAiMsgs(msgs);setAiLoad(true);setAiCount(c=>c+1);
-    const history=msgs.slice(-6);
-
+    const txt=(msg||aiIn).trim();if(!txt||aiRequestRef.current||aiCount>=10||!canSeeScreen(profile,'ia'))return;
+    const controller=new AbortController();aiRequestRef.current=controller;setAiLoad(true);
+    const clean=aiMsgs.filter(message=>!message.err);
+    const messages=clean.at(-1)?.r==='u'&&clean.at(-1)?.c===txt?clean:[...clean,{r:'u',c:txt}];
+    setAiMsgs(messages);
+    const catalog=songs.map(song=>`${song.title} (${song.artist||'Ministério'})`).join(', ').slice(0,12000);
+    const system={role:'system',content:`Você é o Maestro, assistente do ministério de louvor. Use primeiro o repertório cadastrado: ${catalog}. Não afirme que uma música foi cadastrada ou um setlist confirmado; suas respostas são sugestões para revisão da liderança. Seja claro e acolhedor. Responda em português, com no máximo 220 palavras.`};
     try{
-      const repertorioStr = songs.map(s => `${s.title} (${s.artist})`).join(', ');
-      const sysMsgAI={role:'system',content:`Você é o Maestro, assistente de adoração IMWAL. Responda PRIMEIRO com base NESTE REPERTÓRIO ATUAL DO APP: [${repertorioStr}]. Se o usuário pedir uma música que não está nessa lista, diga que não está no repertório do app, mas você pode ajudar com sugestões ou arranjos se quiser. Seja pastoral. Máx 220 palavras.`};
-      const convMsgs=history.map(m=>({role:m.r==='u'?'user':'assistant',content:m.c}));
-      const res=await fetch(GROQ_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'llama-3.1-8b-instant',max_tokens:400,messages:[sysMsgAI,...convMsgs]})});
-      const data=await res.json();
-      if(!res.ok)throw new Error(data.error||'Falha no Maestro.');
-      if (!res.ok || data.error) {
-        const errMsg = data.error?.message || `Erro HTTP ${res.status}: ${res.statusText || 'Não autorizado'}`;
-        setAiMsgs(p=>[...p,{r:'a',c:`⚠️ Erro no Maestro (IA): ${errMsg}. Tente novamente mais tarde.`,err:true}]);
-      } else {
-        const reply=data.choices?.[0]?.message?.content||'Sem resposta.';
-        setAiMsgs(p=>[...p,{r:'a',c:reply}]);
-      }
-    }catch(err){
-      setAiMsgs(p=>[...p,{r:'a',c:`Erro de conexão: ${err.message || 'Falha ao se conectar à API'}. Verifique sua internet.`,err:true}]);
-    }
-    setAiLoad(false);
+      const reply=await maestroRequest(activity.credentials,[system,...messages.slice(-8).map(message=>({role:message.r==='u'?'user':'assistant',content:message===messages.at(-1)?message.c:message.c.slice(-4000)}))],{signal:controller.signal,maxTokens:700});
+      if(controller.signal.aborted)return;
+      setAiMsgs(previous=>[...previous,{r:'a',c:reply}]);setAiCount(count=>count+1);setAiIn(value=>value.trim()===txt?'':value);
+    }catch(error){if(!controller.signal.aborted){setAiMsgs(previous=>[...previous,{r:'a',c:error.message,err:true}]);setAiIn(value=>value||txt);}}
+    finally{if(aiRequestRef.current===controller){aiRequestRef.current=null;setAiLoad(false);}}
   }
 
   /* ── Landscape lock ── */
@@ -2865,18 +2810,8 @@ export default function LouveSync() {
     {id:'membros',ico:<IcoPeople s={22}/>,l:'Membros'},
     {id:'admin',ico:<IcoPeople s={22}/>,l:'Admin'}
   ];
-  const attendanceLeader=canManageAttendance(allMembers.find(member=>member.id===profile?.id)||profile);
-  const TABS = allTabs.filter(t => {
-     if(t.id==='solicitacoes')return true;
-     if(t.id==='presencas')return attendanceLeader;
-     if(t.id==='admin'||t.id==='membros')return !!profile?.is_admin;
-     if(!profile?.permissions) {
-        if(t.id==='admin' && !profile?.is_admin) return false;
-        if(t.id==='membros' && !profile?.is_admin) return false;
-        return true;
-     }
-     return profile.permissions.includes(t.id);
-  });
+  const attendanceLeader=canManageAttendance(profile)&&canSeeScreen(profile,'presencas');
+  const TABS=allTabs.filter(destination=>canSeeScreen(profile,destination.id));
   const tc=dark?'#F5F2FF':'#0F172A';
 
   return <ErrorBoundary>
@@ -2929,6 +2864,7 @@ export default function LouveSync() {
         <div className="app-content">
         <div ref={mainScrollRef} className="app-main" data-main-scroll data-song-open={inCifra} inert={moreOpen&&!inCifra} aria-hidden={moreOpen&&!inCifra ? true : undefined}>
           {dataLoading&&!inCifra&&(tab!=='repertorio'||!songs.length)?<Skeleton dark={dark} count={6}/>:<>
+            {tab==='access-denied'&&<div className="ui-empty"><Icon name="lock"/><strong>Nenhuma tela liberada</strong><p>Peça à liderança para revisar seu acesso ao app.</p></div>}
             {tab==='home'&&!inCifra&&<Home profile={profile} dark={dark} selectedDate={homeDate} onDateChange={setHomeDate} songs={songs} events={events} members={allMembers} Avatar={Ava} onOpenEvent={openEvent} onNavTo={navTo} onSelectSong={selectSong} onSetAddOpen={setAddOpen} onConfirm={handleConfirm} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
             {tab==='repertorio'&&!inCifra&&<Repertorio dark={dark} songs={songs} categories={CAT} loading={dataLoading} catF={catF} setCatF={setCatF} search={search} setSearch={setSearch} keyF={keyF} setKeyF={setKeyF} favorites={favorites} onToggleFav={toggleFav} onSelectSong={selectSong} onSetAddOpen={setAddOpen}/>}
             {inCifra&&<ErrorBoundary key={selSong?.id}><Cifra dark={dark} song={selSong} event={selEvent} tr={tr} setTr={setTr} mode={mode} setMode={setMode} metronome={metronome} stageMode={stageMode} setStageMode={setStageMode} onSendAI={sendAI} onNavTo={navTo} onDeleteSong={handleDeleteSong} onSetSequence={handleSetSequence} onSaveVocalKey={handleSaveVocalKey} onSaveSong={handleSaveSong} profile={profile} members={allMembers} fontFam={fontFam}/></ErrorBoundary>}
@@ -2940,7 +2876,7 @@ export default function LouveSync() {
             {tab==='escala'&&!inCifra&&<ScheduleScreen onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} view={scheduleView} onViewChange={setScheduleView} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} Avatar={Ava} onConfirm={handleConfirm} onOpenEvent={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
             {attendanceLeader&&tab==='presencas'&&!inCifra&&<AttendanceScreen key={attendanceEventId||'overview'} dark={dark} credentials={activity.credentials} events={events} online={isOnline} initialEventId={attendanceEventId} onDirtyChange={attendanceDirtyChanged} onLeave={leaveAttendance}/>}
             {tab==='membros'&&!inCifra&&<Membros profile={profile} dark={dark} members={allMembers} events={events} selRole={selRole} setSelRole={setSelRole}/>}
-            {tab==='ia'&&!inCifra&&<Maestro dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
+            {tab==='ia'&&!inCifra&&<MaestroScreen dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
             {tab==='treinamento'&&!inCifra&&<Treinamento dark={dark} profile={profile}/>}
             {tab==='biblia'&&!inCifra&&<Biblia dark={dark} profileId={profile?.id}/>}
@@ -2955,7 +2891,7 @@ export default function LouveSync() {
       </>}
 
       {/* OVERLAYS */}
-      {addOpen&&<AddSong requestApproval={!canManageMinistry(profile)} dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
+      {addOpen&&<AddSong credentials={activity.credentials} requestApproval={!canManageMinistry(profile)} dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
       {profile?.is_admin&&createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
       {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EventDetails categories={CAT} onChangeSaved={handleChangesSaved} onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={openEventEditor} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotificationInbox dark={dark} controller={notifications} onClose={()=>setNotifsOpen(false)} onOpen={handleOpenNotification}/>}

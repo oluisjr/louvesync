@@ -17,8 +17,11 @@ export function equipmentStatusTone(status) {
 
 export function equipmentArtwork(item) {
   const name = `${item.name || ''} ${item.brand || ''}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  if (/\b(cabo|capa|case|suporte|pedal|bag)\b/.test(name)) return '/images/more/equipment.webp';
-  if (/\b(microfone|microphone|mic|sm58|sm57)\b/.test(name)) return '/images/equipment/microphone.webp';
+  if (/\b(cabos?|capas?|cases?|suportes?|pedal|pedais|bags?)\b/.test(name)) return '/images/more/equipment.webp';
+  if (/\b(microfones?|microphones?|mics?|sm58|sm57)\b/.test(name)) return '/images/equipment/microphone.webp';
+  if (/\b(baterias?|drums?|drumkit|percussao)\b/.test(name)) return '/images/equipment/drums.webp';
+  if (/\b(mesas? de som|mixers?|mixagem|mesas? digitais?)\b/.test(name)) return '/images/equipment/mixer.webp';
+  if (/\b(caixas? de som|caixas? acusticas?|alto.falantes?|speakers?|retornos?|monitor(?:es)?|amplificador(?:es)?)\b/.test(name)) return '/images/equipment/speaker.webp';
   if (/\b(teclado|keyboard|piano|sintetizador|synth)\b/.test(name)) return '/images/equipment/keyboard.webp';
   if (/\b(baixo|contrabaixo|bass)\b/.test(name)) return '/images/equipment/bass.webp';
   if (/\b(sax|saxofone|saxophone)\b/.test(name)) return '/images/equipment/saxophone.webp';

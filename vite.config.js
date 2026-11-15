@@ -4,7 +4,7 @@ const localApi = () => ({
   name: 'local-api',
   configureServer(server) {
     const env = loadEnv(server.config.mode, process.cwd(), '');
-    for (const name of ['VITE_SUPABASE_URL','VITE_SUPABASE_ANON_KEY','SUPABASE_SERVICE_KEY','SCRAPERAPI_KEY','GROQ_API_KEY','VITE_GROQ_API_KEY']) if (env[name] && !process.env[name]) process.env[name] = env[name];
+    for (const name of ['VITE_SUPABASE_URL','VITE_SUPABASE_ANON_KEY','SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_KEY','SCRAPERAPI_KEY','GROQ_API_KEY','XAI_API_KEY','GROK_API_KEY','VITE_GROQ_API_KEY','MAESTRO_MODEL','GROQ_MODEL','XAI_MODEL','GROK_MODEL']) if (env[name] && !process.env[name]) process.env[name] = env[name];
     server.middlewares.use(async (req,res,next) => {
       const url = new URL(req.url,'http://localhost');
       const name = url.pathname.match(/^\/api\/(proxy|cifra|maestro|setlist|version|activity|attendance|changes|bible|admin-delete|delete-event|notifications)$/)?.[1];

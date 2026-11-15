@@ -1,6 +1,7 @@
 import { test, expect, devices } from '@playwright/test';
 import fs from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
+import { createMaestroHandler } from '../../server/maestro.js';
 import { createChangesHandler } from '../../api/changes.js';
 import { createAttendanceHandler } from '../../api/attendance.js';
 import { strFromU8, unzipSync } from 'fflate';
@@ -101,18 +102,20 @@ for(const theme of ['light','dark'])test(`3D inventory uses real totals and supp
   app.state.equipment=[{id:'mic',name:'Microfone SM58',brand:'Shure',serial_number:'M-01',status:'Disponível'},
     {id:'keyboard',name:'Teclado PSR',brand:'Yamaha',status:'Em uso',custodian_id:member.id},
     {id:'guitar',name:'Violão acústico',brand:'Takamine',status:'Manutenção'},
-    {id:'mixer',name:'Mesa de som',brand:'Behringer',status:'Disponível'}];
+    {id:'mixer',name:'Mesa de som',brand:'Behringer',status:'Disponível'},
+    {id:'drums',name:'Bateria acústica',brand:'Pearl',status:'Disponível'},
+    {id:'speaker',name:'Caixa de som',brand:'JBL',status:'Disponível'}];
   try{
     const page=await app.open(admin,undefined,{theme,device:{viewport:{width:390,height:844}}});
     await navigate(page,'Patrimônio');
     const inventory=page.getByRole('region',{name:'Patrimônio',exact:true}),summary=page.getByRole('region',{name:'Resumo do inventário',exact:true});
-    await expect(summary).toContainText('4 equipamentos');
-    await expect(summary).toContainText('2 disponíveis');
+    await expect(summary).toContainText('6 equipamentos');
+    await expect(summary).toContainText('4 disponíveis');
     await expect(summary).toContainText('1 em uso');
     await expect(summary).toContainText('1 em manutenção');
-    await expect(inventory.getByRole('article')).toHaveCount(4);
+    await expect(inventory.getByRole('article')).toHaveCount(6);
     await expect(inventory.getByRole('article',{name:'Teclado PSR',exact:true})).toContainText('Custódia: Membro Teste');
-    for(const [name,src] of [['Microfone SM58','/images/equipment/microphone.webp'],['Teclado PSR','/images/equipment/keyboard.webp'],['Violão acústico','/images/equipment/guitar.webp'],['Mesa de som','/images/more/equipment.webp']]){
+    for(const [name,src] of [['Microfone SM58','/images/equipment/microphone.webp'],['Teclado PSR','/images/equipment/keyboard.webp'],['Violão acústico','/images/equipment/guitar.webp'],['Mesa de som','/images/equipment/mixer.webp'],['Bateria acústica','/images/equipment/drums.webp'],['Caixa de som','/images/equipment/speaker.webp']]){
       const image=inventory.getByRole('article',{name,exact:true}).locator('img');
       await image.scrollIntoViewIfNeeded();await expect(image).toHaveAttribute('src',src);
       await expect.poll(()=>image.evaluate(element=>element.complete&&element.naturalWidth>0)).toBe(true);
@@ -130,7 +133,7 @@ for(const theme of ['light','dark'])test(`3D inventory uses real totals and supp
     await filters.getByRole('button',{name:'Manutenção',exact:true}).click();
     await expect(inventory.getByRole('article')).toHaveCount(1);
     await expect(inventory.getByRole('article')).toHaveAccessibleName('Violão acústico');
-    await expect(summary).toContainText('4 equipamentos');
+    await expect(summary).toContainText('6 equipamentos');
     await filters.getByRole('button',{name:'Todos',exact:true}).click();
     await inventory.getByRole('searchbox',{name:'Buscar equipamento'}).fill('yamaha');
     await expect(inventory.getByRole('article')).toHaveCount(1);
@@ -142,7 +145,7 @@ for(const theme of ['light','dark'])test(`3D inventory uses real totals and supp
     const edit=page.getByRole('dialog',{name:'Editar equipamento',exact:true});
     await edit.getByLabel('Status',{exact:true}).selectOption('Disponível');
     await edit.getByRole('button',{name:'Salvar',exact:true}).click();await expect(edit).toHaveCount(0);
-    await expect(summary).toContainText('3 disponíveis');await expect(summary).toContainText('0 em manutenção');
+    await expect(summary).toContainText('5 disponíveis');await expect(summary).toContainText('0 em manutenção');
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
@@ -569,15 +572,17 @@ async function fixture(browser) {
   };
   const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), members: structuredClone([admin,member]), memberRequests: [], session: null, notes: {}, nextItemId: 100, posts: [], activitySessions:new Map(), activityViews:new Map(), activityRequests:[], activityNow:Date.parse('2026-10-24T15:00:00Z'), activityFailure:null };
   const code = `
+    import { memberPayload, normalizeMember } from '/src/lib/member-settings.js';
     import { updateEventItems, updateSetlistConfirmation } from '/src/lib/event-storage.js';
     const clone=value=>structuredClone(value);
     const channels=[];
     export const publicSupabaseConfig=window.__testActivityConnection||null;
     window.__testDeliver=(name,message)=>channels.filter(c=>c.topic===name).forEach(c=>c.handlers.filter(h=>h.type==='broadcast'&&h.filter.event===message.event).forEach(h=>h.fn({payload:message.payload})));
     export const supabase={channel(name){const c={topic:name,state:'joined',handlers:[],on(type,filter,fn){this.handlers.push({type,filter,fn});return this;},subscribe(fn){queueMicrotask(()=>fn?.('SUBSCRIBED'));return this;},unsubscribe(){},send(message){return window.__testBroadcast(name,message).then(()=> 'ok');}};channels.push(c);return c;},removeChannel(c){const i=channels.indexOf(c);if(i>=0)channels.splice(i,1);},from(table){const query={table,op:'select',filters:{},inFilters:{}};return {select(){return this;},eq(k,v){query.filters[k]=v;return this;},match(values){Object.assign(query.filters,values);return this;},in(k,v){query.inFilters[k]=v;return this;},order(){return this;},single(){query.single=true;return this;},maybeSingle(){query.single=true;return this;},upsert(data){query.op='upsert';query.data=data;return this;},insert(data){query.op='insert';query.data=data;return this;},delete(){query.op='delete';return this;},update(data){query.op='update';query.data=data;return this;},then(resolve,reject){return window.__testDb('query',[query]).then(resolve,reject);}};}};
+    export async function upsertMember(member){return normalizeMember(await window.__testDb('upsertMember',[memberPayload(member)]));}
     export async function setEventItems(...args){return updateEventItems(supabase,...args);}
     export async function setSetlistConfirmation(...args){return updateSetlistConfirmation(supabase,...args);}
-    ${names.filter(name=>!['setEventItems','setSetlistConfirmation'].includes(name)).map(name=>`export async function ${name}(...args){return window.__testDb('${name}',args);}`).join('\n')}
+    ${names.filter(name=>!['upsertMember','setEventItems','setSetlistConfirmation'].includes(name)).map(name=>`export async function ${name}(...args){return window.__testDb('${name}',args);}`).join('\n')}
   `;
   const storageCode=`
     const audioFiles=new Map();
@@ -625,10 +630,10 @@ async function fixture(browser) {
         state.memberRequests.push(structuredClone(args[0]));
         await state.memberSaveGate;
         if(state.memberSaveError)throw new Error(state.memberSaveError);
-        const unsupported=Object.keys(args[0]).find(key=>!['id','name','role','instrument','avatar','color','status','is_admin','pin','vocal_category'].includes(key));
+        const unsupported=Object.keys(args[0]).find(key=>!['id','name','role','instrument','avatar','color','status','is_admin','pin','vocal_category','permissions','unavailable_days','schedule_enabled'].includes(key));
         if(unsupported)throw new Error('Unknown members column: '+unsupported);
         const index=state.members.findIndex(member=>member.id===args[0].id);
-        if(index<0)state.members.push(structuredClone(args[0]));else state.members[index]=structuredClone(args[0]);
+        if(index<0)state.members.push(structuredClone(args[0]));else state.members[index]={...state.members[index],...structuredClone(args[0])};
         return args[0];
       }
       if (action === 'setPresence') {
@@ -797,6 +802,13 @@ async function fixture(browser) {
       const res={code:200,headers:{},setHeader(name,value){this.headers[name]=value;},status(code){this.code=code;return this;},json(body){this.body=body;return this;}};
       await changesHandler(req,res);await route.fulfill({status:res.code,headers:res.headers,json:res.body});
     });
+    const maestroHandler=createMaestroHandler({environment:{GROK_API_KEY:'xai_SYNTHETIC_FIXTURE_KEY'},verifyActor:async credentials=>state.members.find(person=>person.id===credentials.memberId&&(person.pin||'TEST_PIN_'+person.id)===credentials.pin)||null,fetcher:async(url,options)=>{(state.maestroOutbound||=[]).push({url,model:JSON.parse(options.body).model});if(state.maestroFailure)return Response.json({error:'Simulated upstream failure'},{status:state.maestroFailure});return Response.json({choices:[{message:{content:'Vamos preparar o ensaio com oração, repertório e transições bem definidas.'}}]});}});
+    await page.route('**/api/maestro',async route=>{
+      (state.maestroRequests||=[]).push(route.request().postDataJSON());
+      const req={method:route.request().method(),headers:{...route.request().headers(),host:new URL(route.request().url()).host},body:route.request().postDataJSON()};
+      const res={code:200,headers:{},setHeader(name,value){this.headers[name]=value;},status(code){this.code=code;return this;},json(body){this.body=body;return this;},send(body){this.body=body;return this;}};
+      await maestroHandler(req,res);await route.fulfill({status:res.code,headers:res.headers,json:res.body});
+    });
     if(options.activity)await page.route('**/api/activity',route=>handleActivity(route));
     await page.route('**/version.json', route => route.fulfill({ json: {version:'test'} }));
     await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/, route => route.abort());
@@ -824,7 +836,7 @@ test('five fixed destinations keep secondary screens reachable and respect membe
     await expect(nav.getByRole('button',{name:'Mais',exact:true})).toHaveAttribute('aria-current','page');
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
     await expect(nav.getByRole('button',{name:'Mural',exact:true}).locator('img')).toHaveAttribute('src','/brand/church-emblem-3d.webp');
-    await expect(menu.locator('.app-more-artwork')).toHaveCount(9);
+    await expect(menu.locator('.app-more-artwork')).toHaveCount(10);
     await expect.poll(()=>menu.locator('.app-more-artwork').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0))).toBe(true);
     for(const label of ['Músicas','Patrimônio','Ensaio','Treinar','Admin'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
@@ -841,7 +853,8 @@ test('five fixed destinations keep secondary screens reachable and respect membe
     await expect(page.locator('[data-main-scroll]').getByText('Mural de Comunicados',{exact:false})).toBeVisible();
     await expect(nav.getByRole('button',{name:'Mural',exact:true})).toHaveAttribute('aria-current','page');
 
-    const restricted=await app.open({...member,permissions:['home','biblia','repertorio','admin','membros']});
+    app.state.members.find(person=>person.id===member.id).permissions=['home','biblia','repertorio','admin','membros'];
+    const restricted=await app.open(member);
     const limitedNav=restricted.getByRole('navigation',{name:'Navegação principal'});
     await expect(limitedNav.getByRole('button')).toHaveCount(5);
     await expect(limitedNav.getByRole('button',{name:'Escala',exact:true})).toBeDisabled();
@@ -873,7 +886,7 @@ for(const theme of ['light','dark']){
       await expect(main).toHaveJSProperty('inert',true);
       expect(await main.evaluate(element=>element.scrollTop)).toBe(previousScroll);
       await expect.poll(()=>menu.locator('img').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0))).toBe(true);
-      for(const [label,asset] of [['Devocional','devotional'],['Maestro','maestro']])await expect(menu.getByRole('button',{name:label,exact:true}).locator('img')).toHaveAttribute('src',`/images/more/${asset}.webp`);
+      for(const [label,asset] of [['Devocional','/images/more/devotional.webp'],['Maestro','/images/maestro/character.webp'],['Solicitações','/images/more/requests.webp']])await expect(menu.getByRole('button',{name:label,exact:true}).locator('img')).toHaveAttribute('src',asset);
       await expect.poll(()=>nav.locator('img').evaluate(image=>image.complete&&image.naturalWidth>0)).toBe(true);
       for(const width of [390,320]){
         await page.setViewportSize({width,height:844});
@@ -2813,7 +2826,7 @@ for(const viewport of [{name:'mobile',width:320,height:740},{name:'desktop-dark'
       expect(await page.locator('#root').evaluate(element=>element.inert)).toBe(false);
       const saved=app.state.members.find(member=>member.name==='Pessoa de Teste');
       expect(saved).toMatchObject({pin:'TESTE26',instrument:'Vocal 2',vocal_category:'jubilo',avatar:'PD',status:'ativo',is_admin:false});
-      expect(saved.permissions).toBeUndefined();expect(saved.unavailableDays).toBeUndefined();
+      expect(saved.permissions).not.toContain('patrimonio');expect(saved.unavailable_days).toEqual([0,6]);expect(saved.unavailableDays).toBeUndefined();
       await page.getByRole('button',{name:'Editar Pessoa de Teste',exact:true}).click();
       const edit=page.getByRole('dialog',{name:'Editar membro',exact:true});
       await expect(edit.getByLabel('Nome completo',{exact:true})).toHaveValue('Pessoa de Teste');
@@ -2936,6 +2949,64 @@ test('administrators can reset their own PIN without losing the current session 
     expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('ls_actor_session')).pin)).toBe('RESET_SYNTHETIC_ADMIN_PIN');
     expect(await page.evaluate(()=>Object.hasOwn(JSON.parse(localStorage.getItem('ls_profile')),'pin'))).toBe(false);
     await expect.poll(()=>app.state.activityRequests.some(request=>request.action==='heartbeat'&&request.pin==='RESET_SYNTHETIC_ADMIN_PIN')).toBe(true);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+
+test('member screen access and unavailable weekdays survive saves, another device and reload',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const leader=await app.open(admin),teammate=await app.open(member);
+    await navigate(leader,'Admin');await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();
+    const editor=leader.getByRole('dialog',{name:'Editar membro',exact:true});
+    await expect(editor.getByRole('checkbox',{name:'Maestro',exact:true})).toBeChecked();
+    await editor.getByRole('checkbox',{name:'Maestro',exact:true}).uncheck();await editor.getByRole('checkbox',{name:'Patrimônio',exact:true}).uncheck();
+    await editor.getByRole('checkbox',{name:'Indisponível: Dom',exact:true}).check();await editor.getByRole('checkbox',{name:'Indisponível: Sáb',exact:true}).check();
+    await editor.getByRole('button',{name:'Salvar alterações',exact:true}).click();await expect(editor).toHaveCount(0);
+    const saved=app.state.members.find(person=>person.id===member.id);expect(saved.unavailable_days).toEqual([0,6]);expect(saved.permissions).not.toContain('ia');
+    await navigate(teammate,'Músicas');await teammate.getByRole('button',{name:'Mais',exact:true}).click();
+    await expect(teammate.getByRole('region',{name:'Mais',exact:true}).getByRole('button',{name:'Maestro',exact:true})).toHaveCount(0);await expect(teammate.getByRole('region',{name:'Mais',exact:true}).getByRole('button',{name:'Patrimônio',exact:true})).toHaveCount(0);
+    await teammate.reload();await teammate.getByRole('button',{name:'Mais',exact:true}).click();await expect(teammate.getByRole('region',{name:'Mais',exact:true}).getByRole('button',{name:'Maestro',exact:true})).toHaveCount(0);
+    await leader.reload();await navigate(leader,'Admin');await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();
+    const reopened=leader.getByRole('dialog',{name:'Editar membro',exact:true});await expect(reopened.getByRole('checkbox',{name:'Indisponível: Dom',exact:true})).toBeChecked();await expect(reopened.getByRole('checkbox',{name:'Maestro',exact:true})).not.toBeChecked();
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('scheduling excludes unavailable instrumentalists and vocals and keeps Saturday rehearsal availability independent',async({browser})=>{
+  const app=await fixture(browser);
+  app.state.members.find(person=>person.id===member.id).unavailable_days=[0];
+  app.state.members.find(person=>person.id===admin.id).unavailable_days=[6];
+  app.state.members.push({...member,id:'bass-blocked',name:'Baixista indisponível',instrument:'Baixo',unavailable_days:[0]});
+  try{
+    const page=await app.open(admin);await page.getByRole('button',{name:'Escala',exact:true}).click();await page.getByRole('button',{name:'Novo',exact:true}).click();
+    const editor=page.getByRole('dialog',{name:'Novo evento',exact:true});await editor.getByLabel('Data',{exact:true}).fill('2026-11-22');await editor.getByLabel('Nome do evento',{exact:true}).fill('Culto com disponibilidade');
+    await editor.getByRole('tab',{name:'Equipe',exact:true}).click();await expect(editor.getByRole('button',{name:'Membro Teste',exact:true})).toBeDisabled();await expect(editor.getByRole('button',{name:'Baixista indisponível',exact:true})).toBeDisabled();await expect(editor).toContainText('Indisponível neste dia (domingo)');
+    await editor.getByRole('tab',{name:'Setlist',exact:true}).click();await editor.getByRole('button',{name:'Auto-gerar',exact:true}).click();await editor.getByRole('button',{name:'Criar Compromisso',exact:true}).click();await expect(editor).toHaveCount(0);
+    const sunday=app.state.events.find(event=>event.label==='Culto com disponibilidade');expect(sunday.event_members.map(person=>person.member_id)).toEqual([admin.id]);
+    const saturday=app.state.events.find(event=>event.label==='Ensaio (Sáb)'&&event.date==='2026-11-21');expect(saturday).toBeDefined();expect(saturday.event_members||[]).toHaveLength(0);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+for(const theme of ['light','dark'])test(`Maestro uses the new character and keeps text and quota after a provider failure in ${theme}`,async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    app.state.maestroFailure=401;
+    const page=await app.open(member,undefined,{theme,device:{viewport:{width:390,height:844}}});await navigate(page,'Maestro');
+    const screen=page.getByRole('region',{name:'Maestro',exact:true});await expect.poll(()=>screen.locator('.maestro-hero img').evaluate(image=>image.complete&&image.naturalWidth>0)).toBe(true);
+    await expect(screen.getByRole('heading',{name:'Olá, eu sou o Maestro.'})).toBeInViewport();await page.screenshot({path:test.info().outputPath('maestro-hero-'+theme+'.png'),scale:'css'});
+    const input=screen.getByRole('textbox',{name:'Mensagem para o Maestro',exact:true});await input.fill('Como organizar nosso ensaio?');await screen.getByRole('button',{name:'Enviar mensagem ao Maestro',exact:true}).click();
+    await expect(screen.getByRole('alert')).toContainText('configuração');await expect(input).toHaveValue('Como organizar nosso ensaio?');await expect(screen).toContainText('0/10 respostas');
+    app.state.maestroFailure=null;await screen.getByRole('button',{name:'Enviar mensagem ao Maestro',exact:true}).click();await expect(screen).toContainText('Vamos preparar o ensaio com oração');await expect(screen).toContainText('1/10 respostas');await expect(input).toHaveValue('');
+    expect(app.state.maestroOutbound.every(call=>call.url==='https://api.x.ai/v1/chat/completions'&&call.model==='grok-4.3')).toBe(true);expect(app.state.maestroRequests[0].memberId).toBe(member.id);
+    for(const width of [390,320]){
+      await page.setViewportSize({width,height:844});await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=element.scrollHeight;});
+      expect(await screen.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+      const composer=await screen.locator('.maestro-compose').boundingBox(),nav=await page.locator('.app-nav .gNav').boundingBox();expect(composer.y+composer.height).toBeLessThan(nav.y-8);
+      await page.screenshot({path:test.info().outputPath('maestro-character-'+theme+'-'+width+'.png'),scale:'css'});
+    }
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });

@@ -3,6 +3,7 @@ import { localDate } from '../lib/domain.js';
 import { performanceKey } from '../lib/chords.js';
 import { homeMonthDates, homeView, homeVocalCategories } from '../lib/home-view.js';
 import { Icon } from './Interface.jsx';
+import { canSeeScreen } from '../lib/member-settings.js';
 import InteractiveArtwork from './InteractiveArtwork.jsx';
 import { SetlistBadge } from './SetlistConfirmation.jsx';
 import '../home.css';
@@ -34,7 +35,7 @@ export default memo(function HomeScreen({ profile, dark, songs, events, members,
   const vocalCategories = homeVocalCategories(profile);
   const calendar = useRef(null);
   const gesture = useRef({active:false,moved:false});
-  const allowed = tab => !(['membros','admin'].includes(tab)&&!profile?.is_admin) && (!profile?.permissions || profile.permissions.includes(tab));
+  const allowed = tab => canSeeScreen(profile,tab);
   const primary = view.primary;
   const currentTeam = teamView === 'assigned' ? view.assigned : view.activeMembers;
   const openEvent = event => { if (allowed(event.type==='ensaio'?'ensaio':'escala')) onOpenEvent(event); };

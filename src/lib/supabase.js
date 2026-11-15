@@ -3,8 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import { decodeSequence, encodeSequence } from './domain.js';
 import { deleteAdminContent } from './admin-delete-client.js';
 import { normalizeSupabaseUrl } from './supabase-url.js';
-import { authenticatedFetch, memberColumns } from './member-session.js';
+import { authenticatedFetch, memberColumns, mutationActor } from './member-session.js';
 import { saveMemberRecord } from './member-storage.js';
+import { normalizeMember } from './member-settings.js';
 
 const url  = import.meta.env.VITE_SUPABASE_URL;
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -39,7 +40,11 @@ export async function fetchMembers() {
     .select(memberColumns)
     .order('name');
   if (error) throw error;
-  return data;
+  const actor = mutationActor();
+  if (!actor) return data.map(normalizeMember);
+  const { data: settings, error: settingsError } = await supabase.rpc('louvesync_member_settings', { p_payload: actor });
+  if (settingsError || !Array.isArray(settings?.members)) throw new Error('Não foi possível atualizar os acessos e a disponibilidade. Tente novamente.');
+  return data.map(member => normalizeMember({ ...member, ...settings.members.find(setting => setting.id === member.id) }));
 }
 
 export async function authenticateMember(memberId, pin) {
@@ -48,7 +53,7 @@ export async function authenticateMember(memberId, pin) {
   if (error) throw new Error(error.code === '28000' ? 'PIN incorreto ou membro inativo.' : error.code === '54000' ? 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.' : 'Não foi possível validar seu acesso.', { cause: error });
   if (data?.ok === false) throw new Error(data.code === 'rate_limited' ? 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.' : 'PIN incorreto ou membro inativo.');
   if (!data?.member?.id || data.member.id !== memberId) throw new Error('A sessão não foi confirmada pelo servidor.');
-  return data.member;
+  return normalizeMember(data.member);
 }
 
 export async function upsertMember(member) {

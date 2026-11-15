@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import { Icon } from './Interface.jsx';
 import MoreCardArtwork from './MoreCardArtwork.jsx';
 
-const primaryIds = ['repertorio', 'treinamento', 'ensaio', 'presencas', 'patrimonio', 'devocional', 'ia', 'membros', 'admin'];
+const primaryIds = ['repertorio', 'treinamento', 'ensaio', 'solicitacoes', 'presencas', 'patrimonio', 'devocional', 'ia', 'membros', 'admin'];
 const fixedIds = new Set(['home', 'escala', 'mural', 'biblia']);
 
 export default function MoreMenu({ tabs, currentTab, onNavigate, onClose, dark }) {

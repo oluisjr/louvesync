@@ -13,7 +13,7 @@ npm run dev
 
 Sem configuração Supabase, o aplicativo preserva os dados locais. Para usar a instância existente, configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no ambiente. Nunca use uma chave de serviço no frontend.
 
-O Maestro usa `/api/maestro`; configure `GROQ_API_KEY` somente no servidor/Vercel. A variável antiga `VITE_GROQ_API_KEY` ainda é reconhecida pelo servidor para compatibilidade, mas não é referenciada pelo frontend. `SCRAPERAPI_KEY` é opcional e também fica no servidor. Os mesmos handlers da pasta `api` são usados no desenvolvimento e na Vercel.
+O Maestro usa `/api/maestro`, valida a sessão do membro e aceita `GROQ_API_KEY` para Groq ou `XAI_API_KEY`/`GROK_API_KEY` para xAI, somente no servidor/Vercel. A variável antiga `VITE_GROQ_API_KEY` continua reconhecida pelo servidor por compatibilidade. O frontend não referencia as chaves. Veja [Maestro e configurações de membros](docs/maestro-and-member-settings.md) para modelos, permissões, disponibilidade e testes. `SCRAPERAPI_KEY` é opcional e também fica no servidor. Os mesmos handlers da pasta `api` são usados no desenvolvimento e na Vercel.
 
 ## Validação
 
@@ -22,6 +22,7 @@ npm run lint
 npm test
 npm run test:activity:sql
 npm run test:changes:sql
+npm run test:members:sql
 npm run build
 npx playwright install chromium
 npm run test:e2e
@@ -49,6 +50,10 @@ O editor usa um painel com altura definida, fora dos contêineres da aplicação
 No catálogo do evento, as músicas aparecem em grupos de Júbilo, Hinário, Adoração, Oferta, Corinhos e Santa Ceia, com as cores das categorias e contagem de músicas selecionadas. Categorias adicionais e músicas sem categoria também aparecem. A busca filtra os grupos; as músicas escolhidas recebem categoria e cor na lista ordenada, e as setas continuam definindo a sequência do evento.
 
 O cadastro e a edição de membros usam o mesmo painel, renderizado diretamente no corpo da página para ficar acima do cabeçalho e da navegação. Perfil, acesso e participação na escala têm campos rotulados, opções de telas com nomes legíveis e seleção dos dias indisponíveis. As ações permanecem no rodapé durante a rolagem e a redução da área disponível. Um erro ao salvar mantém o formulário preenchido e permite tentar novamente; a lista de membros só é atualizada após o sucesso. O PIN atual não é exibido; para redefini-lo, o administrador preenche o campo Novo PIN.
+
+As telas permitidas, os dias indisponíveis e a participação na escala são gravados no banco. **Conta ativa** controla a entrada no app; **Ativo na escala** controla a seleção para eventos sem impedir o login. A disponibilidade vale para instrumentos e vocais, inclusive em eventos recorrentes e ensaios de sábado. Mudanças posteriores não apagam equipes históricas. As regras de cargo continuam obrigatórias para telas de gestão.
+
+Patrimônio usa artes próprias de bateria, microfones, mesa de som e caixa de som, além dos instrumentos existentes. Mais inclui uma arte de solicitações e o personagem do Maestro. São imagens com aparência 3D. As três propostas para a comunidade — boas-vindas, eventos da igreja e pedido de oração — estão em [propostas visuais](docs/designs/church-community/README.md).
 
 O cadastro e a edição de patrimônio também usam esse painel, com nome, marca, número de série, status e responsável pela custódia. Os campos rolam acima do teclado enquanto Salvar e Cancelar ficam acessíveis. Falhas de gravação mantêm os dados preenchidos, e a lista só muda após a confirmação do Supabase.
 

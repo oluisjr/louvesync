@@ -17,7 +17,8 @@ test('inventory summary reflects saved status changes and empty inventories', ()
 test('equipment artwork recognizes instruments without inventing a photo for accessories or unknown items', () => {
   for (const name of ['Microfone sem fio','SHURE SM58']) assert.equal(equipmentArtwork({name}),'/images/equipment/microphone.webp');
   for (const name of ['Teclado de palco','Piano digital']) assert.equal(equipmentArtwork({name}),'/images/equipment/keyboard.webp');
+  for(const [asset,names] of Object.entries({drums:['Bateria Pearl','Baterias acústicas'],mixer:['Mesa de som UI24R','Mixer digital'],speaker:['Caixa de som ativa','Monitor de palco'],microphone:['Microfones sem fio']}))for(const name of names)assert.equal(equipmentArtwork({name}),`/images/equipment/${asset}.webp`);
   assert.equal(equipmentArtwork({name:'VIOLÃO eletroacústico'}),'/images/equipment/guitar.webp');
   for(const [asset,names] of Object.entries({bass:['Baixo elétrico','Contrabaixo','Jazz Bass'],saxophone:['Sax tenor','Saxofone alto'],flute:['Flauta transversal','Concert flute'],cavaquinho:['Cavaquinho','Cavaco'],ukulele:['Ukulele','Ukelele']}))for(const name of names)assert.equal(equipmentArtwork({name}),`/images/equipment/${asset}.webp`);
-  for (const name of ['Cabo de microfone','Suporte de violão','Capa de ukulele','Case de saxofone','Flauta doce','Mesa de som UI24R','']) assert.equal(equipmentArtwork({name}),'/images/more/equipment.webp');
+  for (const name of ['Cabo de microfone','Suporte de violão','Capa de ukulele','Case de saxofone','Flauta doce','']) assert.equal(equipmentArtwork({name}),'/images/more/equipment.webp');
 });
