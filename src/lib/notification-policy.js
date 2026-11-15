@@ -5,7 +5,7 @@ const identifier = value => typeof value === 'string' || typeof value === 'numbe
 const activeMember = member => !member.status || ['ativo', 'ativa', 'active'].includes(normalized(member.status));
 
 export function isNotificationLeader(member) {
-  if (!member) return false;
+  if (!member || member.access_type === 'church_member') return false;
   const role = normalized(member.role);
   return member.is_admin === true || (/\blider\b/.test(role) && /\blouvor\b/.test(role));
 }
@@ -21,7 +21,7 @@ export function notificationRecipients(kind, {
   if (!['event_changed', 'song_added', 'attendance_declined'].includes(kind)) return [];
   return [...new Set(members.filter(member => {
     const id = identifier(member.id);
-    if (!id || !activeMember(member)) return false;
+    if (!id || !activeMember(member) || member.access_type === 'church_member') return false;
     if (kind === 'attendance_declined') return isNotificationLeader(member) && id !== declining;
     if (isNotificationLeader(member) || id === actor) return false;
     return kind === 'song_added' || audience === 'all' || affected.has(id);

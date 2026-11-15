@@ -83,7 +83,7 @@ test('member creation and PIN resets use explicit writes and never request SELEC
       const url = new URL(input), method = init.method || 'GET'; calls.push({ url, method, body: init.body });
       return new Response(JSON.stringify(method === 'GET' ? exists ? [{ id: safe.id }] : [] : safe), { status: 200, headers: { 'Content-Type': 'application/json' } });
     } } });
-    assert.deepEqual(await saveMemberRecord(client, { ...safe, pin: 'NEW_SYNTHETIC_PIN' }), {...safe,permissions:null,unavailableDays:[],scheduleEnabled:true});
+    assert.deepEqual(await saveMemberRecord(client, { ...safe, pin: 'NEW_SYNTHETIC_PIN' }), {...safe,permissions:null,unavailableDays:[],scheduleEnabled:true,access_type:'ministry'});
     assert.equal(calls.length, 2); assert.equal(calls[0].method, 'GET'); assert.equal(calls[1].method, exists ? 'PATCH' : 'POST');
     assert.equal(calls[1].url.searchParams.get('on_conflict'), null);
     assert.equal(JSON.parse(calls[1].body).pin, 'NEW_SYNTHETIC_PIN');

@@ -11,5 +11,5 @@ export async function saveMemberRecord(client, member) {
   const { data, error } = await mutation.select(memberColumns).single();
   if (error) throw error;
   if (!data?.id) throw new Error('O servidor não confirmou o cadastro.');
-  return normalizeMember({ ...data, permissions: payload.permissions, unavailable_days: payload.unavailable_days, schedule_enabled: payload.schedule_enabled });
+  return normalizeMember({ ...data, access_type: payload.access_type, permissions: payload.permissions, unavailable_days: payload.unavailable_days, schedule_enabled: payload.schedule_enabled });
 }

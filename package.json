@@ -18,7 +18,8 @@
     "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug --no-daemon",
     "test:updates": "playwright test --config playwright.updates.config.js",
     "test:changes:sql": "node scripts/test_event_changes_sql.js",
-    "test:members:sql": "node scripts/test_member_settings_sql.js"
+    "test:members:sql": "node scripts/test_member_settings_sql.js",
+    "test:community:sql": "node scripts/test_church_community_sql.js"
   },
   "dependencies": {
     "@capacitor/android": "7.6.9",

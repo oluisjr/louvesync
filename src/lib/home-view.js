@@ -25,13 +25,13 @@ export function homeView({ events, songs, members, profileId, today, selectedDat
   return {
     date, primary, additional: dayEvents.slice(1), upcoming, pending,
     otherPending: pending.filter(event => !dayEvents.some(visible => visible.id === event.id)),
-    activeMembers: members.filter(member => member.status === 'ativo'),
+    activeMembers: members.filter(member => member.status === 'ativo' && member.access_type !== 'church_member'),
     assigned,
     featured: songs.find(song => song.featured_week),
     eventSongs: primary?.type === 'ensaio' ? [] : (primary?.songs || []).map(id => songs.find(song => song.id === id)).filter(Boolean),
     stats: {
       songs: songs.length,
-      members: members.filter(member => member.status === 'ativo').length,
+      members: members.filter(member => member.status === 'ativo' && member.access_type !== 'church_member').length,
       services: upcoming.filter(event => event.type === 'culto').length,
       confirmed: events.filter(event => event.confirmations?.[profileId] === true).length,
     },

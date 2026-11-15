@@ -3,6 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
+    "api/community.js": { "maxDuration": 30 },
     "api/bible.js": {
       "maxDuration": 30
     },

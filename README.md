@@ -2,6 +2,8 @@
 
 Aplicação React/Vite para repertório, escalas e ensaios compartilhados. O login por membro/PIN foi mantido. O monitoramento administrativo possui uma instalação SQL separada; o build e o deploy não executam migrações no banco.
 
+A entrada pública recebe visitantes sem cadastro. Pessoas classificadas pelo administrador como **Membro da igreja** usam boas-vindas, agenda pública, oração e Bíblia. A equipe do ministério conserva seu ambiente de trabalho. A administração publica encontros e acompanha pedidos em **Admin → Comunidade da igreja**. Veja [área da igreja e privacidade](docs/church-community.md).
+
 ## Desenvolvimento
 
 Requer Node.js 24 e npm. Use o checkout existente:
@@ -23,6 +25,7 @@ npm test
 npm run test:activity:sql
 npm run test:changes:sql
 npm run test:members:sql
+npm run test:community:sql
 npm run build
 npx playwright install chromium
 npm run test:e2e

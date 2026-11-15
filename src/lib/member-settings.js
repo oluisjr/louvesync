@@ -8,9 +8,10 @@ export const memberScreens = [
 ];
 export const screenIds = memberScreens.map(([id]) => id);
 const weekdays = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+export function isChurchMember(member) { return member?.access_type === 'church_member'; }
 export function accountActive(member) { return !!member && ['ativo', 'ativa', 'active'].includes(String(member.status || 'ativo').trim().toLowerCase()); }
 export function roleAllowsScreen(member, screen) {
-  if (!accountActive(member) || !screenIds.includes(screen)) return false;
+  if (!accountActive(member) || isChurchMember(member) || !screenIds.includes(screen)) return false;
   if (['membros', 'admin'].includes(screen)) return member.is_admin === true;
   return screen !== 'presencas' || isNotificationLeader(member);
 }
@@ -22,7 +23,7 @@ export function canSeeScreen(member, screen) { return effectiveScreens(member).i
 export function normalizeMember(member) {
   const days = member.unavailable_days ?? member.unavailableDays ?? [];
   const { unavailable_days: _days, schedule_enabled: _schedule, ...publicFields } = member;
-  return { ...publicFields, permissions: Array.isArray(member.permissions) ? [...new Set(member.permissions.filter(screen => screenIds.includes(screen)))] : null,
+  return { ...publicFields, access_type: isChurchMember(member) ? 'church_member' : 'ministry', permissions: Array.isArray(member.permissions) ? [...new Set(member.permissions.filter(screen => screenIds.includes(screen)))] : null,
     unavailableDays: [...new Set(Array.isArray(days) ? days.filter(day => Number.isInteger(day) && day >= 0 && day <= 6) : [])].sort(),
     scheduleEnabled: (member.schedule_enabled ?? member.scheduleEnabled) !== false };
 }
@@ -30,9 +31,11 @@ export function memberPayload(member) {
   const normalized = normalizeMember(member);
   const fields = ['id', 'name', 'role', 'instrument', 'avatar', 'color', 'status', 'is_admin', 'pin', 'vocal_category'];
   return { ...Object.fromEntries(fields.filter(key => Object.hasOwn(member, key)).map(key => [key, member[key]])),
-    permissions: normalized.permissions, unavailable_days: normalized.unavailableDays, schedule_enabled: normalized.scheduleEnabled };
+    access_type: normalized.access_type, ...(isChurchMember(member) ? {role:'Membro',instrument:'',is_admin:false,vocal_category:null} : {}),
+    permissions: normalized.permissions, unavailable_days: normalized.unavailableDays, schedule_enabled: isChurchMember(member) ? false : normalized.scheduleEnabled };
 }
 export function availabilityReason(member, date) {
+  if (isChurchMember(member)) return 'Membro da igreja · fora da equipe do ministério';
   if (!accountActive(member)) return 'Conta inativa';
   if ((member.schedule_enabled ?? member.scheduleEnabled) === false) return 'Fora da escala';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Escolha a data do evento';

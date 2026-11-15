@@ -1,6 +1,7 @@
 import { test, expect, devices } from '@playwright/test';
 import fs from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
+import { communityDatabase } from '../helpers/community-database.js';
 import { createMaestroHandler } from '../../server/maestro.js';
 import { createChangesHandler } from '../../api/changes.js';
 import { createAttendanceHandler } from '../../api/attendance.js';
@@ -571,6 +572,7 @@ async function fixture(browser) {
     return attendanceDb;
   };
   const state = { songs: structuredClone(songs), events: structuredClone(initialEvents), members: structuredClone([admin,member]), memberRequests: [], session: null, notes: {}, nextItemId: 100, posts: [], activitySessions:new Map(), activityViews:new Map(), activityRequests:[], activityNow:Date.parse('2026-10-24T15:00:00Z'), activityFailure:null };
+  const communityDb=communityDatabase(state,getChangesDb);
   const code = `
     import { memberPayload, normalizeMember } from '/src/lib/member-settings.js';
     import { updateEventItems, updateSetlistConfirmation } from '/src/lib/event-storage.js';
@@ -593,10 +595,11 @@ async function fixture(browser) {
     };}};
   `;
   async function open(profile = admin, time = '2026-10-24T12:00:00-03:00', options = {}) {
+    if(options.community)await communityDb.ready();
     if(options.attendance)await getAttendanceDb();
     if(options.changes)await getChangesDb();
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block', ...options.device }); contexts.push(context);
-    await context.addInitScript(({profile,pin}) => { try { localStorage.setItem('ls_profile', JSON.stringify(profile));localStorage.setItem('ls_actor_session',JSON.stringify({memberId:profile.id,pin})); localStorage.removeItem('ls_last_activity'); } catch { /* Sandboxed media frames have no storage access. */ } }, {profile,pin:state.members.find(person=>person.id===profile.id)?.pin||'TEST_PIN_'+profile.id});
+    await context.addInitScript(({profile,pin}) => { try {if(!profile){localStorage.removeItem('ls_profile');localStorage.removeItem('ls_actor_session');return;} localStorage.setItem('ls_profile', JSON.stringify(profile));localStorage.setItem('ls_actor_session',JSON.stringify({memberId:profile.id,pin})); localStorage.removeItem('ls_last_activity'); } catch { /* Sandboxed media frames have no storage access. */ } }, {profile,pin:state.members.find(person=>person.id===profile?.id)?.pin||'TEST_PIN_'+profile?.id});
     if(options.theme)await context.addInitScript(theme=>{try{if(!localStorage.getItem('ls_theme'))localStorage.setItem('ls_theme',theme);}catch{/* Sandboxed media frames have no storage access. */}},options.theme);
     if(options.muralCache)await context.addInitScript(({profile,cache})=>localStorage.setItem('ls_mural_cache_v1:'+profile.id,JSON.stringify(cache)),{profile,cache:options.muralCache});
     if(options.offlineQueue)await context.addInitScript(queue=>localStorage.setItem('ls_sync_queue',JSON.stringify(queue)),options.offlineQueue);
@@ -622,6 +625,7 @@ async function fixture(browser) {
       };
     },options.nativeExcel);
     await context.exposeBinding('__testDb', async (_source, action, args) => {
+      (state.databaseReads||=[]).push(action);
       if (action === 'fetchSongs') return structuredClone(state.songs);
       if (action === 'fetchEvents') return structuredClone(state.events);
       if (action === 'fetchMembers') return structuredClone(state.members);
@@ -630,11 +634,11 @@ async function fixture(browser) {
         state.memberRequests.push(structuredClone(args[0]));
         await state.memberSaveGate;
         if(state.memberSaveError)throw new Error(state.memberSaveError);
-        const unsupported=Object.keys(args[0]).find(key=>!['id','name','role','instrument','avatar','color','status','is_admin','pin','vocal_category','permissions','unavailable_days','schedule_enabled'].includes(key));
+        const unsupported=Object.keys(args[0]).find(key=>!['id','name','role','instrument','avatar','color','status','is_admin','pin','vocal_category','permissions','unavailable_days','schedule_enabled','access_type'].includes(key));
         if(unsupported)throw new Error('Unknown members column: '+unsupported);
         const index=state.members.findIndex(member=>member.id===args[0].id);
         if(index<0)state.members.push(structuredClone(args[0]));else state.members[index]={...state.members[index],...structuredClone(args[0])};
-        return args[0];
+        await communityDb.syncMember(state.members.find(person=>person.id===args[0].id));return args[0];
       }
       if (action === 'setPresence') {
         (state.presenceRequests||=[]).push(structuredClone(args));
@@ -809,16 +813,22 @@ async function fixture(browser) {
       const res={code:200,headers:{},setHeader(name,value){this.headers[name]=value;},status(code){this.code=code;return this;},json(body){this.body=body;return this;},send(body){this.body=body;return this;}};
       await maestroHandler(req,res);await route.fulfill({status:res.code,headers:res.headers,json:res.body});
     });
+    await page.route('**/api/community',async route=>{
+      const req={method:route.request().method(),headers:{...route.request().headers(),host:new URL(route.request().url()).host,'x-real-ip':'192.0.2.10'},body:route.request().postDataJSON()};
+      (state.communityRequests||=[]).push(structuredClone(req.body));
+      const res={code:200,headers:{},setHeader(name,value){this.headers[name]=value;},status(code){this.code=code;return this;},json(body){this.body=body;return this;},send(body){this.body=body;return this;}};
+      await communityDb.handler(req,res);await route.fulfill({status:res.code,headers:res.headers,json:res.body});
+    });
     if(options.activity)await page.route('**/api/activity',route=>handleActivity(route));
     await page.route('**/version.json', route => route.fulfill({ json: {version:'test'} }));
     await page.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/, route => route.abort());
     if(options.directActivity)await page.route('https://activity-fixture.supabase.co/rest/v1/rpc/louvesync_activity',route=>handleActivity(route,true));
     await page.clock.setFixedTime(new Date(time));
     await page.goto('http://127.0.0.1:5174/');
-    await expect(page.getByRole('button', {name:'Escala',exact:true})).toBeVisible();
+    if(!profile||profile.access_type==='church_member')await expect(page.getByRole('navigation',{name:'Navegação da comunidade'})).toBeVisible();else await expect(page.getByRole('button', {name:'Escala',exact:true})).toBeVisible();
     return page;
   }
-  return { open, failures, state, async attendanceQuery(sql,params=[]){const db=await getAttendanceDb();await db.exec('reset role');try{return await db.query(sql,params);}finally{await db.exec('set role anon');}}, async close(){try{for(const context of contexts)await context.close();}finally{await attendanceDb?.close();await changesDb?.close();}} };
+  return { open, failures, state, communityQuery:communityDb.query, async attendanceQuery(sql,params=[]){const db=await getAttendanceDb();await db.exec('reset role');try{return await db.query(sql,params);}finally{await db.exec('set role anon');}}, async close(){try{for(const context of contexts)await context.close();}finally{await attendanceDb?.close();await changesDb?.close();}} };
 }
 
 test('five fixed destinations keep secondary screens reachable and respect member permissions',async({browser})=>{
@@ -886,7 +896,7 @@ for(const theme of ['light','dark']){
       await expect(main).toHaveJSProperty('inert',true);
       expect(await main.evaluate(element=>element.scrollTop)).toBe(previousScroll);
       await expect.poll(()=>menu.locator('img').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0))).toBe(true);
-      for(const [label,asset] of [['Devocional','/images/more/devotional.webp'],['Maestro','/images/maestro/character.webp'],['Solicitações','/images/more/requests.webp']])await expect(menu.getByRole('button',{name:label,exact:true}).locator('img')).toHaveAttribute('src',asset);
+      for(const [label,asset] of [['Devocional','/images/more/devotional.webp'],['Maestro','/images/maestro/toy.webp'],['Solicitações','/images/more/requests.webp']])await expect(menu.getByRole('button',{name:label,exact:true}).locator('img')).toHaveAttribute('src',asset);
       await expect.poll(()=>nav.locator('img').evaluate(image=>image.complete&&image.naturalWidth>0)).toBe(true);
       for(const width of [390,320]){
         await page.setViewportSize({width,height:844});
@@ -1653,7 +1663,7 @@ for(const theme of ['light','dark'])test(`weekly schedule groups the full week a
     const practice=screen.getByRole('article',{name:'Ensaio da equipe',exact:true});await expect(practice).not.toContainText('Músicas');
     await practice.locator('.schedule-team > summary').click();await expect(practice.locator('.schedule-team li strong')).toHaveText(['Admin Teste','Membro Teste']);
     const service=screen.getByRole('article',{name:'Culto de Teste',exact:true});await service.locator('.schedule-music > summary').evaluate(element=>element.scrollIntoView({block:'center'}));await service.locator('.schedule-music > summary').click();
-    await expect(service.locator('.schedule-music li > span')).toHaveText(['Teste adoracao','Teste ceia','Teste jubilo']);await expect(service.locator('.schedule-music li > small').first()).toHaveText('Eb');
+    await expect(service.locator('.schedule-music li > div > span:first-child')).toHaveText(['Teste adoracao','Teste ceia','Teste jubilo']);await expect(service.locator('.schedule-music li > small').first()).toHaveText('Eb');
     await week.evaluate(element=>element.scrollIntoView({block:'center'}));await week.getByRole('button',{name:'Próxima semana',exact:true}).click();await expect(screen.getByRole('article',{name:'Reunião de planejamento',exact:true})).toBeVisible();
     const nextRange=await week.getByRole('heading').innerText();await screen.getByRole('group',{name:'Filtrar escala'}).getByRole('button',{name:'Minha escala',exact:true}).click();
     await screen.getByRole('button',{name:'Ver detalhes →',exact:true}).click();await page.locator('.gL2').getByRole('button',{name:'Abrir cifra de Teste jubilo',exact:true}).click();
@@ -3008,5 +3018,69 @@ for(const theme of ['light','dark'])test(`Maestro uses the new character and kee
       await page.screenshot({path:test.info().outputPath('maestro-character-'+theme+'-'+width+'.png'),scale:'css'});
     }
     expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+for(const theme of ['light','dark'])test(`church visitors browse public meetings and submit a private anonymous prayer with real PostgreSQL in ${theme}`,async({browser})=>{
+  const app=await fixture(browser);
+  app.state.churchEvents=[{id:'20000000-0000-4000-8000-000000000001',title:'Culto da comunidade',starts_at:'2026-10-25T21:00:00Z',location:'Templo principal',category:'Culto',published:true},{id:'20000000-0000-4000-8000-000000000002',title:'Rascunho reservado',starts_at:'2026-10-26T21:00:00Z',published:false}];
+  try{
+    const page=await app.open(null,undefined,{community:true,theme,device:{viewport:{width:390,height:844}}});
+    await expect(page.getByRole('region',{name:'Boas-vindas',exact:true})).toBeVisible();await expect(page.getByText('Culto da comunidade',{exact:true})).toBeVisible();
+    expect((app.state.databaseReads||[]).filter(action=>['fetchSongs','fetchEvents','fetchMembers'].includes(action))).toEqual([]);
+    const nav=page.getByRole('navigation',{name:'Navegação da comunidade'});
+    await nav.getByRole('button',{name:'Agenda',exact:true}).click();await expect(page.getByText('Rascunho reservado',{exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Ver detalhes de Culto da comunidade',exact:true}).click();await expect(page.getByRole('dialog',{name:'Culto da comunidade',exact:true})).toContainText('Templo principal');await page.getByRole('button',{name:'Fechar detalhes do encontro',exact:true}).click();
+    await nav.getByRole('button',{name:'Oração',exact:true}).click();const prayer=page.getByRole('region',{name:'Pedido de oração',exact:true});
+    await expect(prayer.getByRole('radio',{name:'Somente a liderança responsável',exact:true})).toBeChecked();await prayer.getByLabel('Seu nome (opcional)').fill('Nome que deve ficar privado');await prayer.getByRole('checkbox',{name:'Enviar sem meu nome',exact:true}).check();
+    const message=prayer.getByRole('textbox',{name:'Seu pedido de oração',exact:true});await message.fill('Pedido privado de oração pela minha família.');app.state.prayerFailure=true;await prayer.getByRole('button',{name:'Enviar pedido de oração',exact:true}).click();await expect(prayer.getByRole('alert')).toContainText('preservado');await expect(message).toHaveValue('Pedido privado de oração pela minha família.');
+    app.state.prayerFailure=false;await prayer.getByRole('button',{name:'Enviar pedido de oração',exact:true}).click();await expect(prayer.getByRole('status')).toContainText('Pedido recebido');await expect(message).toHaveValue('');
+    const saved=(await app.communityQuery('select display_name,anonymous,member_id,message,published,status from louvesync_prayer_requests')).rows;expect(saved).toHaveLength(1);expect(saved[0]).toMatchObject({display_name:'',anonymous:true,member_id:null,published:false,status:'pending'});
+    for(const width of [390,320]){
+      await page.setViewportSize({width,height:844});await page.locator('.church-scroll').evaluate(node=>{node.scrollTop=0;});await page.screenshot({path:test.info().outputPath(`church-prayer-${theme}-${width}.png`),scale:'css'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+      await page.locator('.church-scroll').evaluate(node=>{node.scrollTop=node.scrollHeight;});const submit=await prayer.getByRole('button',{name:'Enviar pedido de oração',exact:true}).boundingBox(),bar=await nav.boundingBox();expect(submit.y+submit.height).toBeLessThan(bar.y-8);
+      await nav.getByRole('button',{name:'Início',exact:true}).click();await page.screenshot({path:test.info().outputPath(`church-welcome-${theme}-${width}.png`),scale:'css'});await nav.getByRole('button',{name:'Oração',exact:true}).click();
+    }
+    await page.reload();await expect(page.getByText('Pedido privado de oração pela minha família.',{exact:true})).toHaveCount(0);expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('church administrators publish meetings for visitors without exposing internal scales and can withdraw publication',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const visitor=await app.open(null,undefined,{community:true}),leader=await app.open(admin);await navigate(leader,'Admin');await leader.getByRole('button',{name:'Comunidade da igreja',exact:true}).click();const adminPage=leader.getByRole('region',{name:'Gestão da comunidade',exact:true});
+    await adminPage.getByRole('button',{name:'Novo encontro',exact:true}).click();const editor=leader.getByRole('dialog',{name:'Encontro da igreja',exact:true});await editor.getByLabel('Nome do encontro',{exact:true}).fill('Encontro para toda a igreja');await editor.getByLabel('Data e horário',{exact:true}).fill('2026-10-25T18:00');await editor.getByLabel('Local',{exact:true}).fill('Templo principal');await editor.getByRole('checkbox',{name:'Publicar na agenda da igreja',exact:true}).check();await editor.getByRole('button',{name:'Salvar encontro',exact:true}).click();await expect(editor).toHaveCount(0);
+    await visitor.evaluate(()=>window.dispatchEvent(new Event('online')));await visitor.getByRole('navigation',{name:'Navegação da comunidade'}).getByRole('button',{name:'Agenda',exact:true}).click();await expect(visitor.getByText('Encontro para toda a igreja',{exact:true})).toBeVisible();await expect(visitor.getByText('Culto de Teste',{exact:true})).toHaveCount(0);const saved=(await app.communityQuery('select published,created_by,starts_at from louvesync_church_events')).rows;expect(saved).toHaveLength(1);expect(saved[0].published).toBe(true);expect(saved[0].created_by).toBe(admin.id);
+    await adminPage.getByRole('button',{name:'Editar encontro Encontro para toda a igreja',exact:true}).click();await editor.getByRole('checkbox',{name:'Publicar na agenda da igreja',exact:true}).uncheck();await editor.getByRole('button',{name:'Salvar encontro',exact:true}).click();await expect(editor).toHaveCount(0);await visitor.evaluate(()=>window.dispatchEvent(new Event('online')));await expect(visitor.getByText('Encontro para toda a igreja',{exact:true})).toHaveCount(0);
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('church membership selected by an admin redirects another device and cannot grant itself ministry management',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const leader=await app.open(admin,undefined,{community:true}),teammate=await app.open(member);await navigate(leader,'Admin');await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();const editor=leader.getByRole('dialog',{name:'Editar membro',exact:true});await editor.getByLabel('Tipo de acesso',{exact:true}).selectOption('church_member');await expect(editor.getByRole('checkbox',{name:'Administrador',exact:true})).toHaveCount(0);await expect(editor.getByRole('checkbox',{name:'Ativo na escala',exact:true})).toHaveCount(0);await editor.getByRole('button',{name:'Salvar alterações',exact:true}).click();await expect(editor).toHaveCount(0);
+    await expect(teammate.getByRole('navigation',{name:'Navegação da comunidade'})).toBeVisible();await expect(teammate.getByRole('button',{name:'Escala',exact:true})).toHaveCount(0);await teammate.reload();await expect(teammate.getByRole('navigation',{name:'Navegação da comunidade'})).toBeVisible();await teammate.getByRole('navigation',{name:'Navegação da comunidade'}).getByRole('button',{name:'Mais',exact:true}).click();await expect(teammate.getByText('Membro da igreja',{exact:true})).toBeVisible();
+    const blocked=await teammate.evaluate(async actor=>{const response=await fetch('/api/community',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'admin_list',memberId:actor.id,pin:actor.pin,is_admin:true})});return response.status;},{...app.state.members.find(person=>person.id===member.id),pin:app.state.members.find(person=>person.id===member.id).pin||'TEST_PIN_'+member.id});expect(blocked).toBe(403);
+    expect((await app.communityQuery('select access_type,schedule_enabled,is_admin,role from members where id=$1',[member.id])).rows[0]).toMatchObject({access_type:'church_member',schedule_enabled:false,is_admin:false,role:'Membro'});
+    await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();await editor.getByLabel('Tipo de acesso',{exact:true}).selectOption('ministry');await editor.getByLabel('Função ou instrumento',{exact:true}).fill('Vocal');await editor.getByRole('button',{name:'Salvar alterações',exact:true}).click();await expect(editor).toHaveCount(0);await teammate.evaluate(()=>window.dispatchEvent(new Event('online')));await expect(teammate.getByRole('button',{name:'Escala',exact:true})).toBeVisible();expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('church prayers shared with consent appear publicly only after admin review and disappear when archived',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const visitor=await app.open(null,undefined,{community:true});await visitor.getByRole('navigation',{name:'Navegação da comunidade'}).getByRole('button',{name:'Oração',exact:true}).click();const form=visitor.getByRole('region',{name:'Pedido de oração',exact:true});await form.getByLabel('Seu nome (opcional)').fill('Visitante Teste');await form.getByRole('textbox',{name:'Seu pedido de oração',exact:true}).fill('Pedimos oração por nossa comunidade nesta semana.');await form.getByRole('radio',{name:'Compartilhar com a comunidade',exact:true}).check();await form.getByRole('button',{name:'Enviar pedido de oração',exact:true}).click();await expect(form.getByRole('status')).toContainText('Pedido recebido');await expect(visitor.getByRole('heading',{name:'Oramos juntos',exact:true})).toHaveCount(0);
+    const leader=await app.open(admin);await navigate(leader,'Admin');await leader.getByRole('button',{name:'Comunidade da igreja',exact:true}).click();const adminPage=leader.getByRole('region',{name:'Gestão da comunidade',exact:true});await adminPage.getByRole('button',{name:'Pedidos de oração',exact:true}).click();await adminPage.getByRole('checkbox',{name:'Publicar para a comunidade após revisão',exact:true}).check();await adminPage.getByRole('button',{name:'Salvar acompanhamento',exact:true}).click();await expect(adminPage.getByRole('status')).toContainText('Acompanhamento salvo');await visitor.evaluate(()=>window.dispatchEvent(new Event('online')));await expect(visitor.getByRole('heading',{name:'Oramos juntos',exact:true})).toBeVisible();await expect(visitor.getByText('Pedimos oração por nossa comunidade nesta semana.',{exact:true})).toBeVisible();
+    await adminPage.getByLabel('Andamento',{exact:true}).selectOption('archived');await adminPage.getByRole('button',{name:'Salvar acompanhamento',exact:true}).click();await expect.poll(async()=>(await app.communityQuery('select status from louvesync_prayer_requests')).rows[0].status).toBe('archived');await visitor.evaluate(()=>window.dispatchEvent(new Event('online')));await expect(visitor.getByText('Pedimos oração por nossa comunidade nesta semana.',{exact:true})).toHaveCount(0);expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+for(const theme of ['light','dark'])test(`schedule response badges and song categories remain distinct and Maestro bubbles contrast in ${theme}`,async({browser})=>{
+  const app=await fixture(browser);app.state.members.push({...member,id:'pending',name:'Pendente Teste'});app.state.events[0].event_members=[{member_id:admin.id,confirmed:true},{member_id:member.id,confirmed:false},{member_id:'pending',confirmed:null}];
+  try{
+    const page=await app.open(admin,undefined,{theme,device:{viewport:{width:390,height:844}}});await page.getByRole('button',{name:'Escala',exact:true}).click();await page.getByRole('article',{name:'Culto de Teste',exact:true}).getByRole('button',{name:'Ver detalhes →',exact:true}).click();const details=page.getByRole('dialog',{name:'Culto de Teste',exact:true});await details.getByRole('button',{name:/^Equipe/}).click();
+    const colors=await details.locator('.event-person .rsvp-badge').evaluateAll(nodes=>nodes.map(node=>getComputedStyle(node).backgroundColor));expect(new Set(colors).size).toBe(3);await expect(details.locator('.event-person .rsvp-badge[data-response=yes]')).toContainText('Confirmado');await expect(details.locator('.event-person .rsvp-badge[data-response=no]')).toContainText('Recusou');await expect(details.locator('.event-person .rsvp-badge[data-response=pending]')).toContainText('Pendente');await page.screenshot({path:test.info().outputPath(`schedule-team-contrast-${theme}.png`),scale:'css'});
+    await details.getByRole('button',{name:/^Setlist/}).click();await expect(details.locator('.song-category-badge')).toHaveCount(songs.length);await page.screenshot({path:test.info().outputPath(`schedule-category-contrast-${theme}.png`),scale:'css'});await details.getByRole('button',{name:'Fechar detalhes do evento',exact:true}).click();await navigate(page,'Maestro');
+    const maestro=page.getByRole('region',{name:'Maestro',exact:true});await expect(maestro.locator('.maestro-hero img')).toHaveAttribute('src','/images/maestro/toy.webp');await maestro.getByRole('textbox',{name:'Mensagem para o Maestro',exact:true}).fill('Como organizar a equipe?');await maestro.getByRole('button',{name:'Enviar mensagem ao Maestro',exact:true}).click();await expect(maestro).toContainText('Vamos preparar o ensaio com oração');const bubbles=await maestro.locator('.maestro-message>div').evaluateAll(nodes=>nodes.map(node=>({author:node.parentElement.dataset.author,bg:getComputedStyle(node).backgroundColor,color:getComputedStyle(node).color})));expect(bubbles.find(b=>b.author==='u').bg).not.toBe(bubbles.find(b=>b.author==='a').bg);expect(bubbles.find(b=>b.author==='u').color).not.toBe(bubbles.find(b=>b.author==='a').color);await page.screenshot({path:test.info().outputPath(`maestro-bubble-contrast-${theme}.png`),scale:'css'});expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });

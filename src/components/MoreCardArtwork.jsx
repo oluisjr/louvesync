@@ -4,7 +4,7 @@ const artwork = {
   ensaio: 'rehearsal',
   patrimonio: 'equipment',
   devocional: 'devotional',
-  ia: 'character',
+  ia: 'toy',
   solicitacoes: 'requests',
   membros: 'members',
   presencas: 'members',

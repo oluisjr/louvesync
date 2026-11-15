@@ -30,4 +30,4 @@ export function publicMember(member) {
   const { pin: _pin, ...safe } = member || {};
   return safe;
 }
-export const memberColumns = 'id,name,role,instrument,avatar,color,status,is_admin,vocal_category';
+export const memberColumns = 'id,name,role,instrument,avatar,color,status,is_admin,vocal_category,access_type';

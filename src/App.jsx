@@ -16,7 +16,8 @@ import { performanceKey, renderChordText } from './lib/chords.js';
 import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
 import MaestroScreen from './components/MaestroScreen.jsx';
-import { canSeeScreen, effectiveScreens, normalizeMember, availableMembers, availabilityReason, rosterConflicts } from './lib/member-settings.js';
+import ChurchAdmin from './components/ChurchAdmin.jsx';
+import { canSeeScreen, effectiveScreens, isChurchMember, normalizeMember, availableMembers, availabilityReason, rosterConflicts } from './lib/member-settings.js';
 import { maestroRequest } from './lib/maestro-client.js';
 import EquipmentEditor from './components/EquipmentEditor.jsx';
 import EquipmentInventory from './components/EquipmentInventory.jsx';
@@ -390,7 +391,7 @@ const BIBLE_PLANS = [
   { id: 'forca', title: 'Força e Coragem', icon: '🛡️', verses: [{b:'isaiah',c:41,v:'10'}, {b:'philippians',c:4,v:'13'}, {b:'psalms',c:46,v:'1'}] }
 ];
 
-const Biblia = ({dark,profileId})=><Bible key={profileId} profileId={profileId} dark={dark} books={BIBLE_BOOKS} plans={BIBLE_PLANS}/>;
+export const Biblia = ({dark,profileId})=><Bible key={profileId} profileId={profileId} dark={dark} books={BIBLE_BOOKS} plans={BIBLE_PLANS}/>;
 
 /* ─── CAROUSEL HELPER ───────────────────────────────────────── */
 const ContentCarousel = memo(({content, dark}) => {
@@ -1100,12 +1101,13 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
 
     <ActivityMonitor activity={activity} members={members} dark={dark}/>
     {/* Admin tabs */}
-    <div style={{display:'flex',gap:6,marginBottom:16}} className="aUp">
-      {[['geral','⚙️ Geral'],['dashboard','📊 Dashboard'],['patrimonio','🏛️ Patrimônio']].map(([k,l])=>
+    <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:16}} className="aUp">
+      {[['geral','⚙️ Geral'],['dashboard','📊 Dashboard'],['patrimonio','🏛️ Patrimônio'],['comunidade','Comunidade da igreja']].map(([k,l])=>
         <button key={k} onClick={()=>setAdminTab(k)} style={{padding:'7px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:700,background:adminTab===k?'#4F46E5':'rgba(79,70,229,.08)',color:adminTab===k?'#fff':'var(--app-link, #4F46E5)'}}>{l}</button>
       )}
     </div>
 
+    {adminTab === 'comunidade' && <ChurchAdmin dark={dark} credentials={activity.credentials}/>}
     {adminTab === 'geral' && <>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}} className="aUp">
         <div className={gc} style={{padding:16,borderRadius:'var(--r-lg)',textAlign:'center'}}>
@@ -1303,7 +1305,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
 
 
 /* ─── LOGIN SCREEN ──────────────────────────────────────────── */
-const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
+const LoginScreen = memo(({members,loading,onLogin,dark,setDark,onVisitor})=>{
   const [step,setStep]=useState('select');
   const { viewportRef, controlsRef } = useLoginViewport(step==='pin');
   const pinRef = useRef(null);
@@ -1349,6 +1351,7 @@ const LoginScreen = memo(({members,loading,onLogin,dark,setDark})=>{
       <div className="orb" style={{width:300,height:300,bottom:-80,right:-60,background:dark?'rgba(16,185,129,.1)':'rgba(16,185,129,.16)',animation:'oB 17s ease-in-out infinite'}}/>
     </div>
     <div className="login-content">
+      {step==='select'&&onVisitor&&<button type="button" className="login-back" style={{color:dark?'#d7b7ff':'#7544a8'}} onClick={onVisitor}><IcoChevL s={15}/>Continuar como visitante</button>}
       {/* Header */}
       <div className="login-brand">
         <img src="/brand/v2/mark-color.png" alt="LouveSync" width="100" height="100" />
@@ -2232,13 +2235,14 @@ const Ensaio = props=><Rehearsal {...props} LyricView={LyricView}/>;
 
 
 
-export default function LouveSync() {
+export default function LouveSync({onVisitor,onCommunitySession}) {
   // ── Auth
   const [profile,setProfile]=useState(null);
   const [allMembers,setAllMembers]=useState([]);
   const [authLoading,setAuthLoading]=useState(true);
   const [actorSession,setActorSession]=useState(readActorSession);
-  const activity=useActivity(profile,actorSession);
+  const activity=useActivity(isChurchMember(profile)?null:profile,actorSession);
+  useEffect(()=>{if(isChurchMember(profile))onCommunitySession?.(profile,actorSession);},[profile,actorSession,onCommunitySession]);
   const [changeDraft,setChangeDraft]=useState(null);
   const [changeNotice,setChangeNotice]=useState('');
   useEffect(()=>{if(profile)writeCache('ls_profile',publicMember(profile));},[profile]);
@@ -2338,7 +2342,7 @@ export default function LouveSync() {
   const [retrySync,setRetrySync]=useState(0);
   const [isOnline,setIsOnline]=useState(navigator.onLine);
   useEffect(()=>{
-    if(!isOnline || !supabase || !profile || !syncQueue.some(task=>!completedSyncTasks.current.has(task.id)&&(!task.actorId||task.actorId===profile.id)) || syncing.current)return;
+    if(!isOnline || !supabase || !profile || isChurchMember(profile) || !syncQueue.some(task=>!completedSyncTasks.current.has(task.id)&&(!task.actorId||task.actorId===profile.id)) || syncing.current)return;
     syncing.current=true;
     let retry;
     (async()=>{
@@ -2511,7 +2515,7 @@ export default function LouveSync() {
 
   /* ── Data refresh and shared notifications (existing database only) ── */
   useEffect(()=>{
-    if(!profile)return;
+    if(!profile||isChurchMember(profile))return;
     let disposed=false, inFlight=false, pending=false;
     async function loadData(){
       if(inFlight){pending=true;return;}
@@ -2560,7 +2564,9 @@ export default function LouveSync() {
     localStorage.setItem('ls_actor_session',JSON.stringify(actor));
     localStorage.setItem('ls_profile',JSON.stringify(safe));
     localStorage.setItem('ls_last_activity',String(Date.now()));
-    setMutationActor(actor);setActorSession(actor);setProfile(safe);
+    setMutationActor(actor);
+    if(isChurchMember(safe)&&onCommunitySession){onCommunitySession(safe,actor);return true;}
+    setActorSession(actor);setProfile(safe);
     return true;
   }
   function handleOwnPinChanged(pin){
@@ -2778,6 +2784,7 @@ export default function LouveSync() {
   }
 
   /* ── Landscape lock ── */
+  if(isChurchMember(profile))return <p role="status">Abrindo a comunidade da igreja…</p>;
   if(landscape){
     return(
       <div className="rotate-msg">
@@ -2791,7 +2798,7 @@ export default function LouveSync() {
 
   /* ── If not logged in ── */
   if(!profile){
-    return <LoginScreen members={allMembers} loading={authLoading} onLogin={handleLogin} dark={dark} setDark={setDark}/>;
+    return <LoginScreen members={allMembers} loading={authLoading} onLogin={handleLogin} dark={dark} setDark={setDark} onVisitor={onVisitor}/>;
   }
 
   const allTabs = [
