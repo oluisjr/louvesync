@@ -478,22 +478,22 @@ test('pages use one compact menu clearance and release it when opening a chart',
     await page.setViewportSize({width:390,height:700});
     await page.addStyleTag({content:':root { --app-safe-bottom: 0px; }'});
     const main=page.locator('[data-main-scroll]'),nav=page.locator('.app-nav .gNav');
-    const checkEnd=async last=>{
+    const checkEnd=async(last,obstruction=nav)=>{
       await main.evaluate(element=>{element.scrollTop=element.scrollHeight;});
       await expect(last).toBeInViewport();
       await expect.poll(async()=>{
         await main.evaluate(element=>{element.scrollTop=element.scrollHeight;});
         const box=await last.boundingBox();
-        return Math.round((await nav.boundingBox()).y-box.y-box.height);
+        return Math.round((await obstruction.boundingBox()).y-box.y-box.height);
       }).toBeGreaterThanOrEqual(10);
-      const item=await last.boundingBox(),menu=await nav.boundingBox();
-      expect(menu.y-item.y-item.height).toBeLessThanOrEqual(36);
+      const item=await last.boundingBox(),menu=await nav.boundingBox(),bar=await obstruction.boundingBox();
+      expect(bar.y-item.y-item.height).toBeLessThanOrEqual(36);
       expect(Math.abs(700-menu.y-menu.height-8)).toBeLessThan(1);
       const bounds=await main.boundingBox();expect(Math.round(bounds.y+bounds.height)).toBe(700);
     };
     for(const tab of ['Ensaio','Bíblia','Admin']){
       await navigate(page,tab);
-      await checkEnd(main.locator('.ui-page > .ui-card, .app-page > .gL1').last());
+      await checkEnd(main.locator('.ui-page > .ui-card, .app-page > .gL1').last(),tab==='Bíblia'?page.locator('.bible-chapter-dock'):nav);
     }
     await navigate(page,'Ensaio');
     const last=main.locator('.ui-page > .ui-card').last();
@@ -1556,6 +1556,109 @@ test('opening a push target waits for an unfinished event editor instead of disc
   expect(app.failures).toEqual([]);
  }finally{await app.close();}
 });
+async function bibleTransport(page) {
+  const state={offline:false},handler=createBibleHandler();
+  await page.route('**/api/bible?**',async route=>{
+    if(state.offline)return route.abort('failed');
+    const url=new URL(route.request().url());
+    const res={code:200,body:null,setHeader(){},status(code){this.code=code;return this;},json(body){this.body=body;return this;}};
+    await handler({method:'GET',query:Object.fromEntries(url.searchParams)},res);
+    return route.fulfill({status:res.code,json:res.body});
+  });
+  return state;
+}
+
+for(const theme of ['light','dark'])test(`Bible saves, highlights and shares verses with a floating chapter center in ${theme}`,async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open(admin,undefined,{theme,device:{...devices['iPhone 13'],viewport:{width:390,height:844}},standalone:true});
+    const transport=await bibleTransport(page);await page.context().grantPermissions(['clipboard-read','clipboard-write']);
+    await page.evaluate(()=>Object.defineProperty(navigator,'share',{configurable:true,value:undefined}));
+    await page.getByRole('button',{name:'Bíblia',exact:true}).click();
+    const screen=page.locator('.bible-screen'),reader=screen.locator('.ui-bible-reading'),dock=screen.getByRole('navigation',{name:'Central de capítulos',exact:true});
+    const image=screen.getByRole('button',{name:'Mover ilustração da Bíblia',exact:true}).locator('img');
+    await expect.poll(()=>image.evaluate(element=>element.complete&&element.naturalWidth>0)).toBe(true);
+    await expect(reader.locator('.ui-bible-verse')).toHaveCount(51);
+    for(const width of [390,320]){
+      await page.setViewportSize({width,height:844});await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=0;});
+      expect(await screen.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+      await page.screenshot({path:test.info().outputPath(`bible-3d-${theme}-${width}.png`),scale:'css'});
+    }
+    await page.setViewportSize({width:390,height:844});
+    await screen.getByRole('combobox',{name:'Capítulo',exact:true}).selectOption('3');await expect(reader.locator('.ui-bible-verse')).toHaveCount(36);
+    await expect(reader.locator('[data-verse="1"]')).toContainText('Nicodemos, chefe dos judeus');
+    const target=reader.locator('[data-verse="16"]');await target.evaluate(element=>element.scrollIntoView({block:'center'}));await target.getByRole('button').click();
+    const actions=page.getByRole('dialog',{name:'João 3:16',exact:true});
+    await actions.getByRole('button',{name:'Salvar versículo',exact:true}).click();await expect(actions.getByRole('button',{name:'Remover dos salvos',exact:true})).toHaveAttribute('aria-pressed','true');
+    await actions.getByRole('button',{name:'Marcar em amarelo',exact:true}).click();await expect(actions.getByRole('button',{name:'Marcar em amarelo',exact:true})).toHaveAttribute('aria-pressed','true');
+    await page.screenshot({path:test.info().outputPath(`bible-actions-${theme}.png`),scale:'css'});
+    await actions.getByRole('button',{name:'Compartilhar',exact:true}).click();await expect(actions.getByRole('status')).toContainText('Versículo copiado');
+    expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain('João 3:16 · Bíblia Livre (2018)');
+    await actions.getByRole('button',{name:'Continuar leitura',exact:true}).click();
+    await expect(target).toHaveAttribute('data-highlight','yellow');await expect(target).toHaveAttribute('data-saved','true');
+    await expect(target.getByRole('button')).toBeFocused();
+    const before=await dock.boundingBox();await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop+=350;});const after=await dock.boundingBox();
+    expect(Math.abs(before.y-after.y)).toBeLessThan(1);expect(after.y+after.height).toBeLessThan((await page.locator('.app-nav .gNav').boundingBox()).y-8);
+    await page.getByRole('button',{name:'Mais',exact:true}).click();await expect(page.locator('.bible-chapter-dock')).toBeHidden();await page.keyboard.press('Escape');await expect(dock).toBeVisible();
+    transport.offline=true;await page.reload();await page.getByRole('button',{name:'Bíblia',exact:true}).click();await expect(reader.locator('[data-verse="16"]')).toHaveAttribute('data-highlight','yellow');
+    const collectionButton=screen.getByRole('button',{name:/Seus versículos/});await collectionButton.evaluate(element=>element.scrollIntoView({block:'center'}));await collectionButton.click();
+    const collection=page.getByRole('dialog',{name:'Seus versículos',exact:true});await expect(collection.locator('.bible-collection-list > li')).toHaveCount(1);
+    await page.screenshot({path:test.info().outputPath(`bible-collection-${theme}.png`),scale:'css'});
+    await collection.getByRole('button',{name:/^João 3:16/}).click();await expect(target.getByRole('button')).toBeFocused();
+    await page.screenshot({path:test.info().outputPath(`bible-reading-${theme}.png`),scale:'css'});
+    await target.getByRole('button').click();await actions.getByRole('button',{name:'Remover dos salvos',exact:true}).click();await actions.getByRole('button',{name:'Continuar leitura',exact:true}).click();
+    await expect(target).toHaveAttribute('data-saved','false');await expect(target).toHaveAttribute('data-highlight','yellow');
+    await collectionButton.evaluate(element=>element.scrollIntoView({block:'center'}));await collectionButton.click();await expect(collection).toContainText('Seus versículos salvos ficam aqui');
+    await collection.getByRole('button',{name:/^Marcados/}).click();await expect(collection.locator('.bible-collection-list > li')).toHaveCount(1);
+    await collection.getByRole('button',{name:'Remover marcação de João 3:16',exact:true}).click();await expect(collection).toContainText('Suas marcações ficam aqui');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('Bible chapter center crosses books, stays clear of the last verse and restores other page spacing',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open(admin,undefined,{device:{viewport:{width:320,height:740}}});await bibleTransport(page);await page.getByRole('button',{name:'Bíblia',exact:true}).click();
+    const dock=page.getByRole('navigation',{name:'Central de capítulos',exact:true});
+    const pick=async(book,chapter)=>{await dock.getByRole('button',{name:/Escolher capítulo/}).click();const dialog=page.getByRole('dialog',{name:'Escolher capítulo',exact:true});await dialog.getByRole('combobox',{name:'Livro para abrir',exact:true}).selectOption(book);await dialog.getByRole('combobox',{name:'Capítulo para abrir',exact:true}).selectOption(String(chapter));await dialog.getByRole('button',{name:'Ler capítulo',exact:true}).click();};
+    await pick('genesis',50);await expect(page.getByRole('heading',{name:'Gênesis 50',exact:true})).toBeVisible();await dock.getByRole('button',{name:'Próximo capítulo',exact:true}).click();await expect(page.getByRole('heading',{name:'Êxodo 1',exact:true})).toBeVisible();
+    await dock.getByRole('button',{name:'Capítulo anterior',exact:true}).click();await expect(page.getByRole('heading',{name:'Gênesis 50',exact:true})).toBeVisible();
+    await pick('genesis',1);await expect(dock.getByRole('button',{name:'Capítulo anterior',exact:true})).toBeDisabled();await pick('revelation',22);await expect(dock.getByRole('button',{name:'Próximo capítulo',exact:true})).toBeDisabled();
+    await expect(page.locator('.ui-bible-verse')).toHaveCount(21);await page.locator('[data-main-scroll]').evaluate(element=>{element.scrollTop=element.scrollHeight;});
+    const last=await page.locator('.bible-credits').boundingBox();expect(last.y+last.height).toBeLessThan((await dock.boundingBox()).y-8);
+    await page.getByRole('button',{name:'Início',exact:true}).click();await expect(dock).toHaveCount(0);expect(await page.locator('[data-main-scroll]').evaluate(element=>element.style.getPropertyValue('--bible-dock-height'))).toBe('');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+test('Bible sharing handles native share, cancellation and denied clipboard without losing the selected verse',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open();await bibleTransport(page);await page.getByRole('button',{name:'Bíblia',exact:true}).click();await expect(page.locator('.ui-bible-verse')).toHaveCount(51);
+    await page.locator('[data-verse="1"]').evaluate(element=>element.scrollIntoView({block:'center'}));await page.locator('[data-verse="1"] button').click();const dialog=page.getByRole('dialog',{name:'João 1:1',exact:true});
+    await page.evaluate(()=>{window.shareCalls=[];Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.shareCalls.push(data);}});});
+    await dialog.getByRole('button',{name:'Compartilhar',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.shareCalls.length)).toBe(1);expect((await page.evaluate(()=>window.shareCalls[0])).text).toContain('No princípio era a Palavra');
+    await page.evaluate(()=>{window.copyCalls=0;Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{throw new DOMException('cancel','AbortError');}});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{window.copyCalls++;}}});});
+    await dialog.getByRole('button',{name:'Compartilhar',exact:true}).click();await expect(dialog.getByRole('status')).toBeEmpty();expect(await page.evaluate(()=>window.copyCalls)).toBe(0);
+    await page.evaluate(()=>{Object.defineProperty(navigator,'share',{configurable:true,value:undefined});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw new Error('denied');}}});document.execCommand=()=>false;});
+    await dialog.getByRole('button',{name:'Compartilhar',exact:true}).click();await expect(dialog.getByRole('textbox',{name:'Versículo para compartilhar',exact:true})).toHaveValue(/João 1:1/);await expect(dialog).toContainText('Selecione e copie');expect(app.failures).toEqual([]);
+    await expect(dialog.getByRole('button',{name:'Compartilhar',exact:true})).toBeFocused();await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(page.locator('[data-verse="1"] button')).toBeFocused();
+  }finally{await app.close();}
+});
+
+test('Bible reports storage failures and keeps saved verses scoped to each profile',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open();await bibleTransport(page);await page.getByRole('button',{name:'Bíblia',exact:true}).click();await expect(page.locator('.ui-bible-verse')).toHaveCount(51);
+    await page.locator('[data-verse="1"]').evaluate(element=>element.scrollIntoView({block:'center'}));await page.locator('[data-verse="1"] button').click();const dialog=page.getByRole('dialog',{name:'João 1:1',exact:true});
+    await page.evaluate(()=>{window.originalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key.startsWith('ls_bible_library_'))throw new DOMException('quota','QuotaExceededError');return window.originalSetItem.call(this,key,value);};});
+    await dialog.getByRole('button',{name:'Salvar versículo',exact:true}).click();await expect(dialog.getByRole('alert')).toContainText('Não foi possível guardar');await expect(dialog.getByRole('button',{name:'Salvar versículo',exact:true})).toHaveAttribute('aria-pressed','false');
+    await page.evaluate(()=>{Storage.prototype.setItem=window.originalSetItem;});await dialog.getByRole('button',{name:'Salvar versículo',exact:true}).click();await expect(dialog.getByRole('button',{name:'Remover dos salvos',exact:true})).toBeVisible();
+    const saved=await page.evaluate(()=>localStorage.getItem('ls_bible_library_v1_user-admin'));const other=await app.open(member);await bibleTransport(other);await other.evaluate(value=>localStorage.setItem('ls_bible_library_v1_user-admin',value),saved);
+    await other.getByRole('button',{name:'Bíblia',exact:true}).click();await other.getByRole('button',{name:/Seus versículos/}).click();await expect(other.getByRole('dialog',{name:'Seus versículos',exact:true})).toContainText('Seus versículos salvos ficam aqui');expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
 test('Bible plan uses the selected book and opening a passage does not mark it read',async({browser})=>{
   const app=await fixture(browser);
   try{

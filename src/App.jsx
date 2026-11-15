@@ -431,7 +431,7 @@ const BIBLE_PLANS = [
   { id: 'forca', title: 'Força e Coragem', icon: '🛡️', verses: [{b:'isaiah',c:41,v:'10'}, {b:'philippians',c:4,v:'13'}, {b:'psalms',c:46,v:'1'}] }
 ];
 
-const Biblia = ({dark})=><Bible dark={dark} books={BIBLE_BOOKS} plans={BIBLE_PLANS}/>;
+const Biblia = ({dark,profileId})=><Bible key={profileId} profileId={profileId} dark={dark} books={BIBLE_BOOKS} plans={BIBLE_PLANS}/>;
 
 /* ─── CAROUSEL HELPER ───────────────────────────────────────── */
 const ContentCarousel = memo(({content, dark}) => {
@@ -2874,7 +2874,7 @@ export default function LouveSync() {
   const [keyF,setKeyF]=useState('');
   // inCifra: qualquer tab pode abrir a cifra de uma música
   const inCifra = !!selSong;
-  const homeTheme = !!profile && (moreOpen || ['home','mural','treinamento','ensaio','patrimonio','repertorio'].includes(tab)) && !inCifra;
+  const homeTheme = !!profile && (moreOpen || ['home','mural','treinamento','ensaio','patrimonio','repertorio','biblia'].includes(tab)) && !inCifra;
   useAppDisplay(dark,homeTheme);
   const unread=notifications.items.filter(item=>!item.read_at).length;
   const [pushLink,setPushLink]=useState(()=>new URL(window.location.href).searchParams.has('tab')?window.location.href:null);
@@ -3301,7 +3301,7 @@ export default function LouveSync() {
             {tab==='ia'&&!inCifra&&<Maestro dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
             {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
             {tab==='treinamento'&&!inCifra&&<Treinamento dark={dark} profile={profile}/>}
-            {tab==='biblia'&&!inCifra&&<Biblia dark={dark}/>}
+            {tab==='biblia'&&!inCifra&&<Biblia dark={dark} profileId={profile?.id}/>}
             {profile?.is_admin&&tab==='admin'&&!inCifra&&<PainelAdmin dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState} setMembers={setAllMembers} activity={activity}/>}
           </>}
         </div>
