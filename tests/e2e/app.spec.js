@@ -3268,3 +3268,16 @@ test('offline rehearsal audio remains in IndexedDB and is uploaded under its ori
   await page.context().setOffline(false);await expect.poll(()=>app.state.takes?.length||0).toBe(1);await expect.poll(()=>page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_sync_job:')).length)).toBe(0);expect(app.failures).toEqual([]);
  }finally{await app.close();}
 });
+
+
+test('a failed unrelated pending task does not require a manual upload choice to save attendance online',async({browser})=>{
+ const app=await fixture(browser);attendanceFixtures(app);
+ try{
+  const offlineQueue=[{id:'blocked-legacy',actorId:admin.id,type:'unsupported-legacy-operation',data:{},order:1,createdAt:'2026-10-23T12:00:00Z'}];
+  const page=await app.open(admin,attendanceTime,{attendance:true,offlineQueue});const screen=await openAttendanceCall(page);
+  await screen.getByRole('button',{name:'Todos presentes',exact:true}).click();await expect(screen.locator('.attendance-savebar').getByRole('button')).toHaveCount(1);await screen.getByRole('button',{name:'Salvar presença',exact:true}).click();
+  await expect.poll(async()=>(await app.attendanceQuery('select count(*)::int as n from louvesync_attendance_revisions')).rows[0].n,{timeout:20000}).toBe(1);
+  await expect.poll(()=>page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_sync_job:')).map(key=>JSON.parse(localStorage.getItem(key))).filter(job=>job.type==='attendance').length)).toBe(0);
+  await expect(screen.getByRole('heading',{name:'Culto de Teste',exact:true})).toBeVisible();await expect(screen).toContainText('Chamada concluída');expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});

@@ -44,7 +44,8 @@ export function useOfflineSync(actor, profile, onPinChanged) {
         for (const queued of batch) {
           const job=jobsFor(owner).find(value=>value.id===queued.id);
           if(!job)continue;
-          if (!active() || job.blocked) break;
+          if (!active()) break;
+          if (job.blocked) continue;
           try {
             const result=await replayJob(job, { client, actor, connection: publicSupabaseConfig, profile: fresh || profile, active });
             if(job.type==='maestro'&&job.data.purpose!=='chat')cacheWrite('completed:'+owner,[...cacheRead('completed:'+owner,[]),{id:job.id,title:'Formatação do Maestro',text:result}]);
@@ -56,7 +57,7 @@ export function useOfflineSync(actor, profile, onPinChanged) {
           } catch (failure) {
             if (networkFailure(failure)) throw failure;
             updateJobs(list => list.map(value => value.id === job.id ? { ...value, blocked: true, error: failure.message } : value));
-            setError(failure.message); break;
+            setError(failure.message);
           }
         }
         if (!jobsFor(owner).length) setError('');
