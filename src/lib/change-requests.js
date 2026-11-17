@@ -1,6 +1,8 @@
 import { canManageAttendance } from './attendance.js';
 import { actorHeaders } from './member-session.js';
 import { normalizeSupabaseUrl } from './supabase-url.js';
+import { offlineAction, offlineRead, apiScope } from './offline-actions.js';
+import { cacheRead, jobsFor } from './offline-store.js';
 
 export const canManageMinistry = canManageAttendance;
 export const changeKinds = { key: 'Troca de tom', song: 'Troca de música', song_edit: 'Edição de música', song_create: 'Nova música' };
@@ -62,6 +64,18 @@ export function validChangesResponse(data, payload) {
 export async function changesRequest(credentials, payload, options = {}) {
   const body = changesPayload({ ...payload, memberId: credentials?.memberId, pin: credentials?.pin });
   if (!body) throw new Error('Confira sua sessão e os dados da solicitação.');
+  if (!options.offlineBypass) {
+    const send = () => changesRequest(credentials, payload, { ...options, offlineBypass: true });
+    if (['list', 'audit'].includes(payload.action)) {
+      const result = await offlineRead(apiScope('changes', credentials.memberId, payload), send);
+      if (payload.action !== 'list') return result;
+      const local = jobsFor(credentials.memberId).filter(job => job.type === 'changes' && job.data.action === 'request' && (!payload.eventId || job.data.eventId === payload.eventId)).map(job => pendingChange(job.data, credentials.memberId));
+      const queued=jobsFor(credentials.memberId).filter(job=>job.type==='changes');
+      return { ...result, requests: [...local.filter(request => !result.requests.some(saved => saved.id === request.id)), ...result.requests].map(request=>queued.some(job=>job.data.requestId===request.id)?{...request,_pendingOffline:true}:request) };
+    }
+    const previous = cacheRead(apiScope('changes', credentials.memberId, { action: 'list' }))?.requests?.find(request => request.id === payload.requestId);
+    return offlineAction('changes', payload, send, { ok: true, pendingOffline: true, request: payload.action === 'request' ? pendingChange(payload, credentials.memberId) : { ...previous, id: payload.requestId, _pendingOffline: true } }, credentials.memberId);
+  }
   const controller = new AbortController(), abort = () => controller.abort();
   if (options.signal?.aborted) abort();
   options.signal?.addEventListener('abort', abort, { once: true });
@@ -82,4 +96,8 @@ export async function changesRequest(credentials, payload, options = {}) {
     return await send('/api/changes');
   } catch (error) { if (controller.signal.aborted) throw new Error('A solicitação não foi confirmada. Verifique a conexão e tente novamente.', { cause: error }); throw error; }
   finally { clearTimeout(timeout); options.signal?.removeEventListener('abort', abort); }
+}
+
+function pendingChange(payload, owner) {
+  return { id: payload.requestId, actor_id: owner, actor_name: 'Você', kind: payload.kind, source_song_id: payload.songId, event_id: payload.eventId, proposal: payload.proposal, reason: payload.reason, status: 'pending', created_at: new Date().toISOString(), _pendingOffline: true };
 }

@@ -1,11 +1,21 @@
 import { actorHeaders } from './member-session.js';
 import { attendanceFailure, attendancePayload, validAttendanceResponse } from './attendance.js';
 import { normalizeSupabaseUrl } from './supabase-url.js';
+import { offlineAction, offlineRead, apiScope } from './offline-actions.js';
+import { cacheRead } from './offline-store.js';
 
 export async function attendanceRequest(credentials, payload, options = {}) {
   if (!credentials?.memberId || !credentials.pin) throw new Error('Não foi possível validar a sessão. Entre novamente no app.');
   const body = attendancePayload({ ...payload, memberId: credentials.memberId, pin: credentials.pin });
   if (!body) throw new Error('Dados da chamada inválidos.');
+  if (!options.offlineBypass) {
+    const send = () => attendanceRequest(credentials, payload, { ...options, offlineBypass: true });
+    if (payload.action !== 'save') return offlineRead(apiScope('attendance', credentials.memberId, payload), send);
+    return offlineAction('attendance', payload, send, () => {
+      const saved = cacheRead(apiScope('attendance', credentials.memberId, { action: 'get', eventId: payload.eventId }));
+      return { ...saved, ok: true, pendingOffline: true, sheet: { ...saved?.sheet, finalized: false, roster: (saved?.sheet?.roster || []).map(person => ({ ...person, ...payload.entries.find(entry => entry.memberId === person.memberId) })) } };
+    }, credentials.memberId);
+  }
   const controller = new AbortController(), abort = () => controller.abort();
   if (options.signal?.aborted) abort();
   options.signal?.addEventListener('abort', abort, { once: true });

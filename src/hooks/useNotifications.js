@@ -33,7 +33,7 @@ export function useNotifications(credentials) {
     setState({...empty,owner:memberId,loading:true});
     setPush({active:false,busy:false,error:''});
     const load=async()=>{
-      if(disposed||loading||!navigator.onLine||document.visibilityState==='hidden')return;
+      if(disposed||loading||document.visibilityState==='hidden')return;
       loading=true;
       try {
         const data=await notificationRequest(actor,{action:'list'},{signal:controller.signal});

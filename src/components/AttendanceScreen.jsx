@@ -7,6 +7,7 @@ import { localDate } from '../lib/domain.js';
 import { publicSupabaseConfig } from '../lib/supabase.js';
 import { broadcastUpdate, onRealtime } from '../lib/realtime.js';
 import '../attendance.css';
+import { cacheRead, cacheWrite, cacheRemove, jobsFor } from '../lib/offline-store.js';
 
 const dateLabel = value => new Date(value + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 const request = (credentials, payload, options) => attendanceRequest(credentials, payload, { ...options, connection: publicSupabaseConfig });
@@ -14,6 +15,7 @@ const entriesOf = sheet => sheet.roster.map(person => ({ memberId: person.member
 const monthStart = () => localDate().slice(0, 8) + '01';
 
 function AttendanceEvent({ eventId, credentials, online, onBack, onDirtyChange, onLeave }) {
+  const draftKey='attendance-draft:'+credentials.memberId+':'+eventId;
   const [data, setData] = useState(null), [entries, setEntries] = useState(null);
   const [error, setError] = useState(''), [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [retry, setRetry] = useState(0), [savedMessage, setSavedMessage] = useState('');
   const [search, setSearch] = useState('');
@@ -21,6 +23,7 @@ function AttendanceEvent({ eventId, credentials, online, onBack, onDirtyChange, 
   const sheet = data?.sheet;
   const dirty = !!sheet && !!entries && JSON.stringify(entries) !== JSON.stringify(entriesOf(sheet));
   const counts = attendanceCounts(entries || []);
+  useEffect(()=>{if(entries&&data?.sheet)cacheWrite(draftKey,{entries,version:data.sheet.version});},[draftKey,entries,data?.sheet]);
   useEffect(() => { onDirtyChange(dirty, saving); return () => onDirtyChange(false, false); }, [dirty, saving, onDirtyChange]);
   useEffect(() => {
     const leave = event => { if (dirty || saving) { event.preventDefault(); event.returnValue = ''; } };
@@ -34,22 +37,22 @@ function AttendanceEvent({ eventId, credentials, online, onBack, onDirtyChange, 
       setLoading(true); setError('');
       try {
         const result = await request(credentials, { action: 'get', eventId }, { signal: controller.signal });
-        if (!disposed) { setData(result); setEntries(entriesOf(result.sheet)); setSavedMessage(''); }
+        if (!disposed) { const draft=cacheRead(draftKey),pending=jobsFor(credentials.memberId).filter(job=>job.type==='attendance'&&job.data.eventId===eventId).at(-1);setData(result);setEntries(pending?.data.entries || (draft?.version===result.sheet.version?draft.entries:entriesOf(result.sheet)));setSavedMessage(pending?'Chamada salva neste aparelho. Aguardando sincronização.':''); }
       } catch (failure) { if (!disposed) setError(failure.message); }
       finally { if (!disposed) setLoading(false); }
     };
     void load();
     return () => { disposed = true; controller.abort(); };
-  }, [credentials, eventId, retry]);
+  }, [credentials, eventId, retry, draftKey]);
   const change = (id, patch) => { setEntries(previous => previous.map(person => person.memberId === id ? { ...person, ...patch } : person)); setSavedMessage(''); };
   const save = async finalize => {
-    if (lock.current || !online || !data?.canRecord || loading) return;
+    if (lock.current || !(data?.canRecord || (!online&&sheet?.date===localDate())) || loading) return;
     if (finalize && counts.pending) { setError('Marque todos os integrantes antes de concluir a chamada.'); return; }
     if (entries.some(person => person.status === 'excused' && !person.note.trim())) { setError('Informe o motivo de cada falta justificada.'); return; }
     lock.current = true; setSaving(true); setError('');
     try {
       const result = await request(credentials, { action: 'save', eventId, version: sheet.version, finalize, entries });
-      setData(result); setEntries(entriesOf(result.sheet)); setSavedMessage(finalize ? 'Chamada concluída e salva para a liderança.' : 'Rascunho salvo. Quem não foi marcado continua pendente.');
+      setData(result); setEntries(entriesOf(result.sheet));cacheRemove(draftKey); setSavedMessage(result.pendingOffline?'Chamada salva neste aparelho. A conclusão será confirmada no banco quando a conexão voltar.':finalize ? 'Chamada concluída e salva para a liderança.' : 'Rascunho salvo. Quem não foi marcado continua pendente.');
       void broadcastUpdate({ type: 'attendance_changed', eventId }).catch(() => {});
     } catch (failure) { setError(failure.message); }
     finally { lock.current = false; setSaving(false); }
@@ -57,7 +60,7 @@ function AttendanceEvent({ eventId, credentials, online, onBack, onDirtyChange, 
   const refresh = () => onLeave(() => setRetry(value => value + 1));
   const records = sheet?.roster.map(person => ({ ...person, ...entries?.find(entry => entry.memberId === person.memberId) })) || [];
   const visible = records.filter(person => (person.name + ' ' + person.instrument).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
-  const disabled = saving || loading || !online || !data?.canRecord;
+  const disabled = saving || loading || !(data?.canRecord || (!online&&sheet?.date===localDate()));
   const errorBlock = error && <div role="alert" className="attendance-message attendance-error"><p>{error}</p><button type="button" onClick={refresh} disabled={saving}>Atualizar chamada</button></div>;
   return <div className="attendance-record" data-update-blocking={dirty || saving}>
     <button className="attendance-back" type="button" disabled={saving} onClick={() => onLeave(onBack)}><Icon name="left" size={16}/>Eventos e frequência</button>
@@ -67,7 +70,7 @@ function AttendanceEvent({ eventId, credentials, online, onBack, onDirtyChange, 
       <header className="attendance-event-heading"><div><span className="attendance-eyebrow">{dateLabel(sheet.date)} · {sheet.time?.slice(0, 5)}</span><h2>{sheet.label}</h2><span className="attendance-state" data-complete={sheet.finalized && !dirty}>{dirty ? 'Alterações não salvas' : sheet.finalized ? 'Chamada concluída' : sheet.version ? 'Chamada parcial' : 'Chamada não registrada'}</span></div><InteractiveArtwork src="/images/more/members.webp" alt="Equipe do ministério" label="Mover ilustração da equipe" width="120" height="104" className="attendance-event-art"/></header>
       <section className="attendance-record-summary" aria-label="Resumo da chamada"><div><strong>{counts.present}<small> / {counts.total}</small></strong><span>presentes de {counts.total} escalados</span></div><div className="attendance-counts"><span data-kind="absent">{counts.absent} {counts.absent === 1 ? 'ausente' : 'ausentes'}</span><span data-kind="excused">{counts.excused} {counts.excused === 1 ? 'justificada' : 'justificadas'}</span><span>{counts.pending} {counts.pending === 1 ? 'não marcado' : 'não marcados'}</span></div><div className="attendance-progress" aria-hidden="true"><span style={{ width: `${counts.rate || 0}%` }}/></div></section>
       {!data.canRecord && <p className="attendance-message">A chamada fica disponível no dia do evento.</p>}
-      {!online && <p className="attendance-message" role="status">Sem conexão. Suas marcações continuam nesta tela; conecte-se para salvar.</p>}
+      {!online && <p className="attendance-message" role="status">Você pode marcar e salvar a chamada neste aparelho. O envio à liderança acontece quando a conexão voltar.</p>}
       <p className="attendance-help">Marque quem compareceu. A resposta antecipada à escala não preenche a chamada.</p>
       {sheet.version > 0 && <p className="attendance-help">Equipe preservada no primeiro registro. {sheet.recordedBy?.name && `Último registro por ${sheet.recordedBy.name}${sheet.updatedAt ? ' em ' + new Date(sheet.updatedAt).toLocaleString('pt-BR') : ''}.`}</p>}
       <div className="attendance-roster-tools"><label className="attendance-search"><Icon name="search" size={17}/><input type="search" aria-label="Buscar integrante na chamada" value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar integrante…"/></label>{!!records.length && <button type="button" disabled={disabled} onClick={() => { setEntries(previous => previous.map(person => ({ ...person, status: 'present' }))); setSavedMessage(''); }}>Todos presentes</button>}</div>

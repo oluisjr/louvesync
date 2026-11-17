@@ -27,15 +27,15 @@ function RequestCard({ request, leader, songs, events, send, onSaved, disabled }
   };
   const title = songs.find(song => song.id === request.source_song_id)?.title || request.before_record?.title || request.proposal?.title || 'Música';
   return <article className="change-request-card" data-status={request.status} data-update-blocking={busy} aria-label={`${changeKinds[request.kind]} de ${request.actor_name}`}>
-    <header><span className="request-type">{changeKinds[request.kind]}</span><span className="request-status">{changeStatuses[request.status]}</span></header>
+    <header><span className="request-type">{changeKinds[request.kind]}</span><span className="request-status">{request._pendingOffline?'Aguardando sincronização':changeStatuses[request.status]}</span></header>
     <h4>{title}</h4>
     <p className="request-author"><strong>{request.actor_name}</strong> · {dateText(request.created_at)}</p>
     {request.event_id && <p className="request-event">{events?.find(event => event.id === request.event_id)?.label || 'Escala do evento'}</p>}
     <Proposal request={request} songs={songs}/>
     <blockquote>{request.reason}</blockquote>
-    {request.status === 'pending' ? <>
+    {request.status === 'pending' && !request._pendingOffline ? <>
       {leader ? <><label className="request-note">Observação da liderança (opcional)<textarea value={note} onChange={event => setNote(event.target.value)} maxLength={500} rows={2}/></label><div className="request-decisions"><button type="button" className="request-approve" disabled={busy || disabled} onClick={() => decide('approved')}><Icon name="check" size={16}/>{busy ? 'Salvando…' : 'Aprovar'}</button><button type="button" disabled={busy || disabled} onClick={() => decide('rejected')}>Recusar</button></div></> : <><p className="request-waiting"><Icon name="timer" size={15}/>Aguardando aprovação da liderança</p><button type="button" className="request-cancel" disabled={busy || disabled} onClick={() => decide('cancelled')}>Cancelar solicitação</button></>}
-    </> : <p className="request-decision">{request.decided_name || 'Responsável'} · {dateText(request.decided_at)}{request.decision_note && <span>{request.decision_note}</span>}</p>}
+    </> : request._pendingOffline?<p className="request-waiting">Salvo neste aparelho. A liderança e a equipe verão a alteração após a confirmação do servidor.</p>:<p className="request-decision">{request.decided_name || 'Responsável'} · {dateText(request.decided_at)}{request.decision_note && <span>{request.decision_note}</span>}</p>}
     {error && <p role="alert" className="request-error">{error}</p>}
   </article>;
 }

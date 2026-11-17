@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Interface.jsx';
 import { communityEvents, churchDate, churchTime } from '../lib/community.js';
 import { communityRequest } from '../lib/community-client.js';
+import { useOfflineSync } from '../hooks/useOfflineSync.js';
+import OfflineStatus from './OfflineStatus.jsx';
+import { cacheRead, cacheWrite, cacheRemove } from '../lib/offline-store.js';
 import '../church-community.css';
 
 const newDraft = profile => ({id:crypto.randomUUID(),name:profile?.name||'',message:'',anonymous:false,visibility:'team',website:''});
@@ -14,16 +17,18 @@ function EventCard({event,featured=false}) {
   </article>;
 }
 export default function ChurchCommunity({profile,credentials,onLogin,onLogout,dark,setDark,BibleView}) {
+  const offline=useOfflineSync(credentials,profile), draftKey='prayer-draft:'+(profile?.id||'visitor');
   const [page,setPage]=useState('welcome'),[filter,setFilter]=useState('all');
   const [data,setData]=useState({events:[],prayers:[]}),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState(''),[revision,setRevision]=useState(0);
-  const [draft,setDraft]=useState(()=>newDraft(profile)),[busy,setBusy]=useState(false),[error,setError]=useState(''),[receipt,setReceipt]=useState(null);
+  const [draft,setDraft]=useState(()=>cacheRead(draftKey)||newDraft(profile)),[busy,setBusy]=useState(false),[error,setError]=useState(''),[receipt,setReceipt]=useState(null);
+  useEffect(()=>{if(draft.message)cacheWrite(draftKey,draft);else cacheRemove(draftKey);},[draftKey,draft]);
   const scroll=useRef(null),heading=useRef(null),submitController=useRef(null),lastPage=useRef(page);
   useEffect(()=>()=>submitController.current?.abort(),[]);
   useEffect(()=>{
     const controller=new AbortController();let disposed=false;
     const load=async()=>{try{const result=await communityRequest({action:'public'},{signal:controller.signal});if(!disposed){setData({events:result.events||[],prayers:result.prayers||[]});setLoadError('');}}catch(failure){if(!disposed&&!controller.signal.aborted)setLoadError(failure.message);}finally{if(!disposed)setLoading(false);}};
-    void load();const resume=()=>{if(document.visibilityState==='visible')void load();};window.addEventListener('online',resume);document.addEventListener('visibilitychange',resume);const timer=setInterval(resume,60000);
-    return()=>{disposed=true;controller.abort();clearInterval(timer);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume);};
+    void load();const resume=()=>{if(document.visibilityState==='visible')void load();};window.addEventListener('online',resume);window.addEventListener('louvesync:connected',resume);window.addEventListener('louvesync:synced',resume);document.addEventListener('visibilitychange',resume);const timer=setInterval(resume,60000);
+    return()=>{disposed=true;controller.abort();clearInterval(timer);window.removeEventListener('online',resume);window.removeEventListener('louvesync:connected',resume);window.removeEventListener('louvesync:synced',resume);document.removeEventListener('visibilitychange',resume);};
   },[revision]);
   useEffect(()=>{scroll.current?.scrollTo({top:0});if(lastPage.current!==page)heading.current?.focus({preventScroll:true});lastPage.current=page;},[page]);
   const events=communityEvents(data.events,{filter}),next=communityEvents(data.events)[0];
@@ -37,6 +42,7 @@ export default function ChurchCommunity({profile,credentials,onLogin,onLogout,da
   return <div className={'church-community'+(dark?' dark':'')} data-theme={dark?'dark':'light'} data-update-blocking={!!draft.message||busy}>
     <div className="church-shell"><header className="church-header"><img src="/brand/v2/mark-color.png" alt="" width="40" height="40"/><div><strong>Louve</strong><span>VIDA EM COMUNIDADE</span></div><button type="button" aria-label={dark?'Ativar tema claro':'Ativar tema escuro'} onClick={()=>setDark(!dark)}><Icon name={dark?'sun':'moon'} size={19}/></button><span className="church-audience">{profile?'Membro':'Visitante'}</span>{profile&&<button type="button" aria-label="Sair da minha conta" onClick={onLogout}><Icon name="logout" size={18}/></button>}</header>
       <main ref={scroll} className="church-scroll" data-main-scroll aria-label="Comunidade da igreja">
+        <OfflineStatus state={offline}/>
         {loadError&&<div className="church-alert" role="alert">{loadError}<button type="button" onClick={()=>{setLoading(true);setRevision(value=>value+1);}}>Tentar novamente</button></div>}
         {page==='welcome'&&<section aria-label="Boas-vindas">
           <div className="church-welcome-hero"><span className="church-eyebrow">UM LUGAR PARA VOCÊ</span><h1 ref={heading} tabIndex={-1}>{profile?'Bem-vindo, '+profile.name.split(' ')[0]+'.':'Que bom ter você aqui.'}</h1><p>Um lugar para viver a fé em comunidade.</p><span className="church-welcome-note"><Icon name="heart" size={19}/>Você é sempre bem-vindo.</span><img src="/images/community/church.webp" alt="Igreja com portas abertas em arte 3D" width="280" height="345"/></div>
@@ -53,7 +59,7 @@ export default function ChurchCommunity({profile,credentials,onLogin,onLogout,da
             <fieldset className="church-privacy"><legend>Quem pode ver?</legend><label><input type="radio" name="visibility" checked={draft.visibility==='team'} onChange={()=>change({visibility:'team'})}/><span>Somente a liderança responsável<Icon name="lock" size={16}/></span></label><label><input type="radio" name="visibility" checked={draft.visibility==='community'} onChange={()=>change({visibility:'community'})}/><span>Compartilhar com a comunidade<Icon name="users" size={16}/></span></label></fieldset>
             <p className="church-helper">{draft.visibility==='team'?'Seu pedido é privado e será acompanhado pela liderança responsável.':'Após revisão da liderança, membros e visitantes poderão ver este pedido.'}</p><label className="church-anonymous"><input type="checkbox" checked={draft.anonymous} onChange={event=>change({anonymous:event.target.checked})}/>Enviar sem meu nome</label>{draft.anonymous&&<p className="church-helper">O pedido não será vinculado ao seu cadastro.</p>}
             <label className="church-honeypot" aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" value={draft.website} onChange={event=>change({website:event.target.value})}/></label>
-            {error&&<p className="church-alert" role="alert">{error}</p>}{receipt&&<p className="church-success" role="status"><Icon name="check"/>Pedido recebido. Nossa equipe vai acompanhar você em oração.<small>Protocolo: {receipt.id.slice(0,8)}</small></p>}
+            {error&&<p className="church-alert" role="alert">{error}</p>}{receipt&&<p className="church-success" role="status"><Icon name="check"/>{receipt.pendingOffline?'Pedido salvo neste aparelho. Será enviado à liderança quando a conexão voltar.':'Pedido recebido. Nossa equipe vai acompanhar você em oração.'}<small>Protocolo: {receipt.id.slice(0,8)}</small></p>}
             <button className="church-primary church-submit" type="submit" disabled={busy||draft.message.trim().length<10}><Icon name="send" size={20}/>{busy?'Enviando…':'Enviar pedido de oração'}</button><p className="church-footnote"><Icon name="lock" size={13}/>Seu pedido será acolhido com respeito e cuidado.</p>
           </fieldset></form>{data.prayers.length>0&&<div className="church-prayer-wall"><h2>Oramos juntos</h2>{data.prayers.map(prayer=><article key={prayer.id}><strong>{prayer.anonymous||!prayer.display_name?'Pedido anônimo':prayer.display_name}</strong><p>{prayer.message}</p><small>{churchDate(prayer.created_at)}</small></article>)}</div>}
         </section>}

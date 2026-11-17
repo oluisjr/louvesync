@@ -6,6 +6,10 @@ import { normalizeSupabaseUrl } from './supabase-url.js';
 import { authenticatedFetch, memberColumns, mutationActor } from './member-session.js';
 import { saveMemberRecord } from './member-storage.js';
 import { normalizeMember } from './member-settings.js';
+import { offlineAction } from './offline-actions.js';
+import { connectionSucceeded, connectionFailed, networkFailure } from './connectivity.js';
+import { rememberIdentity, unlockIdentity, forgetIdentity } from './offline-identity.js';
+import { cleanSong } from './offline-conflicts.js';
 
 const url  = import.meta.env.VITE_SUPABASE_URL;
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -47,24 +51,29 @@ export async function fetchMembers() {
   return data.map(member => normalizeMember({ ...member, ...settings.members.find(setting => setting.id === member.id) }));
 }
 
-export async function authenticateMember(memberId, pin) {
+export async function authenticateMember(memberId, pin, options = {}) {
+  if (!options.onlineOnly && globalThis.navigator?.onLine===false) return {...await unlockIdentity(memberId,pin),_offlineUnlock:true};
   if (!supabase) throw new Error('Conecte-se para validar seu acesso.');
   const { data, error } = await supabase.rpc('louvesync_login', { p_payload: { memberId, pin } });
+  if(globalThis.window&&(error?.code==='28000'||(data?.ok===false&&data.code!=='rate_limited')))forgetIdentity(memberId);
+  if (error && !options.onlineOnly && networkFailure(error)){connectionFailed();return {...await unlockIdentity(memberId,pin),_offlineUnlock:true};}
   if (error) throw new Error(error.code === '28000' ? 'PIN incorreto ou membro inativo.' : error.code === '54000' ? 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.' : 'Não foi possível validar seu acesso.', { cause: error });
   if (data?.ok === false) throw new Error(data.code === 'rate_limited' ? 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.' : 'PIN incorreto ou membro inativo.');
   if (!data?.member?.id || data.member.id !== memberId) throw new Error('A sessão não foi confirmada pelo servidor.');
-  return normalizeMember(data.member);
+  const member = normalizeMember(data.member);
+  connectionSucceeded();
+  if (globalThis.window) await rememberIdentity(member, pin);
+  return member;
 }
 
 export async function upsertMember(member) {
   if (!supabase) return null;
-  return saveMemberRecord(supabase, member);
+  return offlineAction('save_member', member, () => saveMemberRecord(supabase, member), { ...normalizeMember(member), pin: undefined, _pendingOffline: true });
 }
 
 export async function deleteMember(id) {
   if (!supabase) return null;
-  const { error } = await supabase.from('members').delete().eq('id', id);
-  if (error) throw error;
+  return offlineAction('delete_member', { id }, async () => { const { error } = await supabase.from('members').delete().eq('id', id); if (error) throw error; }, { pendingOffline: true });
 }
 
 async function fetchAll(table, selection, order) {
@@ -84,6 +93,7 @@ export async function fetchEvents() {
 
 export async function upsertSong(song) {
   if (!supabase) return null;
+  song=cleanSong(song);
   // Try upsert; if the DB schema doesn't contain `created_at` (some setups), retry without it.
   try {
     const { data, error } = await supabase.from('songs').upsert(song).select().single();
@@ -124,11 +134,13 @@ export async function requestDeleteSong(songId, userId) {
 
 export async function rejectDeleteSong(songId) {
   if (!supabase) return null;
+  return offlineAction('reject_delete',{table:'songs',id:songId},async()=>{
   const { error } = await supabase
     .from('songs')
     .update({ delete_requested_by: null })
     .eq('id', songId);
   if (error) throw error;
+  },{pendingOffline:true});
 }
 export async function setPresence(eventId, memberId, confirmed) {
   if (!supabase) return null;
@@ -161,11 +173,13 @@ export async function requestDeleteEvent(eventId, userId) {
 
 export async function rejectDeleteEvent(eventId) {
   if (!supabase) return null;
+  return offlineAction('reject_delete',{table:'events',id:eventId},async()=>{
   const { error } = await supabase
     .from('events')
     .update({ delete_requested_by: null })
     .eq('id', eventId);
   if (error) throw error;
+  },{pendingOffline:true});
 }
 
 export async function setSetlistConfirmation(eventId, snapshot, memberId, confirmed) {

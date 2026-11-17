@@ -21,8 +21,8 @@ export function useChangeRequests(credentials, { eventId, audit = false, pending
     void refresh();
     const poll = setInterval(() => { if (document.visibilityState === 'visible' && navigator.onLine && !loadingMore.current) void refresh(); }, 30000);
     const changed = () => { void refresh(); };
-    window.addEventListener('online', changed); window.addEventListener('louvesync:changes', changed);
-    return () => { counter.current++; clearInterval(poll); window.removeEventListener('online', changed); window.removeEventListener('louvesync:changes', changed); };
+    window.addEventListener('online', changed); window.addEventListener('louvesync:changes', changed);window.addEventListener('louvesync:synced',changed);
+    return () => { counter.current++; clearInterval(poll); window.removeEventListener('online', changed); window.removeEventListener('louvesync:changes', changed);window.removeEventListener('louvesync:synced',changed); };
   }, [refresh]);
   const loadMore = async () => {
     const data = current.current, key = audit ? 'entries' : 'requests';

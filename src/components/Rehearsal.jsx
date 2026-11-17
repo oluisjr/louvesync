@@ -9,6 +9,9 @@ import { useRehearsalRecorder } from '../hooks/useRehearsalRecorder.js';
 import { Icon } from './Interface.jsx';
 import { SetlistBadge } from './SetlistConfirmation.jsx';
 import '../rehearsal-studio.css';
+import { offlineAction } from '../lib/offline-actions.js';
+import { jobsFor, cacheRead } from '../lib/offline-store.js';
+import { readOfflineBlob } from '../lib/offline-blobs.js';
 
 const styles = {
   'Padrão': 'Arranjo original da música.', Worship: 'Pads, delay e crescendo gradual de dinâmica.',
@@ -27,12 +30,12 @@ const tabs = [{ id: 'chart', label: 'Cifra', icon: 'music' }, { id: 'record', la
 const initialSession = () => ({ activeSongId: '', styleMode: 'Padrão', active: false, seconds: 0, startedAt: null, updatedAt: 0 });
 const timeLabel = seconds => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 async function persistSession(value, eventId) {
-  if (!supabase || !navigator.onLine) return;
-  const { error } = await supabase.from('rehearsal_sessions').upsert({
+  if (!supabase) return;
+  const payload={
     event_id: eventId, active_song_id: value.activeSongId || null,
     style_mode: value.styleMode, timer_active: value.active, timer_seconds: timerSeconds(value),
-  });
-  if (error) throw error;
+  };
+  return offlineAction('rehearsal_session',payload,async()=>{const {error}=await supabase.from('rehearsal_sessions').upsert(payload);if(error)throw error;},{pendingOffline:true});
 }
 
 function InstrumentArt() {
@@ -41,6 +44,8 @@ function InstrumentArt() {
 
 function Take({ take, admin, visible, onDelete, onNotice }) {
   const audio = useRef(null);
+  const [source,setSource]=useState(take.url);
+  useEffect(()=>{let disposed=false,url;readOfflineBlob(take.blobKey||('remote:'+take.id)).then(blob=>{if(blob&&!disposed){url=URL.createObjectURL(blob);setSource(url);}}).catch(()=>{});return()=>{disposed=true;if(url)URL.revokeObjectURL(url);};},[take.blobKey,take.id]);
   const [playing, setPlaying] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [duration, setDuration] = useState(null);
@@ -56,8 +61,8 @@ function Take({ take, admin, visible, onDelete, onNotice }) {
   const created = new Date(take.created_at);
   const date = Number.isNaN(created.getTime()) ? '' : created.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
   return <article className="studio-take" data-update-blocking={playing || deleting}>
-    <div className="studio-take-row"><button type="button" className="studio-take-play" aria-label={`${playing ? 'Pausar' : 'Ouvir'} gravação ${take.name}`} aria-pressed={playing} onClick={play}><Icon name={playing ? 'pause' : 'play'} size={19}/></button><div className="studio-take-copy"><strong>{take.name}</strong><span>{date}{duration !== null ? ` · ${timeLabel(duration)}` : ''}</span></div><details className="studio-take-menu"><summary aria-label={`Opções da gravação ${take.name}`}><span aria-hidden="true">•••</span></summary><div><button type="button" onClick={() => setExpanded(value => !value)}>{expanded ? 'Ocultar controles' : 'Controles de áudio'}</button><a href={take.url} target="_blank" rel="noreferrer">Abrir áudio</a>{admin && <button type="button" disabled={deleting} onClick={async () => { setDeleting(true); try { await onDelete(take.id); } finally { setDeleting(false); } }}>{deleting ? 'Excluindo…' : 'Excluir gravação'}</button>}</div></details></div>
-    <audio ref={audio} className="studio-take-audio" hidden={!expanded} controls preload="metadata" src={take.url} aria-label={`Áudio de ${take.name}`} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} onLoadedMetadata={event => { if (Number.isFinite(event.currentTarget.duration)) setDuration(event.currentTarget.duration); }} onError={() => { setPlaying(false); }}/>
+    <div className="studio-take-row"><button type="button" className="studio-take-play" aria-label={`${playing ? 'Pausar' : 'Ouvir'} gravação ${take.name}`} aria-pressed={playing} onClick={play}><Icon name={playing ? 'pause' : 'play'} size={19}/></button><div className="studio-take-copy"><strong>{take.name}</strong><span>{date}{duration !== null ? ` · ${timeLabel(duration)}` : ''}</span></div><details className="studio-take-menu"><summary aria-label={`Opções da gravação ${take.name}`}><span aria-hidden="true">•••</span></summary><div><button type="button" onClick={() => setExpanded(value => !value)}>{expanded ? 'Ocultar controles' : 'Controles de áudio'}</button><a href={source} target="_blank" rel="noreferrer">Abrir áudio</a>{admin && <button type="button" disabled={deleting} onClick={async () => { setDeleting(true); try { await onDelete(take.id); } finally { setDeleting(false); } }}>{deleting ? 'Excluindo…' : 'Excluir gravação'}</button>}</div></details></div>
+    <audio ref={audio} className="studio-take-audio" hidden={!expanded} controls preload="metadata" src={source||undefined} aria-label={`Áudio de ${take.name}`} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} onLoadedMetadata={event => { if (Number.isFinite(event.currentTarget.duration)) setDuration(event.currentTarget.duration); }} onError={() => { setPlaying(false); }}/>
   </article>;
 }
 
@@ -93,8 +98,9 @@ export default function Rehearsal({ dark, events, songs, members = [], profile, 
   const loadTakes = useCallback(async id => {
     if (!supabase) return;
     const { data, error } = await supabase.from('rehearsal_takes').select('*').eq('event_id', id).order('created_at', { ascending: false });
-    if (!error && data && selectedEvent.current === id) setTakes(data);
-  }, []);
+    const rows=!error&&data?data:cacheRead('rehearsal_takes:'+profile.id,[]).filter(take=>take.event_id===id);
+    if(selectedEvent.current===id){const local=jobsFor(profile.id);setTakes([...rows.map(take=>({...take,blobKey:'remote:'+profile.id+':'+take.id})).filter(take=>!local.some(job=>job.type==='delete_take'&&job.data.id===take.id)),...local.filter(job=>job.type==='audio'&&job.data.take.event_id===id).map(job=>({...job.data.take,blobKey:job.data.blobKey,_pendingOffline:true}))]);}
+  }, [profile.id]);
   const recording = useRehearsalRecorder({ onSaved: loadTakes, onNotice: setNotice });
   const busyRecording = recording.recording || recording.starting || recording.uploading;
   async function change(patch) {
@@ -153,7 +159,7 @@ export default function Rehearsal({ dark, events, songs, members = [], profile, 
     const id = session.activeSongId;
     let disposed = false;
     const draft = readCache(`ls_note_draft_${id}`, null);
-    const text = draft ?? readCache(`ls_note_${id}`, '');
+    const text = draft ?? readCache(`ls_note_${id}`, cacheRead('note:'+profile.id+':'+id,''));
     setNote(text);
     setNoteDirty(draft !== null);
     noteDraft.current = { songId: id, text, dirty: draft !== null };
@@ -165,7 +171,7 @@ export default function Rehearsal({ dark, events, songs, members = [], profile, 
       }
     }).catch(() => {});
     return () => { disposed = true; };
-  }, [session.activeSongId]);
+  }, [session.activeSongId,profile.id]);
   async function saveNote() {
     if (!activeSong || !event) return;
     const id = activeSong.id;
@@ -173,10 +179,8 @@ export default function Rehearsal({ dark, events, songs, members = [], profile, 
     setSaving(true);
     try {
       writeCache(`ls_note_${id}`, text);
-      if (supabase && navigator.onLine) {
-        const { error } = await supabase.from('rehearsal_notes').upsert({ song_id: id, note_text: text, updated_by: profile.id });
-        if (error) throw error;
-      } else if (supabase) window.dispatchOfflineTask?.('save_rehearsal_note', { song_id: id, note_text: text, updated_by: profile.id });
+      const payload={song_id:id,note_text:text,updated_by:profile.id};
+      await offlineAction('save_rehearsal_note',payload,async()=>{if(supabase){const {error}=await supabase.from('rehearsal_notes').upsert(payload);if(error)throw error;}},{pendingOffline:true},profile.id);
       if (readCache(`ls_note_draft_${id}`, null) === text) writeCache(`ls_note_draft_${id}`, null);
       if (noteDraft.current.songId === id && noteDraft.current.text === text) { setNoteDirty(false); noteDraft.current.dirty = false; }
       const sent = await broadcastUpdate({ type: 'rehearsal_note', eventId: event.id, songId: id, text });
@@ -187,8 +191,8 @@ export default function Rehearsal({ dark, events, songs, members = [], profile, 
   async function deleteTake(id) {
     if (!supabase || !profile.is_admin || !event) return;
     const selectedId = event.id;
-    const { error } = await supabase.from('rehearsal_takes').delete().eq('id', id);
-    if (error) { setNotice(error.message); return; }
+    try{await offlineAction('delete_take',{id},async()=>{const {error}=await supabase.from('rehearsal_takes').delete().eq('id',id);if(error)throw error;},{pendingOffline:true},profile.id);}catch(error){setNotice(error.message);return;}
+    setTakes(previous=>previous.filter(take=>take.id!==id));
     await loadTakes(selectedId);
     await broadcastUpdate({ type: 'rehearsal_takes', eventId: selectedId });
     setNotice('Gravação excluída.');

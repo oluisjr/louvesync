@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { requestMicrophone } from '../lib/native.js';
-import { supabase } from '../lib/supabase';
+import { supabase, publicSupabaseConfig } from '../lib/supabase';
+import { actorClient } from '../lib/actor-client.js';
 import { broadcastUpdate } from '../lib/realtime.js';
+import { offlineAction } from '../lib/offline-actions.js';
+import { saveOfflineBlob, removeOfflineBlob } from '../lib/offline-blobs.js';
+import { mutationActor } from '../lib/member-session.js';
 
 const emptyState = { recording: false, starting: false, uploading: false, durationSeconds: 0, waveform: [], hasWaveform: false };
 
@@ -55,7 +59,8 @@ export function useRehearsalRecorder({ onSaved, onNotice } = {}) {
 
   const start = useCallback(async ({ eventId, songTitle = 'Take' }) => {
     if (active.current || !eventId) return;
-    const session = { eventId, songTitle, cancelled: false, chunks: [], startedAt: null };
+    const actor=mutationActor();
+    const session = { eventId, songTitle, owner:actor?.memberId,client:actor&&publicSupabaseConfig?actorClient(publicSupabaseConfig,actor):supabase, cancelled: false, chunks: [], startedAt: null };
     active.current = session;
     update({ ...emptyState, starting: true });
     try {
@@ -91,44 +96,34 @@ export function useRehearsalRecorder({ onSaved, onNotice } = {}) {
         const blob = new Blob(session.chunks, { type: recorder.mimeType });
         const extension = recorder.mimeType.includes('mp4') ? 'm4a' : 'webm';
         const filename = `takes/${crypto.randomUUID()}.${extension}`;
-        let uploaded = false;
-        let saved = false;
-        try {
-          if (!blob.size) throw new Error('Nenhum áudio foi capturado. Verifique o microfone e tente novamente.');
-          if (!supabase || !navigator.onLine) throw new Error('Sem conexão para compartilhar a gravação.');
-          const { error } = await supabase.storage.from('rehearsal-audio').upload(filename, blob);
-          if (error) throw error;
-          uploaded = true;
-          const { data: { publicUrl } } = supabase.storage.from('rehearsal-audio').getPublicUrl(filename);
-          const take = {
-            id: crypto.randomUUID(), event_id: eventId,
-            name: `${songTitle} — ${new Date().toLocaleTimeString('pt-BR')}`,
-            url: publicUrl, created_at: new Date().toISOString(),
-          };
-          const { error: insertError } = await supabase.from('rehearsal_takes').insert(take);
-          if (insertError) throw insertError;
-          saved = true;
-        } catch (error) {
-          if (uploaded) {
-            try { await supabase.storage.from('rehearsal-audio').remove([filename]); } catch { /* Preserve the local audio even if remote cleanup fails. */ }
-          }
-          if (blob.size) {
-            try {
-              downloadRecording(blob, eventId, extension);
-              notice(`Gravação baixada neste aparelho; não foi compartilhada: ${error.message}`);
-            } catch { notice(`Não foi possível salvar a gravação: ${error.message}`); }
-          } else notice(error.message);
-        } finally {
-          if (active.current === session) active.current = null;
-          update({ uploading: false });
+        let saved=false,pending=false;
+        const owner=session.owner,client=session.client;
+        const blobKey='recording:'+owner+':'+filename;
+        const take={id:crypto.randomUUID(),event_id:eventId,name:`${songTitle} — ${new Date().toLocaleTimeString('pt-BR')}`,created_at:new Date().toISOString()};
+        try{
+          if(!blob.size)throw new Error('Nenhum áudio foi capturado. Verifique o microfone e tente novamente.');
+          await saveOfflineBlob(blobKey,blob);
+          const result=await offlineAction('audio',{blobKey,filename,take},async()=>{
+            if(!client)throw new TypeError('Sem conexão para compartilhar a gravação.');
+            const {error}=await client.storage.from('rehearsal-audio').upload(filename,blob);
+            if(error)throw error;
+            const {data:{publicUrl}}=client.storage.from('rehearsal-audio').getPublicUrl(filename);
+            const {error:insertError}=await client.from('rehearsal_takes').insert({...take,url:publicUrl});
+            if(insertError)throw insertError;
+            await removeOfflineBlob(blobKey);return {saved:true};
+          },{pendingOffline:true},owner);
+          pending=!!result?.pendingOffline;saved=true;
+        }catch(error){
+          if(blob.size){try{downloadRecording(blob,eventId,extension);notice(`Áudio preservado no aparelho e baixado; envio não concluído: ${error.message}`);}catch{notice(`Áudio local preservado. ${error.message}`);}}
+          else notice(error.message);
+        }finally{
+          if(active.current===session)active.current=null;
+          update({uploading:false});
         }
-        if (saved) {
-          // Refresh failures must not describe an already-saved take as lost.
-          if (mounted.current) {
-            try { await callbacks.current.onSaved?.(eventId); } catch { /* A later refresh can load this persisted take. */ }
-          }
-          try { await broadcastUpdate({ type: 'rehearsal_takes', eventId }); } catch { /* The database remains the source of truth. */ }
-          notice('Gravação salva para a equipe.');
+        if(saved){
+          if(mounted.current){try{await callbacks.current.onSaved?.(eventId);}catch{/* The durable take can be loaded later. */}}
+          if(!pending)try{await broadcastUpdate({type:'rehearsal_takes',eventId});}catch{/* Saved on the server. */}
+          notice(pending?'Gravação salva neste aparelho. Será enviada à equipe quando a conexão voltar.':'Gravação salva para a equipe.');
         }
       };
       recorder.onerror = event => {

@@ -25,6 +25,8 @@ export async function updateSetlistConfirmation(supabase, eventId, expectedSnaps
   if (current.event.type === 'ensaio') throw new Error('O ensaio usa o repertório dos eventos de culto.');
   if (confirmed && (!memberId || !current.snapshot)) throw new Error('Adicione músicas antes de confirmar o setlist.');
   if (confirmed && current.snapshot !== expectedSnapshot) throw new Error('O repertório mudou. Atualize a escala, revise e confirme novamente.');
+  if(confirmed&&current.event.setlist_confirmation?.snapshot===current.snapshot)return {requested_songs:current.event.requested_songs,santa_ceia_song:current.event.santa_ceia_song,setlist_confirmation:current.event.setlist_confirmation};
+  if(!confirmed&&!current.event.setlist_confirmation)return {requested_songs:current.event.requested_songs,santa_ceia_song:current.event.santa_ceia_song,setlist_confirmation:null};
   const confirmation = confirmed ? { version: 1, snapshot: current.snapshot, confirmed_by: memberId, confirmed_at: new Date().toISOString() } : null;
   const preferences = { requested_songs: current.event.requested_songs, santa_ceia_song: current.event.santa_ceia_song, setlist_confirmation: confirmation };
   const note_text = encodeEventPreferences(preferences);

@@ -1,3 +1,7 @@
+import { offlineAction } from './offline-actions.js';
+import { connectionAvailable } from './connectivity.js';
+import { cacheRead,cacheWrite } from './offline-store.js';
+import { mutationActor } from './member-session.js';
 // src/lib/scraper.js
 // Multi-source chord/lyric search via allorigins CORS proxy.
 // Sources: CifraClub (chords) → Vagalume (lyrics) → Letras.mus.br (lyrics)
@@ -129,7 +133,10 @@ async function searchLRCLibCandidates(title, artist) {
    A abordagem correta é construir a URL a partir dos slugs de artista/título. */
 
 
-export async function searchSongCandidates(title, artist) {
+export async function searchSongCandidates(title, artist,options={}) {
+  const key='song-search:'+mutationActor()?.memberId+':'+JSON.stringify([title,artist]);
+  if(!connectionAvailable()&&cacheRead(key))return cacheRead(key);
+  if(!options.offlineBypass)return offlineAction('song_search',{title,artist},async()=>{const result=await searchSongCandidates(title,artist,{offlineBypass:true});cacheWrite(key,result);return result;},()=>{throw new Error('Busca salva neste aparelho. Os resultados aparecerão em Consultas prontas quando a conexão voltar.');});
   const [vag, let_, lrc] = await Promise.allSettled([
     searchVagalumeCandidates(title, artist),
     searchLetrasCandidates(title, artist),
@@ -146,7 +153,10 @@ export async function searchSongCandidates(title, artist) {
 }
 
 /* 🎸 Fetch CifraClub chord content from URL 🎸 */
-export async function fetchCifraClubContent(url) {
+export async function fetchCifraClubContent(url,options={}) {
+  const key='song-lookup:'+mutationActor()?.memberId+':'+url;
+  if(!connectionAvailable()&&cacheRead(key))return cacheRead(key);
+  if(!options.offlineBypass)return offlineAction('song_lookup',{url},async()=>{const result=await fetchCifraClubContent(url,{offlineBypass:true});if(result)cacheWrite(key,result);return result;},()=>{throw new Error('Consulta salva. O texto ficará em Consultas prontas após a conexão voltar.');});
   try {
     const res = await fetch(`/api/cifra?url=${encodeURIComponent(url)}`);
     if (!res.ok) {

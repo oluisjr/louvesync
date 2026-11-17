@@ -37,6 +37,8 @@ export function normalizeBiblePosition(value, books) {
 
 export async function fetchBibleChapter(book, chapter, { signal, fetchImpl = fetch, timeoutMs = 14000 } = {}) {
   const reference = bibleReference(book, chapter);
+  const localChapter=async()=>{const {default: bible}=await import('../../data/bible/blivre.json');return normalizeBibleVerses(bible[reference.usfm][reference.chapter-1].map((text,index)=>({number:index+1,text})));};
+  if(globalThis.window && globalThis.navigator?.onLine===false)return localChapter();
   if (signal?.aborted) throw new DOMException('Leitura cancelada.','AbortError');
   const controller = new AbortController();
   let timer;
@@ -55,7 +57,8 @@ export async function fetchBibleChapter(book, chapter, { signal, fetchImpl = fet
       if (data.book!==reference.id || Number(data.chapter)!==reference.chapter || data.translation!==BIBLE_EDITION.id || data.edition!==BIBLE_EDITION.revision || data.language!==BIBLE_EDITION.language) throw new Error('Capítulo ou edição inválida.');
       return normalizeBibleVerses(data.verses);
     })();
-    return await Promise.race([request, cancelled]);
+    try{return await Promise.race([request,cancelled]);}
+    catch(error){if(globalThis.window && error instanceof TypeError && !signal?.aborted)return localChapter();throw error;}
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', abort);

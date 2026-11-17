@@ -5,7 +5,7 @@ import '../setlist-confirmation.css';
 
 export function SetlistBadge({ event, songs }) {
   const confirmed = isSetlistConfirmed(event, songs);
-  return <span className="setlist-badge" data-confirmed={confirmed}><Icon name={confirmed ? 'check' : 'timer'} size={12}/>{confirmed ? 'Setlist definido' : 'Setlist não confirmado'}</span>;
+  return <span className="setlist-badge" data-confirmed={confirmed&&!event._pendingSetlist}><Icon name={confirmed&&!event._pendingSetlist ? 'check' : 'timer'} size={12}/>{event._pendingSetlist?'Definição aguardando envio':confirmed ? 'Setlist definido' : 'Setlist não confirmado'}</span>;
 }
 
 export default function SetlistConfirmation({ event, songs, members, online, savingId, onConfirm, showBadge = true }) {
@@ -24,8 +24,8 @@ export default function SetlistConfirmation({ event, songs, members, online, sav
     {showBadge && <SetlistBadge event={event} songs={songs}/>}
     <p>{confirmed ? `Confirmado${author ? ' por ' + author.name : ''}. A equipe já pode usar este repertório.` : event.setlist_confirmation ? 'Alterado após a confirmação. Revise e confirme novamente.' : 'Seleção provisória. Confirme quando este repertório estiver definido.'}</p>
     {!snapshot && <p>Adicione músicas antes de confirmar.</p>}
-    {!online && <p>Conecte-se para salvar a confirmação para toda a equipe.</p>}
-    <button type="button" className={confirmed ? 'setlist-unconfirm' : 'setlist-confirm'} disabled={!!savingId || !online || (!confirmed && !snapshot)} onClick={save}><Icon name={confirmed ? 'edit' : 'check'} size={15}/>{pending ? 'Salvando…' : confirmed ? 'Retirar confirmação' : 'Confirmar setlist'}</button>
+    {!online && <p>A definição ficará guardada no aparelho até a sincronização com a equipe.</p>}
+    <button type="button" className={confirmed ? 'setlist-unconfirm' : 'setlist-confirm'} disabled={!!savingId || event._pendingSetlist || (!confirmed && !snapshot)} onClick={save}><Icon name={confirmed ? 'edit' : 'check'} size={15}/>{pending ? 'Salvando…' : event._pendingSetlist?'Aguardando sincronização':confirmed ? 'Retirar confirmação' : 'Confirmar setlist'}</button>
     {error && <p className="setlist-approval-error" role="alert">{error}</p>}
   </section>;
 }

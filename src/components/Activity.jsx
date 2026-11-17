@@ -10,6 +10,7 @@ function Person({ member, name, children }) {
 
 function QueryState({ query }) {
   if (query.loading) return <p className="ui-helper" role="status">Consultando registros…</p>;
+  if(query.data?._offlineCached)return <p className="ui-helper" role="status">Últimos dados salvos no aparelho. A situação atual será atualizada quando a conexão voltar.</p>;
   if (query.error) return <div className="ui-activity-error" role="alert"><p>{query.error}</p>{query.data && <p>Os dados abaixo podem estar desatualizados.</p>}<button className="ui-button ui-button-soft ui-button-small" onClick={query.refresh}>Tentar novamente</button></div>;
   return null;
 }
@@ -22,7 +23,7 @@ export function ActivityMonitor({ activity, members, dark }) {
       <QueryState query={query}/>
       {query.data && <>
         {!online.length && !query.error && <p className="ui-helper">Nenhum membro conectado neste momento.</p>}
-        <div className="ui-activity-list" aria-label="Membros on-line">{online.map(person => <Person key={person.memberId} member={members.find(member => member.id === person.memberId)} name={person.name}><small>{query.error ? 'Último estado conhecido' : <><span className="ui-online-dot"/>Conectado</>}</small></Person>)}</div>
+        <div className="ui-activity-list" aria-label="Membros on-line">{online.map(person => <Person key={person.memberId} member={members.find(member => member.id === person.memberId)} name={person.name}><small>{query.error||query.data?._offlineCached ? 'Último estado conhecido' : <><span className="ui-online-dot"/>Conectado</>}</small></Person>)}</div>
         <p className="ui-helper ui-activity-footnote">Atualizado às {new Date(query.data.serverTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}. Uma queda de conexão pode levar até 75 segundos para aparecer.</p>
       </>}
     </Section>

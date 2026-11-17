@@ -1,5 +1,12 @@
-export async function notificationRequest(credentials, payload, { signal, fetcher = fetch, keepalive = false } = {}) {
+import { offlineAction, offlineRead, apiScope } from './offline-actions.js';
+export async function notificationRequest(credentials, payload, { signal, fetcher = fetch, keepalive = false, offlineBypass = false } = {}) {
   if (!credentials?.memberId || !credentials?.pin) throw new Error('Entre novamente para acessar as notificações.');
+  if (!offlineBypass) {
+    const send = () => notificationRequest(credentials, payload, { signal, fetcher, keepalive, offlineBypass: true });
+    if (['list', 'config'].includes(payload.action)) return offlineRead(apiScope('notifications', credentials.memberId, payload), send);
+    if (payload.action === 'mark_read') return offlineAction('notification', payload, send, { ok: true, pendingOffline: true }, credentials.memberId);
+    return send();
+  }
   const controller = new AbortController();
   const cancel = () => controller.abort();
   if (signal?.aborted) controller.abort();

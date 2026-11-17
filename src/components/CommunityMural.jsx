@@ -8,6 +8,10 @@ import ReactionPicker from './ReactionPicker.jsx';
 import MentionInput, { MentionText } from './MentionInput.jsx';
 import { publishAnnouncement, verifyAnnouncement, restoreAnnouncementCache, reconcileAnnouncements } from '../lib/announcement-storage.js';
 import '../community-mural.css';
+import { useConnectivity } from '../hooks/useConnectivity.js';
+import { offlineAction } from '../lib/offline-actions.js';
+import { jobsFor } from '../lib/offline-store.js';
+import { overlayMural } from '../lib/offline-overlay.js';
 
 const dateText = value => {
   const date = new Date(value);
@@ -60,7 +64,7 @@ export default memo(function CommunityMural({ profile, dark, members, activity, 
   const [commentTexts, setCommentTexts] = useState({});
   const [actionErrors, setActionErrors] = useState({});
   const [pending, setPending] = useState({});
-  const [online, setOnline] = useState(navigator.onLine);
+  const online = useConnectivity();
   const formId = useId();
   const reactionMenuId = useId();
   const request = useRef(0), alive = useRef(true), locks = useRef(new Set()), draft = useRef(cachedDraft.identity || null), recovery = useRef(cachedDraft.recovery || null);
@@ -83,11 +87,12 @@ export default memo(function CommunityMural({ profile, dark, members, activity, 
       if (!alive.current || version !== request.current) return;
       if (results[0].error) throw results[0].error;
       const savedPosts = results[0].data || [];
-      setPosts(previous => reconcileAnnouncements(previous, savedPosts, profile.id));
+      const local=overlayMural({posts:savedPosts,comments:results[1].data||[],reactions:results[2].data||[],saves:(results[3].data||[]).map(row=>row.post_id)},jobsFor(profile.id));
+      setPosts(previous => overlayMural({posts:reconcileAnnouncements(previous,savedPosts,profile.id)},jobsFor(profile.id)).posts);
       setServerLoaded(true);
-      if (!results[1].error) setComments(results[1].data || []);
-      if (!results[2].error) setReactions(results[2].data || []);
-      if (!results[3].error) setSaves((results[3].data || []).map(row => row.post_id));
+      if (!results[1].error) setComments(local.comments);
+      if (!results[2].error) setReactions(local.reactions);
+      if (!results[3].error) setSaves(local.saves);
       setLoadError(results.some(result => result.error) ? 'Algumas interações não puderam ser atualizadas. Tente novamente.' : '');
     } catch {
       if (alive.current && version === request.current) setLoadError(navigator.onLine ? 'Não foi possível atualizar o mural. Tente novamente.' : 'Sem conexão. Os avisos já carregados continuam disponíveis.');
@@ -100,13 +105,13 @@ export default memo(function CommunityMural({ profile, dark, members, activity, 
     alive.current = true;
     refresh();
     const off = onRealtime(message => { if (message.type === 'mural_changed' || message.type === 'data_changed') refresh(); });
-    const resume = () => { setOnline(navigator.onLine); if (document.visibilityState === 'visible') refresh(); };
+    const resume = () => { if (document.visibilityState === 'visible') refresh(); };
     const timer = setInterval(resume, 15000);
-    window.addEventListener('online', resume); window.addEventListener('offline', resume); document.addEventListener('visibilitychange', resume);
+    window.addEventListener('online', resume);window.addEventListener('louvesync:synced',resume);window.addEventListener('louvesync:connected',resume); window.addEventListener('offline', resume); document.addEventListener('visibilitychange', resume);
     const channel = supabase?.channel(`mural_realtime_changes_${crypto.randomUUID()}`);
     for (const table of ['announcements', 'announcement_comments', 'announcement_reactions', 'announcement_saves']) channel?.on('postgres_changes', { event: '*', schema: 'public', table }, () => refresh());
     channel?.subscribe();
-    return () => { alive.current = false; off(); clearInterval(timer); window.removeEventListener('online', resume); window.removeEventListener('offline', resume); document.removeEventListener('visibilitychange', resume); if (channel) supabase.removeChannel(channel); };
+    return () => { alive.current = false; off(); clearInterval(timer); window.removeEventListener('online', resume);window.removeEventListener('louvesync:synced',resume);window.removeEventListener('louvesync:connected',resume); window.removeEventListener('offline', resume); document.removeEventListener('visibilitychange', resume); if (channel) supabase.removeChannel(channel); };
   }, [refresh]);
   useEffect(() => { if (!loading) writeCache(cacheKey, { posts, comments, reactions, saves }); }, [cacheKey, posts, comments, reactions, saves, loading]);
   useEffect(() => { writeCache(draftKey, { title: newTitle, content: newContent, mention_member_ids:postMentions, identity: draft.current, recovery: recovery.current }); }, [draftKey, newTitle, newContent,postMentions, posting]);
@@ -119,11 +124,6 @@ export default memo(function CommunityMural({ profile, dark, members, activity, 
     return()=>cancelAnimationFrame(frame);
   },[target,serverLoaded,posts]);
 
-  const queue = (type, data) => {
-    if (!window.dispatchOfflineTask) throw new Error('Conecte-se para concluir esta ação.');
-    window.dispatchOfflineTask(type, data);
-    setNotice('Alteração salva neste aparelho. Será enviada quando a conexão voltar.');
-  };
   const runAction = async (key, postId, action) => {
     if (locks.current.has(key)) return;
     locks.current.add(key); setPending(previous => ({ ...previous, [key]: true }));
@@ -148,13 +148,7 @@ export default memo(function CommunityMural({ profile, dark, members, activity, 
     // read-back is lost. Retrying after a reload must find the same publication.
     writeCache(draftKey, { title: newTitle, content: newContent,mention_member_ids:postMentions, identity: row, recovery: recovery.current });
     try {
-      let published;
-      if (!navigator.onLine) {
-        queue('create_post', row);
-        published = { ...row, pendingSync: true, _publication: 'pending' };
-      } else {
-        published = await publishAnnouncement(supabase, row);
-      }
+      const published=await offlineAction('create_post',row,()=>publishAnnouncement(supabase,row),{...row,pendingSync:true,_publication:'pending'},profile.id);
       draft.current = null;
       const recovered = recovery.current;
       recovery.current = null;
@@ -168,8 +162,7 @@ export default memo(function CommunityMural({ profile, dark, members, activity, 
     const text = (commentTexts[postId] || '').trim();
     if (!text || !profile?.id) return;
     const row = { id: 'comment_' + crypto.randomUUID(), post_id: postId, member_id: profile.id, text,mention_member_ids:commentMentions[postId]||[], created_at: new Date().toISOString() };
-    if (!navigator.onLine) queue('create_comment', row);
-    else if (supabase) { const { error } = await supabase.from('announcement_comments').insert(row); if (error) throw error; }
+    await offlineAction('create_comment',row,async()=>{if(supabase){const {error}=await supabase.from('announcement_comments').insert(row);if(error)throw error;}},{pendingOffline:true},profile.id);
     setComments(previous => [...previous, row]); setCommentTexts(previous => ({ ...previous, [postId]: '' }));setCommentMentions(previous=>({...previous,[postId]:[]}));
     await notifyChange();
   });
@@ -177,15 +170,13 @@ export default memo(function CommunityMural({ profile, dark, members, activity, 
     if (!profile?.id) return;
     const row = { post_id: postId, member_id: profile.id, emoji };
     const exists = reactions.some(reaction => reaction.post_id === postId && reaction.member_id === profile.id && reaction.emoji === emoji);
-    if (!navigator.onLine) queue('toggle_reaction', { action: exists ? 'delete' : 'insert', row });
-    else if (supabase) { const { error } = await (exists ? supabase.from('announcement_reactions').delete().match(row) : supabase.from('announcement_reactions').insert(row)); if (error) throw error; }
+    await offlineAction('toggle_reaction',{action:exists?'delete':'insert',row},async()=>{if(supabase){const {error}=await(exists?supabase.from('announcement_reactions').delete().match(row):supabase.from('announcement_reactions').insert(row));if(error)throw error;}},{pendingOffline:true},profile.id);
     setReactions(previous => exists ? previous.filter(reaction => !(reaction.post_id === postId && reaction.member_id === profile.id && reaction.emoji === emoji)) : [...previous, row]);
     await notifyChange();
   });
   const toggleSave = postId => runAction(`save:${postId}`, postId, async () => {
-    if (!navigator.onLine && supabase) throw new Error('Conecte-se para salvar este aviso.');
     const exists = saves.includes(postId), row = { post_id: postId, member_id: profile.id };
-    if (supabase) { const { error } = await (exists ? supabase.from('announcement_saves').delete().match(row) : supabase.from('announcement_saves').insert(row)); if (error) throw error; }
+    await offlineAction('toggle_save',{action:exists?'delete':'insert',row},async()=>{if(supabase){const {error}=await(exists?supabase.from('announcement_saves').delete().match(row):supabase.from('announcement_saves').insert(row));if(error)throw error;}},{pendingOffline:true},profile.id);
     setSaves(previous => exists ? previous.filter(id => id !== postId) : [...previous, postId]);
   });
   const authorFor = id => members.find(member => member.id === id) || { name: 'Membro', avatar: 'MB', color: '#7b3ff2' };

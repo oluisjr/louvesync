@@ -43,8 +43,14 @@ import { useNavigationClearance } from './hooks/useNavigationClearance.js';
 import { useActivity } from './hooks/useActivity.js';
 import { useLoginViewport } from './hooks/useLoginViewport.js';
 import { ActivityMonitor } from './components/Activity.jsx';
-import { publishAnnouncement } from './lib/announcement-storage.js';
-import { remapAnnouncementTask } from './lib/announcement-queue.js';
+import { useOfflineSync } from './hooks/useOfflineSync.js';
+import OfflineStatus from './components/OfflineStatus.jsx';
+import { offlineAction } from './lib/offline-actions.js';
+import { enqueue, cacheRead, cacheWrite, jobsFor } from './lib/offline-store.js';
+import { overlayWorkspace } from './lib/offline-overlay.js';
+import { connectionAvailable,connectionSucceeded } from './lib/connectivity.js';
+import { unlockIdentity, rememberIdentity } from './lib/offline-identity.js';
+import { prepareOfflineWorkspace } from './lib/offline-prepare.js';
 
 import { localDate, transposeKey, keyDistance, normalizeEvent, eventPayload, readCache, writeCache } from './lib/domain.js';
 import { withoutRehearsalSongs } from './lib/rehearsal-events.js';
@@ -192,7 +198,6 @@ const IcoHeart    = ({s=16,filled=false})=><svg width={s} height={s} viewBox="0 
 const IcoScroll   = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="7 11 12 16 17 11"/><polyline points="7 7 12 12 17 7"/><line x1="12" y1="20" x2="12" y2="16"/></svg>;
 const IcoShare    = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>;
 const IcoTap      = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 6v6l4 2"/></svg>;
-const IcoWifi     = ({s=14,off=false})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{off?<><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>:<><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>}</svg>;
 
 const M = [
   { id:'aaaa0001-0001-0001-0001-000000000001', name:'Junior',       role:'Líder de Louvor', instrument:'Teclado / Vocal', avatar:'JR', color:'#4F46E5', status:'ativo', is_admin:true, vocal_category:null },
@@ -894,16 +899,16 @@ const AdminDashboard = memo(({pastEvents, members, songs = [], dark, tc, t2, gc,
 
 /* ─── PATRIMÔNIO SCREEN ─────────────────────────────────────── */
 const PatrimonioScreen = memo(({members, profile, dark, embedded = false}) => {
-  const [equipment, setEquipment] = useState([]);
+  const [equipment, setEquipment] = useState(()=>cacheRead('equipment:'+profile.id,[]));
   const [loading, setLoading] = useState(true);
   const isAdm = !!profile?.is_admin;
 
   // Carrega e sincroniza com o banco de dados Supabase em tempo real!
   useEffect(() => {
     async function loadEquipment() {
-      if (!supabase) {
+      if (!supabase || !connectionAvailable()) {
         // Fallback local se o Supabase não estiver conectado
-        const stored = localStorage.getItem('ls_equipment');
+        const stored = JSON.stringify(cacheRead('equipment:'+profile.id,[]));
         if (stored) {
           try { setEquipment(JSON.parse(stored)); } catch {/* preserve existing local state */}
         } else {
@@ -931,7 +936,7 @@ const PatrimonioScreen = memo(({members, profile, dark, embedded = false}) => {
             await supabase.from('equipment').upsert(defaults);
             setEquipment(defaults);
           } else {
-            setEquipment(data);
+            let local=data;for(const job of jobsFor(profile.id)){if(job.type==='equipment')local=local.some(row=>row.id===job.data.id)?local.map(row=>row.id===job.data.id?job.data:row):[...local,job.data];if(job.type==='delete_equipment')local=local.filter(row=>row.id!==job.data.id);}setEquipment(local);
           }
         }
       } catch (e) {
@@ -942,6 +947,7 @@ const PatrimonioScreen = memo(({members, profile, dark, embedded = false}) => {
     }
 
     loadEquipment();
+    const resume=()=>void loadEquipment();window.addEventListener('louvesync:synced',resume);window.addEventListener('louvesync:connected',resume);
 
     if (!supabase) return;
     const channel = supabase.channel(`equipment_realtime_${Math.random().toString(36).substring(7)}`)
@@ -951,16 +957,16 @@ const PatrimonioScreen = memo(({members, profile, dark, embedded = false}) => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(channel);window.removeEventListener('louvesync:synced',resume);window.removeEventListener('louvesync:connected',resume);
     };
-  }, [members]);
+  }, [members,profile.id]);
 
   // Salva no localStorage como backup local
   useEffect(() => {
     if (equipment.length > 0) {
-      localStorage.setItem('ls_equipment', JSON.stringify(equipment));
+      cacheWrite('equipment:'+profile.id,equipment);
     }
-  }, [equipment]);
+  }, [equipment,profile.id]);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -977,10 +983,7 @@ const PatrimonioScreen = memo(({members, profile, dark, embedded = false}) => {
   const handleSave = async item => {
     if (!isAdm) throw new Error('Acesso exclusivo do administrador.');
     const payload = {id:item.id,name:item.name,brand:item.brand||'',status:item.status,custodian_id:item.custodian_id||null,serial_number:item.serial_number||''};
-    if (supabase) {
-      const {error} = await supabase.from('equipment').upsert(payload);
-      if (error) throw error;
-    }
+    await offlineAction('equipment',payload,async()=>{if(supabase){const {error}=await supabase.from('equipment').upsert(payload);if(error)throw error;}},{pendingOffline:true});
     setEquipment(previous=>previous.some(row=>row.id===payload.id)?previous.map(row=>row.id===payload.id?{...row,...payload}:row):[...previous,payload]);
     setEditItem(null);
   };
@@ -988,10 +991,7 @@ const PatrimonioScreen = memo(({members, profile, dark, embedded = false}) => {
   const handleDelete = async id => {
     if (!isAdm) throw new Error('Acesso exclusivo do administrador.');
     if (!window.confirm('Tem certeza que deseja excluir este equipamento?')) return;
-    if (supabase) {
-      const {error} = await supabase.from('equipment').delete().eq('id',id);
-      if (error) throw error;
-    }
+    await offlineAction('delete_equipment',{id},async()=>{if(supabase){const {error}=await supabase.from('equipment').delete().eq('id',id);if(error)throw error;}},{pendingOffline:true});
     setEquipment(previous=>previous.filter(row=>row.id!==id));
     setEditItem(null);
   };
@@ -1036,7 +1036,7 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
     // fails, and update the list only after the save succeeds.
     const { confirmRate, ...dbMember } = newMember;
     const saved = await upsertMember(dbMember);
-    if(member.id===profile.id&&dbMember.pin)onUpdateOwnPin(dbMember.pin);
+    if(!saved?._pendingOffline&&member.id===profile.id&&dbMember.pin)await onUpdateOwnPin(dbMember.pin,saved);
     const record = normalizeMember(publicMember({...newMember,...saved}));
     setMembers(list => list.some(item => item.id === record.id) ? list.map(item => item.id === record.id ? record : item) : [...list,record]);
     setEditMember(null);await broadcastUpdate({type:'data_changed'});
@@ -1072,13 +1072,14 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
   const saveFeaturedSong = async () => {
     try {
       setSongs(prev => prev.map(s => s.id === featSong ? {...s, featured_week: true, featured_note: featNote} : {...s, featured_week: false, featured_note: null}));
-      if (supabase) {
-        await supabase.from('songs').update({ featured_week: false, featured_note: null }).eq('featured_week', true);
+      const saved=await offlineAction('featured_song',{id:featSong,note:featNote},async()=>{if (supabase) {
+        const {error}=await supabase.from('songs').update({ featured_week: false, featured_note: null }).eq('featured_week', true);if(error)throw error;
         if (featSong) {
           await supabase.from('songs').update({ featured_week: true, featured_note: featNote }).eq('id', featSong);
         }
       }
-      alert('✅ Música da Semana atualizada com sucesso!');
+      },{pendingOffline:true});
+      alert(saved?.pendingOffline?'Música da semana salva no aparelho. Aguardando sincronização.':'✅ Música da Semana atualizada com sucesso!');
     } catch(e) {
       console.error(e);
       alert('Erro ao salvar Música da Semana.');
@@ -1832,6 +1833,7 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
     }
     try{
       const lyric=await maestroRequest(credentials,[{role:'system',content:'Especialista em cifras gospel brasileiras. Preserve os acordes e a letra enviados; use [Acorde]Palavra em texto puro. Não invente cifras. Se não houver informação suficiente, explique a limitação. Aceite apenas música cristã/religiosa.'},{role:'user',content:userPrompt}],{purpose:'chart',maxTokens:1300});
+      if(lyric?.pendingOffline){alert('Pedido de formatação salvo. A resposta do Maestro ficará disponível após a conexão voltar.');setForm(f=>({...f,lyrics:sText||form.rawLyrics}));setStep(3);return;}
       if(lyric.includes('ERRO: O LouveSync aceita apenas músicas de cunho religioso/gospel')) {
         alert(lyric);
       } else {
@@ -2252,18 +2254,12 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
   const notifyChanges=notifications.changed;
 
   // ── Data
-  const [songRecords,setSongs]=useState(()=>readCache('ls_songs',[]));
+  const [songRecords,setSongs]=useState([]);
   const songs=useMemo(()=>songRecords.map(withSongChart),[songRecords]);
-  const [events,setEvents]=useState(()=>readCache('ls_events',[]).map(patchEvent));
+  const [events,setEvents]=useState([]);
   const [dataLoading,setDataLoading]=useState(true);
 
-  // Persist songs locally so added songs survive reload when Supabase is unavailable
-  useEffect(()=>{
-    try{
-      writeCache('ls_songs', songRecords || []);
-    }catch(e){/* ignore */}
-  },[songRecords]);
-  useEffect(()=>{writeCache('ls_events',events);},[events]);
+  useEffect(()=>{if(profile?.id)cacheWrite('workspace:'+profile.id,{songs:songRecords,events,members:allMembers});},[profile?.id,songRecords,events,allMembers]);
 
   // ── UI
   const [dark,setDark]=useState(()=>{
@@ -2307,107 +2303,20 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
   const [confetti,setConfetti]=useState([]);
   const [confirmState,setConfirmState]=useState(null);
   const [installPrompt,setDeferredPrompt]=useState(null);
-  const [syncQueue, setQueueState] = useState(() => {
-    try {
-      return (JSON.parse(localStorage.getItem('ls_sync_queue') || '[]')).map(task=>({...task,id:task.id||crypto.randomUUID()}));
-    } catch { return []; }
-  });
-
-  useEffect(() => {
-    localStorage.setItem('ls_sync_queue', JSON.stringify(syncQueue));
-  }, [syncQueue]);
-
-  useEffect(() => {
-    const handleBeforeInstall = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-  }, []);
-
-  const setSyncQueue=useCallback(update=>setQueueState(previous=>{
-    const next=typeof update==='function'?update(previous):update;
-    return next.map(task=>task.id?task:{...task,id:crypto.randomUUID(),actorId:profile?.id});
-  }),[profile?.id]);
-  useEffect(() => {
-    window.dispatchOfflineTask = (type, data) => {
-      setSyncQueue(prev => [...prev, { type, data }]);
-    };
-    return () => {
-      delete window.dispatchOfflineTask;
-    };
-  }, [setSyncQueue]);
-
-  const syncing=useRef(false);
-  const completedSyncTasks=useRef(new Set());
-  const [retrySync,setRetrySync]=useState(0);
-  const [isOnline,setIsOnline]=useState(navigator.onLine);
+  const offline = useOfflineSync(actorSession,profile,handleOwnPinChanged);
+  const isOnline = offline.online;
   useEffect(()=>{
-    if(!isOnline || !supabase || !profile || isChurchMember(profile) || !syncQueue.some(task=>!completedSyncTasks.current.has(task.id)&&(!task.actorId||task.actorId===profile.id)) || syncing.current)return;
-    syncing.current=true;
-    let retry;
-    (async()=>{
-      try {
-        const savedPostIds=new Map();
-        for(const queuedTask of syncQueue){
-          if(completedSyncTasks.current.has(queuedTask.id))continue;
-          let task=queuedTask;
-          for(const [localId,savedId] of savedPostIds)task=remapAnnouncementTask(task,localId,savedId);
-          if(task.actorId && task.actorId!==profile.id)continue;
-          if(task.type==='confirm') await setPresence(task.data.eventId,task.data.memberId,task.data.confirmed);
-          else if(task.type==='create_event'){
-            if(!profile.is_admin)throw new Error('Somente administradores podem salvar eventos.');
-            for(const queuedEvent of Array.isArray(task.data)?task.data:[task.data]){
-              const ev=withoutRehearsalSongs(queuedEvent);
-              await upsertEvent(eventPayload(ev));
-              await setEventItems(ev.id,ev.items||[],ev.members||[],ev);
-            }
-          }else if(task.type==='save_song'){
-            const saved=await upsertSong({...task.data,created_by:task.actorId||profile.id});
-            if(!saved)throw new Error('A música ainda não foi sincronizada.');
-            setSongs(prev=>prev.map(song=>song.id===task.data.id?saved:song));
-          }else{
-            let result;
-            if(task.type==='create_post'){
-              const saved=await publishAnnouncement(supabase,task.data);
-              result={data:saved,error:null};
-              if(String(saved.id)!==String(task.data.id)){
-                savedPostIds.set(task.data.id,saved.id);
-                setSyncQueue(previous=>previous.map(item=>remapAnnouncementTask(item,task.data.id,saved.id)));
-              }
-            }
-            else if(task.type==='create_comment')result=await supabase.from('announcement_comments').insert(task.data);
-            else if(task.type==='toggle_reaction')result=task.data.action==='insert'?await supabase.from('announcement_reactions').insert(task.data.row):await supabase.from('announcement_reactions').delete().match(task.data.row);
-            else if(task.type==='save_rehearsal_note')result=await supabase.from('rehearsal_notes').upsert(task.data);
-            else throw new Error('Operação offline não reconhecida.');
-            if(result.error)throw result.error;
-          }
-          // A render can briefly retain the last acknowledged job while React
-          // commits the queue update. Never send that successful write twice.
-          completedSyncTasks.current.add(task.id);
-          setSyncQueue(prev=>prev.filter(item=>item.id!==task.id));
-          broadcastUpdate({type:'data_changed'});notifyChanges();
-        }
-        setSyncError('');
-      }catch(error){
-        setSyncError(`Sincronização pendente: ${error.message}`);
-        retry=setTimeout(()=>setRetrySync(value=>value+1),15000);
-      }finally{syncing.current=false;if(!retry)setRetrySync(value=>value+1);}
-    })();
-    // Do not cancel in-flight writes when a new item is appended to the queue.
-    return undefined;
-  },[isOnline,syncQueue,profile,retrySync,setSyncQueue,notifyChanges]);
+    window.dispatchOfflineTask=(type,data)=>enqueue(type,data,profile?.id);
+    return()=>{delete window.dispatchOfflineTask;};
+  },[profile?.id]);
+  useEffect(()=>{
+    const handleBeforeInstall=event=>{event.preventDefault();setDeferredPrompt(event);};
+    window.addEventListener('beforeinstallprompt',handleBeforeInstall);
+    return()=>window.removeEventListener('beforeinstallprompt',handleBeforeInstall);
+  },[]);
   const [stageToast, setStageToast] = useState(null);
   const [chordColor, setChordColor] = useState('#FF6B35');
   const [fontFam, setFontFam] = useState("'Nunito', sans-serif");
-
-  // ── Online/offline
-  useEffect(()=>{
-    const on=()=>setIsOnline(true); const off=()=>setIsOnline(false);
-    window.addEventListener('online',on); window.addEventListener('offline',off);
-    return()=>{window.removeEventListener('online',on);window.removeEventListener('offline',off);};
-  },[]);
 
   // ── Landscape lock (only enforce on touch devices)
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0);
@@ -2435,6 +2344,13 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
   useEffect(()=>()=>aiRequestRef.current?.abort(),[profile?.id]);
   const [aiLoad,setAiLoad]=useState(false);
   const [aiCount,setAiCount]=useState(0);
+  useEffect(()=>{if(profile?.id){cacheWrite('maestro-history:'+profile.id,aiMsgs);cacheWrite('maestro-draft:'+profile.id,aiIn);}},[profile?.id,aiMsgs,aiIn]);
+  useEffect(()=>{
+    if(!profile?.id)return;
+    const collect=()=>setAiMsgs(previous=>previous.map(message=>{const result=message.pending&&cacheRead('maestro-result:'+profile.id+':'+message.requestId);return result?{r:'a',c:result.reply}:message;}));
+    window.addEventListener('louvesync:synced',collect);collect();return()=>window.removeEventListener('louvesync:synced',collect);
+  },[profile?.id]);
+
 
 
   const [keyF,setKeyF]=useState('');
@@ -2485,7 +2401,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     const cached=readCache('ls_profile',null),actor=readActorSession();
     const last=Number(localStorage.getItem('ls_last_activity')||0);
     if(cached?.id&&actor?.memberId===cached.id&&(!last||Date.now()-last<4*60*60*1000)){
-      const safe=normalizeMember(publicMember(cached));writeCache('ls_profile',safe);setMutationActor(actor);setProfile(safe);
+      const safe=normalizeMember(publicMember(cached));const workspace=cacheRead('workspace:'+safe.id,{songs:[],events:[]});setSongs(workspace.songs||[]);setEvents((workspace.events||[]).map(patchEvent));writeCache('ls_profile',safe);setMutationActor(actor);setProfile(safe);
     }else{
       setMutationActor(null);setActorSession(null);
       ['ls_profile','ls_actor_session','ls_last_activity'].forEach(key=>localStorage.removeItem(key));
@@ -2523,13 +2439,15 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     if(!profile||isChurchMember(profile))return;
     let disposed=false, inFlight=false, pending=false;
     async function loadData(){
+      if(navigator.onLine===false){setDataLoading(false);return;}
       if(inFlight){pending=true;return;}
       inFlight=true;
       try {
         const results=await Promise.allSettled([fetchSongs(),fetchEvents(),fetchMembers()]);
         if(disposed)return;
-        if(results[0].status==='fulfilled' && results[0].value!==null)setSongs(results[0].value);
-        if(results[1].status==='fulfilled' && results[1].value!==null)setEvents(results[1].value.map(normalizeEvent));
+        const pendingJobs=jobsFor(profile.id);
+        if(results[0].status==='fulfilled' && results[0].value!==null)setSongs(overlayWorkspace(results[0].value,[],pendingJobs).songs);
+        if(results[1].status==='fulfilled' && results[1].value!==null)setEvents(overlayWorkspace([],results[1].value.map(normalizeEvent),pendingJobs).events);
         if(results[2].status==='fulfilled' && results[2].value?.length){const safe=results[2].value.map(member=>normalizeMember(publicMember(member)));setAllMembers(safe);writeCache('ls_members',safe);setProfile(previous=>{const fresh=safe.find(member=>member.id===previous?.id);if(!previous||!fresh)return previous;const next={...previous,...fresh};return JSON.stringify(previous)===JSON.stringify(next)?previous:next;});}
         const failure=results.find(result=>result.status==='rejected');
         if(failure)setSyncError(`Não foi possível atualizar os dados: ${failure.reason.message}`);
@@ -2541,7 +2459,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     }
     loadData();
     const off=onRealtime(message=>{
-      if(message.type==='data_changed')loadData();
+      if(message.type==='data_changed'){connectionSucceeded();loadData();}
       if(message.type==='stage_chat'){
         setStageToast({sender:message.sender,message:message.message});
         setTimeout(()=>{if(!disposed)setStageToast(null);},5000);
@@ -2555,16 +2473,28 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     // all tables enabled for Postgres Realtime, and no migration is performed.
     const resume=()=>{if(document.visibilityState==='visible')loadData();};
     document.addEventListener('visibilitychange',resume);
-    window.addEventListener('online',loadData);
+    window.addEventListener('online',loadData);window.addEventListener('louvesync:synced',loadData);window.addEventListener('louvesync:connected',loadData);
     const poll=setInterval(()=>{if(document.visibilityState==='visible'&&navigator.onLine)loadData();},15000);
-    return ()=>{disposed=true;off();offStatus();if(pg)supabase.removeChannel(pg);disconnectRealtime();clearInterval(poll);document.removeEventListener('visibilitychange',resume);window.removeEventListener('online',loadData);};
+    return ()=>{disposed=true;off();offStatus();if(pg)supabase.removeChannel(pg);disconnectRealtime();clearInterval(poll);document.removeEventListener('visibilitychange',resume);window.removeEventListener('online',loadData);window.removeEventListener('louvesync:synced',loadData);window.removeEventListener('louvesync:connected',loadData);};
   },[profile]);
+
+  const preparedOffline=useRef(null);
+  const [preparingOffline,setPreparingOffline]=useState(false);
+  useEffect(()=>{
+    if(!profile?.id||!actorSession||!isOnline||dataLoading||preparedOffline.current===profile.id)return;
+    preparedOffline.current=profile.id;setPreparingOffline(true);void prepareOfflineWorkspace(actorSession,profile,events).finally(()=>setPreparingOffline(false));
+  },[profile,actorSession,isOnline,dataLoading,events]);
 
   /* ── Handlers ── */
   const handleAppUpdate = () => checkForAppUpdate();
 
   async function handleLogin(member, pin) {
-    const safe=normalizeMember(publicMember(await authenticateMember(member.id,pin)));
+    const safe=normalizeMember(publicMember(await(navigator.onLine!==false?authenticateMember(member.id,pin):unlockIdentity(member.id,pin))));
+    if(navigator.onLine!==false&&!safe._offlineUnlock){connectionSucceeded();await rememberIdentity(safe,pin);}
+    const workspace=cacheRead('workspace:'+safe.id,{songs:[],events:[],members:allMembers});
+    const local=overlayWorkspace(workspace.songs||[],(workspace.events||[]).map(patchEvent),jobsFor(safe.id));
+    setSongs(local.songs);setEvents(local.events);if(workspace.members?.length)setAllMembers(workspace.members);
+    setAiMsgs(cacheRead('maestro-history:'+safe.id)||[{r:'a',c:'Olá! Sou o Maestro. Como posso ajudar sua equipe hoje?'}]);setAiIn(cacheRead('maestro-draft:'+safe.id,''));
     const actor={memberId:safe.id,pin};
     localStorage.setItem('ls_actor_session',JSON.stringify(actor));
     localStorage.setItem('ls_profile',JSON.stringify(safe));
@@ -2574,8 +2504,8 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     setActorSession(actor);setProfile(safe);
     return true;
   }
-  function handleOwnPinChanged(pin){
-    const actor={memberId:profile.id,pin};setMutationActor(actor);setActorSession(actor);writeCache('ls_actor_session',actor);
+  async function handleOwnPinChanged(pin,member=profile){
+    const actor={memberId:profile.id,pin};setMutationActor(actor);setActorSession(actor);writeCache('ls_actor_session',actor);await rememberIdentity(member,pin);
   }
   function handleLogout() {
     const logout=()=>{
@@ -2646,19 +2576,18 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     if(!profile)return false;
     const previous=events.find(event=>event.id===eventId)?.confirmations?.[profile.id];
     setEvents(evs=>evs.map(ev=>ev.id===eventId?{...ev,confirmations:{...ev.confirmations,[profile.id]:confirmed}}:ev));
-    if(!isOnline){setSyncQueue(prev=>[...prev,{type:'confirm',data:{eventId,memberId:profile.id,confirmed}}]);return true;}
     if(!supabase)return true;
-    try{await setPresence(eventId,profile.id,confirmed);await broadcastUpdate({type:'data_changed'});notifyChanges();return true;}
+    try{await offlineAction('confirm',{eventId,memberId:profile.id,confirmed},()=>setPresence(eventId,profile.id,confirmed),{pendingOffline:true});await broadcastUpdate({type:'data_changed'});notifyChanges();return true;}
     catch(error){setEvents(evs=>evs.map(ev=>ev.id===eventId?{...ev,confirmations:{...ev.confirmations,[profile.id]:previous}}:ev));setSyncError(`Presença não salva: ${error.message}`);return false;}
   }
 
   const handleSetlistConfirmation=async(eventId,snapshot,confirmed)=>{
     if(!canManageMinistry(profile))return {ok:false,error:'Somente a liderança pode definir o setlist.'};
-    if(!isOnline||!navigator.onLine||!supabase)return {ok:false,error:'Conecte-se para salvar a confirmação para toda a equipe.'};
+    if(!supabase)return {ok:false,error:'Servidor não configurado.'};
     if(setlistWriteRef.current)return {ok:false,error:'Aguarde a confirmação em andamento.'};
     setlistWriteRef.current=true;setSetlistSavingId(eventId);
     try{
-      const preferences=await setSetlistConfirmation(eventId,snapshot,profile.id,confirmed);
+      const preferences=await offlineAction('setlist',{eventId,snapshot,confirmed},()=>setSetlistConfirmation(eventId,snapshot,profile.id,confirmed),{_pendingSetlist:true,_pendingOffline:true});
       setEvents(previous=>previous.map(event=>event.id===eventId?{...event,...preferences}:event));
       await broadcastUpdate({type:'data_changed'});notifyChanges();
       return {ok:true};
@@ -2670,7 +2599,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     if(!canManageMinistry(profile))return;
     const memberId=singerMemberId||null;
     try{
-      await setSingerForSong(eventId,songId,memberId);
+      await offlineAction('singer',{eventId,songId,memberId},()=>setSingerForSong(eventId,songId,memberId),{pendingOffline:true});
       setEvents(evs=>evs.map(e=>e.id===eventId?{...e,singerBySong:{...e.singerBySong,[songId]:memberId}}:e));
       await broadcastUpdate({type:'data_changed'});notifyChanges();
     }catch(error){setSyncError(`Vocal não salvo: ${error.message}`);}
@@ -2678,7 +2607,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
   const handleUpdateSongOptions=async(songId,newKey,updateOfficial,newBpm,newTs,singerId,eventId)=>{
     if(!canManageMinistry(profile))return;
     try{
-      if(supabase){
+      await offlineAction('song_options',{songId,eventId,key:newKey,bpm:newBpm,time_signature:newTs,singerId,updateOfficial},async()=>{if(supabase){
         await setSequenceForSong(eventId,songId,undefined,newKey);
         if(updateOfficial&&singerId)await saveVocalKey(songId,singerId,newKey);
         const changes={};
@@ -2686,6 +2615,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
         if(newTs)changes.time_signature=newTs;
         if(Object.keys(changes).length){const {error}=await supabase.from('songs').update(changes).eq('id',songId);if(error)throw error;}
       }
+      },{pendingOffline:true});
       setEvents(evs=>evs.map(e=>e.id===eventId?{...e,keyBySong:{...e.keyBySong,[songId]:newKey}}:e));
       setSongs(list=>list.map(song=>song.id===songId?{...song,...(newBpm?{bpm:Number(newBpm)}:{}),...(newTs?{time_signature:newTs}:{}),...(updateOfficial&&singerId?{vocal_keys:{...song.vocal_keys,[singerId]:newKey}}:{})}:song));
       await broadcastUpdate({type:'data_changed'});notifyChanges();
@@ -2695,14 +2625,14 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
   const handleRequestDeleteEvent=useCallback(ev=>{
     if(!profile?.is_admin)return;
     setConfirmState({title:'Excluir Evento',msg:`Excluir permanentemente o evento "${ev.label}"?`,onConfirm:async()=>{
-      try{if(!navigator.onLine&&supabase)throw new Error('Conecte-se para excluir o evento.');await dbDelEvent(ev.id,activity.credentials);setEvents(previous=>previous.filter(item=>item.id!==ev.id));setEvSheet(null);setConfirmState(null);await broadcastUpdate({type:'data_changed'});notifyChanges();}
+      try{await dbDelEvent(ev.id,activity.credentials);setEvents(previous=>previous.filter(item=>item.id!==ev.id));setEvSheet(null);setConfirmState(null);await broadcastUpdate({type:'data_changed'});notifyChanges();}
       catch(error){setSyncError(`Evento não excluído: ${error.message}`);setConfirmState(null);}
     },onCancel:()=>setConfirmState(null)});
   },[profile?.is_admin,activity.credentials,notifyChanges]);
   function handleDeleteSong(id){
     if(!profile?.is_admin)return;
     setConfirmState({title:'Excluir Música',msg:'Excluir permanentemente esta música?',onConfirm:async()=>{
-      try{if(!navigator.onLine&&supabase)throw new Error('Conecte-se para excluir a música.');await dbDelSong(id,activity.credentials);setSongs(previous=>previous.filter(song=>song.id!==id));setSelSong(null);setConfirmState(null);await broadcastUpdate({type:'data_changed'});notifyChanges();}
+      try{await dbDelSong(id,activity.credentials);setSongs(previous=>previous.filter(song=>song.id!==id));setSelSong(null);setConfirmState(null);await broadcastUpdate({type:'data_changed'});notifyChanges();}
       catch(error){setSyncError(`Música não excluída: ${error.message}`);setConfirmState(null);}
     },onCancel:()=>setConfirmState(null)});
   }
@@ -2711,17 +2641,17 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     if(!profile?.is_admin)return;
     const toAdd=(Array.isArray(evs)?evs:[evs]).map(withoutRehearsalSongs);
     try {
-      const currentMembers=isOnline&&supabase?await fetchMembers():allMembers;
+      const currentMembers=allMembers;
       const conflicts=toAdd.flatMap(event=>rosterConflicts(event,currentMembers||allMembers,events.find(previous=>previous.id===event.id)).map(conflict=>conflict.name+' · '+event.date+' · '+conflict.reason));
       if(conflicts.length)throw new Error('Há integrantes indisponíveis. Revise a equipe: '+conflicts.join('; '));
       for(const ev of toAdd){
         ev.items=ev.items?.length?ev.items:(ev.songs||[]).map(song_id=>({type:'song',song_id,singer_id:ev.singerBySong?.[song_id]||null,text:''}));
         ev.songs=ev.items.filter(item=>item.type==='song').map(item=>item.song_id);
         if(!isSetlistConfirmed(ev,songs))ev.setlist_confirmation=null;
-        if(isOnline&&supabase){await upsertEvent(eventPayload(ev));await setEventItems(ev.id,ev.items,ev.members||[],ev);}
+
       }
+      await offlineAction('create_event',toAdd,async()=>{for(const ev of toAdd){if(supabase){await upsertEvent(eventPayload(ev));await setEventItems(ev.id,ev.items,ev.members||[],ev);}}},{pendingOffline:true},profile.id,{base:Object.fromEntries(toAdd.map(event=>[event.id,events.find(previous=>previous.id===event.id)||null]))});
       setEvents(prev=>{const next=[...prev];for(const ev of toAdd){const index=next.findIndex(row=>row.id===ev.id);if(index<0)next.push(ev);else next[index]=ev;}return next;});
-      if(!isOnline)setSyncQueue(prev=>[...prev,{type:'create_event',data:toAdd}]);
       setCreateEvOpen(false);setEditEvState(null);spawnConfetti();
       await broadcastUpdate({type:'data_changed'});notifyChanges();
     }catch(error){setSyncError(`Evento não salvo: ${error.message}`);throw error;}
@@ -2730,7 +2660,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
   async function handleSetSequence(evId, songId, seqStr){
     if(!profile?.is_admin)return;
     try {
-      await setSequenceForSong(evId, songId, seqStr);
+      await offlineAction('sequence',{eventId:evId,songId,text:seqStr},()=>setSequenceForSong(evId,songId,seqStr),{pendingOffline:true});
       setEvents(evs => evs.map(e => e.id === evId ? {...e, sequenceBySong: {...(e.sequenceBySong||{}), [songId]:seqStr}} : e));
       await broadcastUpdate({type:'data_changed'});notifyChanges();
     } catch(err) {
@@ -2742,8 +2672,8 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
 
   async function handleChangesSaved(){
     const [freshSongs,freshEvents]=await Promise.all([fetchSongs(),fetchEvents()]);
-    if(freshSongs)setSongs(freshSongs);
-    if(freshEvents)setEvents(freshEvents.map(normalizeEvent));
+    const pending=jobsFor(profile.id);if(freshSongs)setSongs(overlayWorkspace(freshSongs,[],pending).songs);
+    if(freshEvents)setEvents(overlayWorkspace([],freshEvents.map(normalizeEvent),pending).events);
     await broadcastUpdate({type:'data_changed'});notifyChanges();
   }
   async function handleSaveSong(song){
@@ -2753,10 +2683,9 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     }
     const newSong={...song,id:song.id||crypto.randomUUID(),created_at:song.created_at||new Date().toISOString()};
     try{
-      const saved=isOnline&&supabase?await upsertSong({...newSong,created_by:profile?.id}):newSong;
+      const saved=await offlineAction('save_song',newSong,()=>supabase?upsertSong({...newSong,created_by:profile?.id}):newSong,{...newSong,_pendingOffline:true},profile.id,{base:songRecords.find(record=>record.id===newSong.id)||null});
       if(!saved)throw new Error('Não foi possível salvar a música.');
       setSongs(prev=>prev.some(row=>row.id===newSong.id)?prev.map(row=>row.id===newSong.id?saved:row):[...prev,saved]);
-      if(!isOnline)setSyncQueue(prev=>[...prev,{type:'save_song',data:newSong}]);
       setAddOpen(false);spawnConfetti();await broadcastUpdate({type:'data_changed'});notifyChanges();
       return saved;
     }catch(error){setSyncError(`Música não salva: ${error.message}`);throw error;}
@@ -2767,7 +2696,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
       setChangeDraft({kind:'key',song:songs.find(song=>song.id===songId),event:selEvent,proposal:{key}});return;
     }
     try{
-      const keys=await saveVocalKey(songId,singerId,key);
+      const keys=await offlineAction('vocal_key',{songId,singerId,key},()=>saveVocalKey(songId,singerId,key),{...songs.find(song=>song.id===songId)?.vocal_keys,[singerId]:key});
       setSongs(prev=>prev.map(song=>song.id===songId?{...song,vocal_keys:keys||{...song.vocal_keys,[singerId]:key}}:song));
       await broadcastUpdate({type:'data_changed'});notifyChanges();
     }catch(error){setSyncError(`Tom vocal não salvo: ${error.message}`);}
@@ -2776,7 +2705,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
   async function sendAI(msg=''){
     const txt=(msg||aiIn).trim();if(!txt||aiRequestRef.current||aiCount>=10||!canSeeScreen(profile,'ia'))return;
     const controller=new AbortController();aiRequestRef.current=controller;setAiLoad(true);
-    const clean=aiMsgs.filter(message=>!message.err);
+    const clean=aiMsgs.filter(message=>!message.err&&!message.pending);
     const messages=clean.at(-1)?.r==='u'&&clean.at(-1)?.c===txt?clean:[...clean,{r:'u',c:txt}];
     setAiMsgs(messages);
     const catalog=songs.map(song=>`${song.title} (${song.artist||'Ministério'})`).join(', ').slice(0,12000);
@@ -2784,6 +2713,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     try{
       const reply=await maestroRequest(activity.credentials,[system,...messages.slice(-8).map(message=>({role:message.r==='u'?'user':'assistant',content:message===messages.at(-1)?message.c:message.c.slice(-4000)}))],{signal:controller.signal,maxTokens:700});
       if(controller.signal.aborted)return;
+      if(reply?.pendingOffline){setAiMsgs(previous=>[...previous,{r:'a',c:'Pedido salvo neste aparelho. O Maestro responderá quando a conexão voltar.',pending:true,requestId:reply.requestId}]);setAiIn('');return;}
       setAiMsgs(previous=>[...previous,{r:'a',c:reply}]);setAiCount(count=>count+1);setAiIn(value=>value.trim()===txt?'':value);
     }catch(error){if(!controller.signal.aborted){setAiMsgs(previous=>[...previous,{r:'a',c:error.message,err:true}]);setAiIn(value=>value||txt);}}
     finally{if(aiRequestRef.current===controller){aiRequestRef.current=null;setAiLoad(false);}}
@@ -2844,9 +2774,10 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
       {stageMode&&inCifra&&<Stage metronome={metronome} song={selSong} tr={tr} mode={mode} setMode={setMode} stageFs={stageFs} setStageFs={setStageFs} dark={dark} onClose={()=>setStageMode(false)} chordColor={chordColor} setChordColor={setChordColor} fontFam={fontFam} setFontFam={setFontFam}/>}
       {!stageMode&&<>
         {/* OFFLINE BANNER */}
-        {!isOnline&&<div style={{background:'rgba(239,68,68,.9)',color:'#fff',textAlign:'center',padding:'5px',fontSize:'var(--fs-xs)',fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',gap:6,flexShrink:0}}><IcoWifi s={12} off/>Sem conexão — usando dados locais</div>}
+
         {changeNotice&&<div role="status" className="change-success-notice">{changeNotice}<button type="button" aria-label="Fechar confirmação da solicitação" onClick={()=>setChangeNotice('')}>×</button></div>}
-        {syncError&&<div role="alert" style={{padding:10,background:'#FEF3C7',color:'#92400E',fontSize:12,flexShrink:0}}>{syncError}<button onClick={()=>{setSyncError('');setRetrySync(n=>n+1);}} style={{marginLeft:8}}>Tentar novamente</button></div>}
+        <OfflineStatus state={{...offline,preparing:preparingOffline}}/>
+        {syncError&&<div role="alert" style={{padding:10,background:'#FEF3C7',color:'#92400E',fontSize:12,flexShrink:0}}>{syncError}<button onClick={()=>{setSyncError('');offline.retry();}} style={{marginLeft:8}}>Tentar novamente</button></div>}
         {/* TOP BAR */}
         <div className="app-header" style={{padding:'11px 16px', paddingTop:'calc(var(--app-safe-top) + 11px)', display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${dark?'rgba(168,85,247,.1)':'rgba(123,63,242,.06)'}`,position:'sticky',top:0,zIndex:30,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>

@@ -1,6 +1,7 @@
 import { actorHeaders } from './member-session.js';
 import { activityFailure } from './activity-errors.js';
 import { normalizeSupabaseUrl } from './supabase-url.js';
+import { offlineRead, apiScope } from './offline-actions.js';
 
 const prefix = 'ls_content_view_v1:';
 
@@ -9,6 +10,7 @@ const validResponse = (data, action) => typeof data?.serverTime === 'string' && 
 
 export async function activityRequest(credentials, payload, options = {}) {
   if (!credentials?.memberId || !credentials.pin) throw new Error('Sessão de monitoramento indisponível. Entre novamente no app.');
+  if(!options.offlineBypass&&['online','summary','viewers'].includes(payload.action))return offlineRead(apiScope('activity',credentials.memberId,payload),()=>activityRequest(credentials,payload,{...options,offlineBypass:true}));
   const controller = new AbortController();
   const abort = () => controller.abort();
   if (options.signal?.aborted) abort();

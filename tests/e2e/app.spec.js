@@ -654,13 +654,13 @@ async function fixture(browser) {
     await page.getByLabel('Senha',{exact:true}).fill(person.pin||'TEST_PIN_'+person.id);
     await page.getByRole('button',{name:'Entrar',exact:true}).click();
     if(person.access_type==='church_member')await expect(page.locator('.church-audience')).toHaveText('Membro');
-    else await expect(page.getByRole('button',{name:'Escala',exact:true})).toBeVisible();
+    else await expect(page.getByRole('button',{name:'Escala',exact:true})).toBeVisible().catch(async error=>{throw new Error(error.message+'\nUI: '+await page.locator('body').innerText()+'\nErrors: '+JSON.stringify(failures));});
   }
   const code = `
     import { memberPayload, normalizeMember } from '/src/lib/member-settings.js';
     import { updateEventItems, updateSetlistConfirmation } from '/src/lib/event-storage.js';
     const clone=value=>structuredClone(value);
-    const channels=[];
+    const channels=window.__fixtureChannels||=[];
     export const publicSupabaseConfig=window.__testActivityConnection||null;
     window.__testDeliver=(name,message)=>channels.filter(c=>c.topic===name).forEach(c=>c.handlers.filter(h=>h.type==='broadcast'&&h.filter.event===message.event).forEach(h=>h.fn({payload:message.payload})));
     export const supabase={channel(name){const c={topic:name,state:'joined',handlers:[],on(type,filter,fn){this.handlers.push({type,filter,fn});return this;},subscribe(fn){queueMicrotask(()=>fn?.('SUBSCRIBED'));return this;},unsubscribe(){},send(message){return window.__testBroadcast(name,message).then(()=> 'ok');}};channels.push(c);return c;},removeChannel(c){const i=channels.indexOf(c);if(i>=0)channels.splice(i,1);},from(table){const query={table,op:'select',filters:{},inFilters:{}};return {select(){return this;},eq(k,v){query.filters[k]=v;return this;},match(values){Object.assign(query.filters,values);return this;},in(k,v){query.inFilters[k]=v;return this;},order(){return this;},single(){query.single=true;return this;},maybeSingle(){query.single=true;return this;},upsert(data){query.op='upsert';query.data=data;return this;},insert(data){query.op='insert';query.data=data;return this;},delete(){query.op='delete';return this;},update(data){query.op='update';query.data=data;return this;},then(resolve,reject){return window.__testDb('query',[query]).then(resolve,reject);}};}};
@@ -679,7 +679,7 @@ async function fixture(browser) {
   `;
   async function open(profile = admin, time = '2026-10-24T12:00:00-03:00', options = {}) {
     if(options.mentions){communityDb.enableMentions();await communityDb.ready();}
-    if(options.community)await communityDb.ready();
+    await communityDb.ready();
     if(options.attendance)await getAttendanceDb();
     if(options.changes)await getChangesDb();
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'America/Sao_Paulo', serviceWorkers: 'block', ...options.device }); contexts.push(context);
@@ -775,8 +775,10 @@ async function fixture(browser) {
           if(query.op==='delete')state.equipment=state.equipment.filter(row=>row.id!==query.filters.id);
           return {data:structuredClone(state.equipment),error:null};
         }
+        if(query.table==='events'&&query.op==='upsert'){const row=query.data;const index=state.events.findIndex(event=>event.id===row.id);if(index<0)state.events.push(row);else state.events[index]={...state.events[index],...row};return {data:structuredClone(row),error:null};}
         if(query.table==='events' && query.op==='select') {const rows=state.events.filter(event=>!query.filters.id||event.id===query.filters.id);return {data:structuredClone(query.single?rows[0]||null:rows),error:null};}
         if(query.table==='songs') {
+          if(query.op==='upsert'){const row=query.data;const index=state.songs.findIndex(song=>song.id===row.id);if(index<0)state.songs.push(row);else state.songs[index]={...state.songs[index],...row};return {data:structuredClone(row),error:null};}
           const rows=state.songs.filter(song=>Object.entries(query.filters).every(([field,value])=>song[field]===value)&&Object.entries(query.inFilters).every(([field,values])=>values.includes(song[field])));
           if(query.op==='update')for(const row of rows)Object.assign(row,query.data);
           return {data:structuredClone(query.single?rows[0]||null:rows),error:null};
@@ -822,7 +824,7 @@ async function fixture(browser) {
             state.takes.unshift(structuredClone(query.data));
           }
           if(query.op==='delete')state.takes=state.takes.filter(take=>take.id!==query.filters.id);
-          return {data:structuredClone(state.takes.filter(take=>Object.entries(query.filters).every(([key,value])=>take[key]===value))),error:null};
+          const rows=state.takes.filter(take=>Object.entries(query.filters).every(([key,value])=>take[key]===value));return {data:structuredClone(query.single?rows[0]||null:rows),error:null};
         }
         return {data:[],error:null};
       }
@@ -836,6 +838,7 @@ async function fixture(browser) {
       catch(error){await route.fulfill({status:403,json:{ok:false,error:error.message}});}
     });
     page.on('pageerror', error => failures.push(error.message));
+    await page.route('**/src/lib/actor-client.js*',route=>route.fulfill({contentType:'text/javascript',body:"import {supabase} from '/src/lib/supabase.js';export function actorClient(){return supabase;}"}));
     await page.route('**/src/lib/supabase.js*', route => route.fulfill({ contentType: 'text/javascript', body: (options.noSupabase ? code.replace('export const supabase=','const fixtureSupabase=')+'\nexport const supabase=null;' : code)+storageCode }));
     const handleActivity=async(route,direct=false)=>{
       const body=direct?route.request().postDataJSON().p_payload:route.request().postDataJSON();state.activityRequests.push({...structuredClone(body),transport:direct?'rpc':'api'});
@@ -1531,7 +1534,7 @@ test('leader attendance preserves notes on validation and network errors and req
     app.state.attendanceSaveError = 'Fixture unavailable';
     await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(screen.getByRole('alert')).toContainText('Não foi possível');
     await expect(person.getByRole('textbox')).toHaveValue('Avisou à liderança que estava doente.');
-    await page.context().setOffline(true); await expect(screen.getByRole('button', { name: 'Salvar rascunho', exact: true })).toBeDisabled();
+    await page.context().setOffline(true); await expect(screen.getByRole('button', { name: 'Salvar rascunho', exact: true })).toBeEnabled();
     await page.context().setOffline(false); app.state.attendanceSaveError = null;
     await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(screen.getByRole('status')).toContainText('Rascunho salvo');
     await expect(screen).toContainText('1 justificada'); expect(app.failures).toEqual([]);
@@ -1657,10 +1660,10 @@ test('setlist approval errors and offline mode retain a pending status and empty
     await expect(card.locator('.setlist-badge')).toHaveText('Setlist não confirmado');
     app.state.setlistSaveError = null;
     await page.context().setOffline(true);
-    await expect(card.getByRole('button', { name: 'Confirmar setlist', exact: true })).toBeDisabled();
-    await expect(card).toContainText('Conecte-se para salvar a confirmação');
+    await expect(card.getByRole('button', { name: 'Confirmar setlist', exact: true })).toBeEnabled();
+    await card.getByRole('button', { name: 'Confirmar setlist', exact: true }).click();await expect(card).toContainText('Aguardando sincronização');
     expect(app.state.setlistRequests).toHaveLength(1);
-    await page.context().setOffline(false);
+    await page.context().setOffline(false);await expect.poll(()=>page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_sync_job:')).length)).toBe(0);
     app.state.events[0].event_songs = [];
     await app.reload(page); const empty = await openSetlistCard(page);
     await expect(empty.getByRole('button', { name: 'Confirmar setlist', exact: true })).toBeDisabled();
@@ -2398,7 +2401,7 @@ for(const uploadFails of [false,true])test(`compact studio records real browser 
     expect(app.state.audioUploads[0].bucket).toBe('rehearsal-audio');
     if(uploadFails){
       expect((await download).suggestedFilename()).toBe('ensaio-event-1.webm');
-      await expect(page.getByRole('status').filter({hasText:'Gravação baixada neste aparelho'})).toBeVisible();
+      await expect(page.getByRole('status').filter({hasText:'Áudio preservado no aparelho e baixado'})).toBeVisible();
       expect(app.state.takes||[]).toHaveLength(0);
     }else{
       await expect.poll(()=>app.state.takes?.length||0).toBe(1);
@@ -3181,4 +3184,85 @@ for(const theme of ['light','dark'])test(`schedule response badges and song cate
     await details.getByRole('button',{name:/^Setlist/}).click();await expect(details.locator('.song-category-badge')).toHaveCount(songs.length);await page.screenshot({path:test.info().outputPath(`schedule-category-contrast-${theme}.png`),scale:'css'});await details.getByRole('button',{name:'Fechar detalhes do evento',exact:true}).click();await navigate(page,'Maestro');
     const maestro=page.getByRole('region',{name:'Maestro',exact:true});await expect(maestro.locator('.maestro-hero img')).toHaveAttribute('src','/images/maestro/toy.webp');await maestro.getByRole('textbox',{name:'Mensagem para o Maestro',exact:true}).fill('Como organizar a equipe?');await maestro.getByRole('button',{name:'Enviar mensagem ao Maestro',exact:true}).click();await expect(maestro).toContainText('Vamos preparar o ensaio com oração');const bubbles=await maestro.locator('.maestro-message>div').evaluateAll(nodes=>nodes.map(node=>({author:node.parentElement.dataset.author,bg:getComputedStyle(node).backgroundColor,color:getComputedStyle(node).color})));expect(bubbles.find(b=>b.author==='u').bg).not.toBe(bubbles.find(b=>b.author==='a').bg);expect(bubbles.find(b=>b.author==='u').color).not.toBe(bubbles.find(b=>b.author==='a').color);await page.screenshot({path:test.info().outputPath(`maestro-bubble-contrast-${theme}.png`),scale:'css'});expect(app.failures).toEqual([]);
   }finally{await app.close();}
+});
+
+
+test('offline schedule edits remain local through refresh and upload only after the browser reconnects',async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  const page=await app.open(admin);
+  await page.getByRole('button',{name:'Escala',exact:true}).click();
+  await page.getByRole('button',{name:'Editar evento Culto de Teste',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Editar evento',exact:true});
+  await page.context().setOffline(true);
+  await expect(page.getByLabel('Sincronização offline')).toContainText('Você está offline');
+  await dialog.getByRole('textbox',{name:'Mensagem para a equipe',exact:true}).fill('Orientação preparada offline.');
+  await dialog.getByRole('button',{name:'Salvar Alterações',exact:true}).click();await expect(dialog).toHaveCount(0);
+  expect(app.state.events[0].notes||'').not.toContain('Orientação preparada offline.');
+  const queued=await page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_sync_job:')).map(key=>JSON.parse(localStorage.getItem(key))));
+  expect(queued.some(job=>job.type==='create_event'&&job.actorId==='user-admin')).toBe(true);
+  await page.evaluate(()=>window.dispatchEvent(new Event('louvesync:synced')));
+  await page.context().setOffline(false);
+  await expect.poll(()=>app.state.events[0].notes).toBe('Orientação preparada offline.');
+  await expect.poll(()=>page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_sync_job:')).length)).toBe(0);
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('offline visitor prayer keeps its anonymous author across login and uploads exactly once',async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  const page=await app.open(null,undefined,{community:true});
+  await page.getByRole('button',{name:'Oração',exact:true}).click();await page.context().setOffline(true);
+  await page.getByRole('textbox',{name:'Seu pedido de oração',exact:true}).fill('Peço oração pela minha família e por saúde.');
+  await page.getByRole('checkbox',{name:'Enviar sem meu nome',exact:true}).check();
+  await page.getByRole('button',{name:'Enviar pedido de oração',exact:true}).click();
+  await expect(page.locator('.church-success')).toContainText('Pedido salvo neste aparelho');
+  expect((await app.communityQuery('select count(*)::int as n from louvesync_prayer_requests')).rows[0].n).toBe(0);
+  await page.context().setOffline(false);
+  await expect.poll(async()=>(await app.communityQuery('select count(*)::int as n from louvesync_prayer_requests')).rows[0].n).toBe(1);
+  const result=(await app.communityQuery('select member_id,anonymous,visibility from louvesync_prayer_requests')).rows[0];
+  expect(result.member_id).toBeNull();expect(result.anonymous).toBe(true);expect(result.visibility).toBe('team');
+  await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+  expect((await app.communityQuery('select count(*)::int as n from louvesync_prayer_requests')).rows[0].n).toBe(1);
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('leader records attendance offline and the real endpoint receives it after reconnecting',async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  attendanceFixtures(app);const page=await app.open(admin,attendanceTime,{attendance:true});
+  const screen=await openAttendanceCall(page);
+  await expect(screen.getByRole('button',{name:'Todos presentes',exact:true})).toBeEnabled();
+  await page.context().setOffline(true);await screen.getByRole('button',{name:'Todos presentes',exact:true}).click();
+  await screen.getByRole('button',{name:'Concluir chamada',exact:true}).click();
+  await expect(screen.locator('.attendance-savebar').getByRole('status')).toContainText('Chamada salva neste aparelho');
+  await page.context().setOffline(false);
+  await expect.poll(()=>page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_sync_job:')).length)).toBe(0);
+  expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+
+test('Maestro queues an offline question, preserves its conversation and fills the reply after reconnecting',async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  const page=await app.open(member);await navigate(page,'Maestro');const screen=page.getByRole('region',{name:'Maestro',exact:true});
+  await page.context().setOffline(true);await screen.getByRole('textbox',{name:'Mensagem para o Maestro',exact:true}).fill('Organize as transições do nosso próximo ensaio.');await screen.getByRole('button',{name:'Enviar mensagem ao Maestro',exact:true}).click();
+  await expect(screen).toContainText('O Maestro responderá quando a conexão voltar.');expect(app.state.maestroRequests||[]).toHaveLength(0);
+  await navigate(page,'Início');await navigate(page,'Maestro');await expect(screen).toContainText('Organize as transições');
+  await page.context().setOffline(false);await expect(screen).toContainText('Vamos preparar o ensaio com oração');await expect.poll(()=>page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_sync_job:')).length)).toBe(0);expect(app.failures).toEqual([]);
+ }finally{await app.close();}
+});
+
+test('offline rehearsal audio remains in IndexedDB and is uploaded under its original member after reconnecting',async({browser})=>{
+ const app=await fixture(browser);
+ try{
+  const page=await app.open();await page.evaluate(()=>{Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:async()=>{const audio=new AudioContext(),tone=audio.createOscillator(),destination=audio.createMediaStreamDestination();tone.connect(destination);tone.start();await audio.resume();window.__recordingStream=destination.stream;window.__recordingAudio=audio;return destination.stream;}});});
+  await navigate(page,'Ensaio');await page.getByRole('button',{name:'Teste ceia',exact:true}).click();await page.context().setOffline(true);await page.getByRole('button',{name:'Iniciar gravação',exact:true}).click();await expect(page.locator('.studio-record-time')).not.toHaveText('00:00');await page.getByRole('button',{name:'Finalizar gravação',exact:true}).click();
+  await expect(page.getByRole('status').filter({hasText:'Gravação salva neste aparelho'})).toBeVisible();expect(app.state.audioUploads||[]).toHaveLength(0);
+  const jobs=await page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_sync_job:')).map(key=>JSON.parse(localStorage.getItem(key))));expect(jobs.find(job=>job.type==='audio').actorId).toBe(admin.id);
+  await page.context().setOffline(false);await expect.poll(()=>app.state.takes?.length||0).toBe(1);await expect.poll(()=>page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_sync_job:')).length)).toBe(0);expect(app.failures).toEqual([]);
+ }finally{await app.close();}
 });
