@@ -21,6 +21,7 @@ export function useOfflineSync(actor, profile, onPinChanged) {
   const current = useRef(null), running = useRef(false), after = useRef(0),pinChanged=useRef(onPinChanged);
   pinChanged.current=onPinChanged;
   current.current = { owner, pin: actor?.pin };
+  useEffect(()=>{if(online)after.current=0;},[online]);
   useEffect(() => subscribeJobs(() => setJobs(readJobs())), []);
   useEffect(() => { migrateJobs(owner); }, [owner]);
   useEffect(() => {
@@ -50,7 +51,7 @@ export function useOfflineSync(actor, profile, onPinChanged) {
             if(job.type==='song_search'||job.type==='song_lookup')cacheWrite('completed:'+owner,[...cacheRead('completed:'+owner,[]),{id:job.id,title:job.type==='song_search'?'Busca de '+job.data.title:'Cifra consultada',text:typeof result==='string'?result:job.type==='song_lookup'?result?.text||'Nenhum texto disponível.':(result||[]).map(item=>item.title+' · '+item.artist+'\n'+item.url).join('\n\n')}]);
             acknowledge(job.id);
             if(active())void broadcastUpdate({type:job.type==='attendance'?'attendance_changed':'data_changed',...(job.data.eventId?{eventId:job.data.eventId}:{})}).catch(()=>{});
-            window.dispatchEvent(new CustomEvent('louvesync:synced', { detail: { owner, type: job.type, id: job.id, entityId:job.data?.requestId||job.data?.id } }));
+            window.dispatchEvent(new CustomEvent('louvesync:synced', { detail: { owner, type: job.type, id: job.id, eventId:job.data?.eventId, entityId:job.data?.requestId||job.data?.id } }));
             if(job.type==='save_member'&&job.data.id===owner&&job.data.pin){await pinChanged.current?.(job.data.pin,result);break;}
           } catch (failure) {
             if (networkFailure(failure)) throw failure;

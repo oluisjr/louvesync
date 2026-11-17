@@ -1,5 +1,7 @@
 # Uso offline
 
+O usuário usa sempre a mesma ação Salvar. O aplicativo escolhe automaticamente o envio imediato ou o armazenamento no aparelho, com sincronização posterior. Na tela Presença há somente Salvar presença: marcações incompletas continuam pendentes, e a chamada fica completa quando todos são marcados. O registro salvo e o resumo do período são mantidos no cache tanto depois de um envio online quanto de um salvamento offline.
+
 Abra o app com internet uma vez e aguarde o aviso de preparação terminar. O service worker baixa a interface, as ilustrações e a Bíblia Livre completa. Ao entrar em cada conta, o app prepara também seu conteúdo de trabalho. Vídeos e Spotify continuam online.
 
 Reabrir o app continua mostrando a versão de visitante. O botão Fazer login abre a tela atual; contas anteriormente validadas podem desbloquear o conteúdo local com seu próprio PIN, verificado por PBKDF2 com salt. Um primeiro acesso, um novo cadastro ou um PIN ainda não confirmado no banco precisam da conexão inicial.

@@ -19,10 +19,11 @@ function AttendanceEvent({ eventId, credentials, online, onBack, onDirtyChange, 
   const [data, setData] = useState(null), [entries, setEntries] = useState(null);
   const [error, setError] = useState(''), [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [retry, setRetry] = useState(0), [savedMessage, setSavedMessage] = useState('');
   const [search, setSearch] = useState('');
-  const lock = useRef(false);
+  const lock = useRef(false), dirtyRef = useRef(false);
   const sheet = data?.sheet;
   const dirty = !!sheet && !!entries && JSON.stringify(entries) !== JSON.stringify(entriesOf(sheet));
   const counts = attendanceCounts(entries || []);
+  dirtyRef.current=dirty;
   useEffect(()=>{if(entries&&data?.sheet)cacheWrite(draftKey,{entries,version:data.sheet.version});},[draftKey,entries,data?.sheet]);
   useEffect(() => { onDirtyChange(dirty, saving); return () => onDirtyChange(false, false); }, [dirty, saving, onDirtyChange]);
   useEffect(() => {
@@ -33,26 +34,34 @@ function AttendanceEvent({ eventId, credentials, online, onBack, onDirtyChange, 
   useEffect(() => {
     let disposed = false;
     const controller = new AbortController();
-    const load = async () => {
+    const load = async ({keepEdits=false}={}) => {
       setLoading(true); setError('');
       try {
         const result = await request(credentials, { action: 'get', eventId }, { signal: controller.signal });
-        if (!disposed) { const draft=cacheRead(draftKey),pending=jobsFor(credentials.memberId).filter(job=>job.type==='attendance'&&job.data.eventId===eventId).at(-1);setData(result);setEntries(pending?.data.entries || (draft?.version===result.sheet.version?draft.entries:entriesOf(result.sheet)));setSavedMessage(pending?'Chamada salva neste aparelho. Aguardando sincronização.':''); }
+        if (!disposed) {
+          const draft=cacheRead(draftKey),pending=jobsFor(credentials.memberId).filter(job=>job.type==='attendance'&&job.data.eventId===eventId).at(-1);
+          const local=pending?{...result,pendingOffline:true,sheet:{...result.sheet,roster:result.sheet.roster.map(person=>({...person,...pending.data.entries.find(entry=>entry.memberId===person.memberId)}))}}:result;
+          setData(local);
+          setEntries(previous=>keepEdits?entriesOf(local.sheet).map(person=>previous?.find(entry=>entry.memberId===person.memberId)||person):draft?.version===local.sheet.version?draft.entries:entriesOf(local.sheet));
+          setSavedMessage(pending?'Presença salva. A sincronização é automática.':'');
+        }
       } catch (failure) { if (!disposed) setError(failure.message); }
       finally { if (!disposed) setLoading(false); }
     };
     void load();
-    return () => { disposed = true; controller.abort(); };
+    const synced=event=>{if(event.detail?.owner===credentials.memberId&&event.detail?.type==='attendance'&&event.detail?.eventId===eventId&&!lock.current)void load({keepEdits:dirtyRef.current});};
+    window.addEventListener('louvesync:synced',synced);
+    return () => { disposed = true; controller.abort();window.removeEventListener('louvesync:synced',synced); };
   }, [credentials, eventId, retry, draftKey]);
   const change = (id, patch) => { setEntries(previous => previous.map(person => person.memberId === id ? { ...person, ...patch } : person)); setSavedMessage(''); };
-  const save = async finalize => {
+  const save = async () => {
+    const finalize=counts.pending===0;
     if (lock.current || !(data?.canRecord || (!online&&sheet?.date===localDate())) || loading) return;
-    if (finalize && counts.pending) { setError('Marque todos os integrantes antes de concluir a chamada.'); return; }
     if (entries.some(person => person.status === 'excused' && !person.note.trim())) { setError('Informe o motivo de cada falta justificada.'); return; }
     lock.current = true; setSaving(true); setError('');
     try {
       const result = await request(credentials, { action: 'save', eventId, version: sheet.version, finalize, entries });
-      setData(result); setEntries(entriesOf(result.sheet));cacheRemove(draftKey); setSavedMessage(result.pendingOffline?'Chamada salva neste aparelho. A conclusão será confirmada no banco quando a conexão voltar.':finalize ? 'Chamada concluída e salva para a liderança.' : 'Rascunho salvo. Quem não foi marcado continua pendente.');
+      setData(result); setEntries(entriesOf(result.sheet));cacheRemove(draftKey); setSavedMessage(result.pendingOffline?'Presença salva. A sincronização é automática.':'Presença salva.');
       void broadcastUpdate({ type: 'attendance_changed', eventId }).catch(() => {});
     } catch (failure) { setError(failure.message); }
     finally { lock.current = false; setSaving(false); }
@@ -67,10 +76,10 @@ function AttendanceEvent({ eventId, credentials, online, onBack, onDirtyChange, 
     {loading && <p role="status" className="attendance-message">Carregando chamada…</p>}
     {(!sheet || !records.length) && errorBlock}
     {sheet && !loading && <>
-      <header className="attendance-event-heading"><div><span className="attendance-eyebrow">{dateLabel(sheet.date)} · {sheet.time?.slice(0, 5)}</span><h2>{sheet.label}</h2><span className="attendance-state" data-complete={sheet.finalized && !dirty}>{dirty ? 'Alterações não salvas' : sheet.finalized ? 'Chamada concluída' : sheet.version ? 'Chamada parcial' : 'Chamada não registrada'}</span></div><InteractiveArtwork src="/images/more/members.webp" alt="Equipe do ministério" label="Mover ilustração da equipe" width="120" height="104" className="attendance-event-art"/></header>
+      <header className="attendance-event-heading"><div><span className="attendance-eyebrow">{dateLabel(sheet.date)} · {sheet.time?.slice(0, 5)}</span><h2>{sheet.label}</h2><span className="attendance-state" data-complete={sheet.finalized && !dirty}>{dirty ? 'Alterações não salvas' : data.pendingOffline?'Presença salva':sheet.finalized ? 'Chamada concluída' : sheet.version ? 'Chamada parcial' : 'Chamada não registrada'}</span></div><InteractiveArtwork src="/images/more/members.webp" alt="Equipe do ministério" label="Mover ilustração da equipe" width="120" height="104" className="attendance-event-art"/></header>
       <section className="attendance-record-summary" aria-label="Resumo da chamada"><div><strong>{counts.present}<small> / {counts.total}</small></strong><span>presentes de {counts.total} escalados</span></div><div className="attendance-counts"><span data-kind="absent">{counts.absent} {counts.absent === 1 ? 'ausente' : 'ausentes'}</span><span data-kind="excused">{counts.excused} {counts.excused === 1 ? 'justificada' : 'justificadas'}</span><span>{counts.pending} {counts.pending === 1 ? 'não marcado' : 'não marcados'}</span></div><div className="attendance-progress" aria-hidden="true"><span style={{ width: `${counts.rate || 0}%` }}/></div></section>
       {!data.canRecord && <p className="attendance-message">A chamada fica disponível no dia do evento.</p>}
-      {!online && <p className="attendance-message" role="status">Você pode marcar e salvar a chamada neste aparelho. O envio à liderança acontece quando a conexão voltar.</p>}
+      {!online && <p className="attendance-message" role="status">Você pode continuar marcando e salvando normalmente. A sincronização será automática quando a conexão voltar.</p>}
       <p className="attendance-help">Marque quem compareceu. A resposta antecipada à escala não preenche a chamada.</p>
       {sheet.version > 0 && <p className="attendance-help">Equipe preservada no primeiro registro. {sheet.recordedBy?.name && `Último registro por ${sheet.recordedBy.name}${sheet.updatedAt ? ' em ' + new Date(sheet.updatedAt).toLocaleString('pt-BR') : ''}.`}</p>}
       <div className="attendance-roster-tools"><label className="attendance-search"><Icon name="search" size={17}/><input type="search" aria-label="Buscar integrante na chamada" value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar integrante…"/></label>{!!records.length && <button type="button" disabled={disabled} onClick={() => { setEntries(previous => previous.map(person => ({ ...person, status: 'present' }))); setSavedMessage(''); }}>Todos presentes</button>}</div>
@@ -81,7 +90,7 @@ function AttendanceEvent({ eventId, credentials, online, onBack, onDirtyChange, 
       </article>)}</div>
       {!records.length && <p className="attendance-message">Este evento ainda não tem integrantes escalados.</p>}
       {!!records.length && !visible.length && <p className="attendance-message">Nenhum integrante encontrado. As demais marcações continuam preservadas.</p>}
-      {!!records.length && <footer className="attendance-savebar">{errorBlock}{savedMessage && <p role="status">{savedMessage}</p>}<p>{counts.pending ? `${counts.pending} integrante${counts.pending === 1 ? '' : 's'} ainda sem marcação.` : 'Todos os integrantes foram marcados.'}</p><div>{!sheet.finalized && <button type="button" disabled={disabled} onClick={() => save(false)}><Icon name="save" size={16}/>Salvar rascunho</button>}<button type="button" className="attendance-primary" disabled={disabled || counts.pending > 0} onClick={() => save(true)}><Icon name="check" size={16}/>{saving ? 'Salvando…' : sheet.finalized ? 'Salvar correção' : 'Concluir chamada'}</button></div></footer>}
+      {!!records.length && <footer className="attendance-savebar">{errorBlock}{savedMessage && <p role="status">{savedMessage}</p>}<p>{counts.pending ? `${counts.pending} integrante${counts.pending === 1 ? '' : 's'} ainda sem marcação.` : 'Todos os integrantes foram marcados.'}</p><div><button type="button" className="attendance-primary" disabled={disabled} onClick={save}><Icon name="save" size={16}/>{saving?'Salvando…':'Salvar presença'}</button></div></footer>}
     </>}
   </div>;
 }

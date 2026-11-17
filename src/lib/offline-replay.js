@@ -16,6 +16,7 @@ import { maestroRequest } from './maestro-client.js';
 import { readOfflineBlob, removeOfflineBlob } from './offline-blobs.js';
 import { assertUnchanged, eventFingerprint, songFingerprint, cleanSong } from './offline-conflicts.js';
 import { searchSongCandidates, fetchCifraClubContent } from './scraper.js';
+import { rememberAttendance } from './attendance-cache.js';
 
 async function checked(query) { const result = await query; if (result.error) throw result.error; return result.data; }
 async function uniqueInsert(client, table, row, identity) {
@@ -64,12 +65,12 @@ export async function replayJob(job, { client, actor, connection, profile, activ
     const ownPrevious=chain&&chain.from===data.version&&chain.to===current.sheet.version&&Date.parse(job.createdAt)<=chain.through;
     if (current.sheet.version !== data.version&&!ownPrevious) {
       const same = data.entries.every(entry => current.sheet.roster.some(person => person.memberId === entry.memberId && person.status === entry.status && (person.note || '') === (entry.note || '')));
-      if (same && (!data.finalize || current.sheet.finalized)){cacheWrite(chainKey,{from:data.version,to:current.sheet.version,through:Date.now()});return current;}
+      if (same && (!data.finalize || current.sheet.finalized)){cacheWrite(chainKey,{from:data.version,to:current.sheet.version,through:Date.now()});return rememberAttendance(actor.memberId,current);}
       const error = new Error('A chamada mudou no banco. Suas marcações locais foram preservadas; revise antes de reenviar.'); error.status = 409; throw error;
     }
     const result = await attendanceRequest(actor, {...data,version:current.sheet.version}, { connection, offlineBypass: true });
     cacheWrite(chainKey,{from:data.version,to:result.sheet.version,through:Date.now()});
-    cacheWrite(`attendance:${actor.memberId}:${JSON.stringify({ action: 'get', eventId: data.eventId })}`, result); return result;
+    return rememberAttendance(actor.memberId,result);
   }
   if (job.type === 'confirm') {
     if (data.memberId !== actor.memberId) throw new Error('A resposta à escala pertence a outro integrante.');

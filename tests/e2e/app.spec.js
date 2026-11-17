@@ -1457,15 +1457,16 @@ test('leader attendance records five of ten present through the real SQL API and
   try {
     const page = await app.open(admin, attendanceTime, { attendance: true });
     const screen = await openAttendanceCall(page);
+    await expect(screen.locator('.attendance-savebar').getByRole('button')).toHaveCount(1);await expect(screen.getByRole('button',{name:'Salvar presença',exact:true})).toBeVisible();
     await expect(screen).toContainText('10 não marcados');
     await expect(screen.locator('.attendance-choices [aria-pressed="true"]')).toHaveCount(0);
     for (let index = 0; index < 10; index++) await screen.getByRole('listitem').nth(index).getByRole('button', { name: index < 5 ? /como presente$/ : /como ausente$/ }).click();
     await expect(screen.getByRole('region', { name: 'Resumo da chamada' })).toContainText('5 ausentes');
     app.state.attendanceSaveGate = new Promise(resolve => { finishSave = resolve; });
-    await screen.getByRole('button', { name: 'Concluir chamada', exact: true }).click();
+    await screen.getByRole('button', { name: 'Salvar presença', exact: true }).click();
     await expect(screen.getByRole('button', { name: 'Salvando…', exact: true })).toBeDisabled();
-    await expect(screen).not.toContainText('Chamada concluída e salva'); finishSave();
-    await expect(screen.getByRole('status')).toContainText('Chamada concluída e salva');
+    await expect(screen).not.toContainText('Presença salva'); finishSave();
+    await expect(screen.getByRole('status')).toContainText('Presença salva');
     const rsvp = (await app.attendanceQuery("select member_id,confirmed from event_members where event_id='event-1' order by member_id")).rows;
     expect(rsvp.find(row => row.member_id === admin.id).confirmed).toBe(true); expect(rsvp.find(row => row.member_id === member.id).confirmed).toBe(false);
     expect((await app.attendanceQuery('select count(*)::int as n from louvesync_attendance_revisions')).rows[0].n).toBe(1);
@@ -1489,9 +1490,10 @@ test('non-admin ministry leaders can save partial attendance through the native 
     const page = await app.open(leader, attendanceTime, { attendance: true, directActivity: true });
     const screen = await openAttendanceCall(page);
     await screen.getByRole('listitem', { name: 'Admin Teste', exact: true }).getByRole('button', { name: /como presente$/ }).click();
-    await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
-    await expect(screen.getByRole('status')).toContainText('Rascunho salvo');
+    await screen.getByRole('button', { name: 'Salvar presença', exact: true }).click();
+    await expect(screen.getByRole('status')).toContainText('Presença salva');
     await expect(screen).toContainText('9 não marcados'); await expect(screen).toContainText('0 ausentes');
+    await page.context().setOffline(true);
     await screen.getByRole('button', { name: 'Eventos e frequência', exact: true }).click();
     await expect(screen.locator('.attendance-overview')).toContainText('0 chamadas concluídas');
     await screen.getByRole('button', { name: 'Por integrante', exact: true }).click(); await expect(screen.locator('.attendance-frequency')).toHaveCount(0);
@@ -1506,9 +1508,9 @@ test('leader attendance rejects stale concurrent edits, protects unsaved changes
     const one = await app.open(admin, attendanceTime, { attendance: true }), two = await app.open(admin, attendanceTime, { attendance: true });
     const first = await openAttendanceCall(one), second = await openAttendanceCall(two);
     await first.getByRole('listitem', { name: 'Admin Teste', exact: true }).getByRole('button', { name: /como presente$/ }).click();
-    await first.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(first.getByRole('status')).toContainText('Rascunho salvo');
+    await first.getByRole('button', { name: 'Salvar presença', exact: true }).click(); await expect(first.getByRole('status')).toContainText('Presença salva');
     await second.getByRole('listitem', { name: 'Admin Teste', exact: true }).getByRole('button', { name: /como ausente$/ }).click();
-    await second.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
+    await second.getByRole('button', { name: 'Salvar presença', exact: true }).click();
     await expect(second.getByRole('alert')).toContainText('alterada em outro aparelho');
     await expect(second.getByRole('listitem', { name: 'Admin Teste', exact: true })).toHaveAttribute('data-status', 'absent');
     await two.getByRole('button', { name: 'Início', exact: true }).click(); await expect(two.getByText('Descartar alterações da chamada?', { exact: true })).toBeVisible();
@@ -1529,14 +1531,14 @@ test('leader attendance preserves notes on validation and network errors and req
     const page = await app.open(admin, attendanceTime, { attendance: true }), screen = await openAttendanceCall(page);
     const person = screen.getByRole('listitem', { name: 'Admin Teste', exact: true });
     await person.getByRole('button', { name: /como falta justificada$/ }).click();
-    await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(screen.getByRole('alert')).toContainText('motivo');
+    await screen.getByRole('button', { name: 'Salvar presença', exact: true }).click(); await expect(screen.getByRole('alert')).toContainText('motivo');
     await person.getByRole('textbox', { name: 'Observação de Admin Teste', exact: true }).fill('Avisou à liderança que estava doente.');
     app.state.attendanceSaveError = 'Fixture unavailable';
-    await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(screen.getByRole('alert')).toContainText('Não foi possível');
+    await screen.getByRole('button', { name: 'Salvar presença', exact: true }).click(); await expect(screen.locator('.attendance-savebar').getByRole('status')).toContainText('Presença salva');await expect(screen.getByRole('alert')).toHaveCount(0);
     await expect(person.getByRole('textbox')).toHaveValue('Avisou à liderança que estava doente.');
-    await page.context().setOffline(true); await expect(screen.getByRole('button', { name: 'Salvar rascunho', exact: true })).toBeEnabled();
-    await page.context().setOffline(false); app.state.attendanceSaveError = null;
-    await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(screen.getByRole('status')).toContainText('Rascunho salvo');
+    await page.context().setOffline(true); await expect(screen.getByRole('button', { name: 'Salvar presença', exact: true })).toBeEnabled();
+    app.state.attendanceSaveError = null;await page.context().setOffline(false);
+    await expect.poll(()=>page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_sync_job:')).length),{timeout:20000}).toBe(0);
     await expect(screen).toContainText('1 justificada'); expect(app.failures).toEqual([]);
   } finally { await app.close(); }
 });
@@ -1568,7 +1570,7 @@ for (const theme of ['light', 'dark']) test(`leader attendance keeps ten people,
       const footer = await screen.locator('.attendance-savebar').boundingBox(), nav = await page.locator('.app-nav .gNav').boundingBox(); expect(footer.y + footer.height).toBeLessThan(nav.y - 8);
     }
     await screen.getByRole('searchbox', { name: 'Buscar integrante na chamada', exact: true }).fill('Admin Teste'); await expect(screen.getByRole('listitem')).toHaveCount(1);
-    await expect(screen).toContainText('10 escalados'); await screen.getByRole('button', { name: 'Salvar rascunho', exact: true }).click(); await expect(screen.getByRole('status')).toContainText('Rascunho salvo');
+    await expect(screen).toContainText('10 escalados'); await screen.getByRole('button', { name: 'Salvar presença', exact: true }).click(); await expect(screen.getByRole('status')).toContainText('Presença salva');
     await screen.getByRole('button', { name: 'Eventos e frequência', exact: true }).click(); await page.locator('[data-main-scroll]').evaluate(element => { element.scrollTop = 0; });
     await page.screenshot({ path: test.info().outputPath(`attendance-overview-${theme}.png`), scale: 'css' });
     expect(app.failures).toEqual([]);
@@ -3236,8 +3238,8 @@ test('leader records attendance offline and the real endpoint receives it after 
   const screen=await openAttendanceCall(page);
   await expect(screen.getByRole('button',{name:'Todos presentes',exact:true})).toBeEnabled();
   await page.context().setOffline(true);await screen.getByRole('button',{name:'Todos presentes',exact:true}).click();
-  await screen.getByRole('button',{name:'Concluir chamada',exact:true}).click();
-  await expect(screen.locator('.attendance-savebar').getByRole('status')).toContainText('Chamada salva neste aparelho');
+  await screen.getByRole('button',{name:'Salvar presença',exact:true}).click();
+  await expect(screen.locator('.attendance-savebar').getByRole('status')).toContainText('Presença salva');
   await page.context().setOffline(false);
   await expect.poll(()=>page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('ls_sync_job:')).length)).toBe(0);
   expect(app.failures).toEqual([]);

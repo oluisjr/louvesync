@@ -11,7 +11,7 @@ async function serveProduction() {
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const profile={id:'offline-admin',name:'Admin Offline',avatar:'AO',role:'Líder de Louvor',instrument:'Vocal',color:'#7B3FF2',is_admin:true,status:'ativo',access_type:'ministry',schedule_enabled:true};
  const teammate={...profile,id:'offline-member',name:'Membro Offline',is_admin:false,role:'Vocal'};
- const state={active:resolve('dist'),prayers:new Map(),lostReceipt:false,writeCount:0,profiles:[profile,teammate],events:[{id:'offline-event',date:today,time:'23:59',label:'Culto offline',type:'culto',theme:'Comunhão',event_songs:[],event_members:[{member_id:profile.id,confirmed:null}]}]};
+ const state={active:resolve('dist'),prayers:new Map(),lostReceipt:false,writeCount:0,songs:[],profiles:[profile,teammate],events:[{id:'offline-event',date:today,time:'23:59',label:'Culto offline',type:'culto',theme:'Comunhão',event_songs:[],event_members:[{member_id:profile.id,confirmed:null}]}]};
  const types={'.js':'application/javascript','.css':'text/css','.html':'text/html','.json':'application/json','.webmanifest':'application/manifest+json','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.ico':'image/x-icon'};
  const json=(res,value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
  const server=http.createServer(async(req,res)=>{
@@ -34,6 +34,7 @@ async function serveProduction() {
     if(table==='louvesync_member_settings'){json(res,{ok:true,members:state.profiles});return;}
     if(table==='members'){json(res,state.profiles);return;}
     if(table==='events'){json(res,state.events);return;}
+    if(table==='songs'){json(res,state.songs);return;}
     if(table==='event_members'&&req.method==='PATCH'){
      if(req.headers['x-louvesync-member']!==profile.id||req.headers['x-louvesync-pin']!=='SYNTHETIC_OFFLINE_PIN'){json(res,{message:'Forbidden',code:'42501'},403);return;}
      state.writeCount++;state.events[0].event_members[0].confirmed=body.confirmed;json(res,[{member_id:profile.id}]);return;
@@ -112,5 +113,25 @@ test('production ministry reopens offline with explicit PIN unlock and keeps its
   await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('.church-audience')).toHaveText('Visitante');await login(page,'Admin Offline','wrong-pin');await expect(page.getByText('PIN incorreto.',{exact:true})).toBeVisible();await page.getByLabel('Senha',{exact:true}).fill('SYNTHETIC_OFFLINE_PIN');await page.getByRole('button',{name:'Entrar',exact:true}).click();await expect(page.getByRole('button',{name:'Escala',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Sair',exact:true}).click();await expect(page.locator('.church-audience')).toHaveText('Visitante');await context.setOffline(false);await login(page,'Membro Offline');await expect(page.getByRole('button',{name:'Escala',exact:true})).toBeVisible();expect(host.state.writeCount).toBe(0);expect(await queueSize(page)).toBe(1);
   await page.getByRole('button',{name:'Sair',exact:true}).click();await login(page);await expect.poll(()=>host.state.writeCount).toBe(1);await expect.poll(()=>queueSize(page)).toBe(0);expect(host.state.events[0].event_members[0].confirmed).toBe(true);expect(errors).toEqual([]);
+ }finally{await context?.close();await host.close();if(directory)await rm(directory,{recursive:true});}
+});
+
+
+test('production core content works offline without a download choice: schedule, lyrics, chords, metronome and full Bible',async({browser})=>{
+ test.setTimeout(90000);const host=await serveProduction();let directory,context;const errors=[];
+ try{
+  host.state.songs=[{id:'offline-song',title:'Canção offline',artist:'Equipe de teste',cat:'adoracao',key:'C',bpm:90,time_signature:'4/4',tags:[],lyrics:'[C]Cantamos juntos em [G]oração\n[Am]Em comunhão vamos [F]adorar',vocal_keys:{}}];
+  host.state.events[0].event_songs=[{id:1,song_id:'offline-song',item_type:'song',order_index:1,singer_member_id:'offline-admin',sequence:null}];
+  directory=await buildCopy(host.origin);host.state.active=join(directory,'dist');context=await browser.newContext({serviceWorkers:'allow',viewport:{width:390,height:844},timezoneId:'America/Sao_Paulo'});await context.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/,route=>route.abort());
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await ready(page,host.origin);await login(page);
+  await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('ls_offline:workspace:offline-admin')||'{}').songs?.length||0)).toBe(1);
+  await page.evaluate(()=>localStorage.setItem('ls_bible_position',JSON.stringify({book:'genesis',chapter:50})));
+  await context.setOffline(true);await page.reload({waitUntil:'domcontentloaded'});await login(page);await page.getByRole('button',{name:'Escala',exact:true}).click();await expect(page.getByRole('article',{name:'Culto offline',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Mais',exact:true}).click();await page.getByRole('region',{name:'Mais',exact:true}).getByRole('button',{name:'Músicas',exact:true}).click();await page.getByRole('button',{name:'Abrir cifra de Canção offline',exact:true}).click();
+  await expect(page.locator('.lyrics-content')).toContainText('Cantamos juntos em');await expect(page.locator('.lyrics-content b').first()).toHaveText('C');
+  await page.getByRole('button',{name:'Somente letra',exact:true}).click();await expect(page.locator('.lyrics-content')).toContainText('Em comunhão vamos');await expect(page.locator('.lyrics-content b')).toHaveCount(0);
+  await page.getByRole('button',{name:'Letra e acordes',exact:true}).click();await expect(page.locator('.lyrics-content b').first()).toHaveText('C');
+  await page.getByRole('button',{name:'Ativar metrônomo',exact:true}).click();await expect(page.getByRole('button',{name:'Parar metrônomo',exact:true})).toHaveAttribute('aria-pressed','true');await expect.poll(()=>page.locator('.ui-metronome-dot[data-active="true"]').count()).toBe(1);await expect(page.locator('.ui-metronome-status')).toContainText('90 BPM');await page.getByRole('button',{name:'Parar metrônomo',exact:true}).click();
+  await page.getByRole('button',{name:'Voltar',exact:true}).click();await page.getByRole('button',{name:'Bíblia',exact:true}).click();await expect(page.locator('[data-verse="26"]')).toContainText('José');await page.screenshot({path:test.info().outputPath('core-content-offline.png')});expect(errors).toEqual([]);
  }finally{await context?.close();await host.close();if(directory)await rm(directory,{recursive:true});}
 });

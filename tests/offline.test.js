@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { enqueue, readJobs, updateJobs, acknowledge, migrateJobs, cacheWrite } from '../src/lib/offline-store.js';
-import { offlineAction } from '../src/lib/offline-actions.js';
+import { enqueue, readJobs, updateJobs, acknowledge, migrateJobs, cacheWrite, cacheRead } from '../src/lib/offline-store.js';
+import { rememberAttendance } from '../src/lib/attendance-cache.js';
+import { offlineAction, apiScope } from '../src/lib/offline-actions.js';
 import { connectionFailed, checkConnection } from '../src/lib/connectivity.js';
 import { overlayWorkspace, overlayMural } from '../src/lib/offline-overlay.js';
 import { rememberIdentity, unlockIdentity } from '../src/lib/offline-identity.js';
@@ -88,4 +89,25 @@ test('cached API scopes do not mix prayer or attendance records from different a
   environment(t);cacheWrite('attendance:a',{private:'a'});cacheWrite('attendance:b',{private:'b'});
   const one=enqueue('attendance',{eventId:'e'},'a'),two=enqueue('community',{id:'prayer'},'b');acknowledge(one.id);
   assert.deepEqual(readJobs().map(job=>job.id),[two.id]);
+});
+
+
+test('saving attendance online updates the offline call and its cached report without touching another account',t=>{
+  environment(t);const range={action:'list',from:'2026-11-01',to:'2026-11-30'};
+  cacheWrite(apiScope('attendance','leader',range),{ok:true,sheets:[]});cacheWrite(apiScope('attendance','other',range),{ok:true,sheets:[]});
+  const result={ok:true,today:'2026-11-16',serverTime:'2026-11-16T20:00:00Z',canRecord:true,sheet:{eventId:'culto',date:'2026-11-16',version:1,finalized:false,roster:[{memberId:'junior',status:'present',note:''}]}};
+  rememberAttendance('leader',result);
+  assert.deepEqual(cacheRead(apiScope('attendance','leader',{action:'get',eventId:'culto'})),result);
+  assert.equal(cacheRead(apiScope('attendance','leader',range)).sheets[0].roster[0].status,'present');assert.deepEqual(cacheRead(apiScope('attendance','other',range)).sheets,[]);
+  const stale=rememberAttendance('leader',{...result,sheet:{...result.sheet,version:0,roster:[]}});assert.equal(stale.sheet.version,1);assert.equal(stale.sheet.roster.length,1);
+});
+
+test('pending attendance remains readable until automatic upload replaces it with the confirmed version',t=>{
+  environment(t);const scope=apiScope('attendance','leader',{action:'get',eventId:'culto'});
+  enqueue('attendance',{eventId:'culto',entries:[{memberId:'junior',status:'present',note:''}]},'leader');
+  const pending={ok:true,pendingOffline:true,sheet:{eventId:'culto',date:'2026-11-16',version:0,finalized:false,roster:[{memberId:'junior',status:'present',note:''}]}};rememberAttendance('leader',pending);
+  const old={...pending,pendingOffline:undefined,sheet:{...pending.sheet,roster:[{memberId:'junior',status:null,note:''}]}};
+  assert.equal(rememberAttendance('leader',old).sheet.roster[0].status,'present');
+  rememberAttendance('leader',{...pending,pendingOffline:undefined,sheet:{...pending.sheet,version:1,finalized:true}});
+  assert.equal(cacheRead(scope).sheet.finalized,true);assert.equal(cacheRead(scope).pendingOffline,undefined);
 });
