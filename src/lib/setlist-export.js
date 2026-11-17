@@ -2,6 +2,8 @@ import { strToU8, zipSync } from 'fflate';
 import { escapeHtml } from './domain.js';
 import { saveExcelFile } from './native.js';
 import { isSetlistConfirmed } from './setlist-confirmation.js';
+import { vocalName } from './event-vocals.js';
+import { performanceKey } from './chords.js';
 
 const categories = {
   jubilo: 'Júbilo', hinario: 'Hinário', adoracao: 'Adoração',
@@ -11,7 +13,6 @@ const categories = {
 // Both exports use the event's actual sequence and assigned ministry vocalist.
 export function setlistExportRows(event, songs, members) {
   const catalog = new Map(songs.map(song => [song.id, song]));
-  const team = new Map(members.map(member => [member.id, member]));
   const items = event.items?.length ? event.items.filter(item => item.type === 'song') : (event.songs || []).map(song_id => ({ song_id }));
   return items.flatMap(item => {
     const song = catalog.get(item.song_id);
@@ -20,8 +21,8 @@ export function setlistExportRows(event, songs, members) {
     return [{
       category: categories[song.cat] || song.cat || 'Sem categoria',
       title: song.title || 'Música sem título',
-      vocalist: team.get(singerId)?.name || 'Vocalista não definido',
-      key: event.keyBySong?.[song.id] || song.vocal_keys?.[singerId] || song.key || '—',
+      vocalist: vocalName(singerId, members, 'Vocalista não definido'),
+      key: performanceKey(song, { ...event, singerBySong: { ...event.singerBySong, [song.id]: singerId } }),
     }];
   });
 }

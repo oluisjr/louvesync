@@ -1,5 +1,6 @@
 import { decodeEventPreferences, eventPreferences } from './event-preferences.js';
 import { withoutRehearsalSongs } from './rehearsal-events.js';
+import { ALL_VOCALS } from './event-vocals.js';
 
 export function localDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -40,8 +41,8 @@ export function decodeSequence(value) {
   }
   return { text: value || '', key: null };
 }
-export function encodeSequence(text, key) {
-  return key ? sequencePrefix + JSON.stringify({ text: text || '', key }) : text || null;
+export function encodeSequence(text, key, vocalMode) {
+  return key || vocalMode === 'all' ? sequencePrefix + JSON.stringify({ text: text || '', key: key || null, ...(vocalMode === 'all' ? { vocalMode: 'all' } : {}) }) : text || null;
 }
 export function normalizeEvent(ev) {
   const sorted = [...(ev.event_songs || [])].filter(Boolean).sort((a, b) => (a.order_index || 0) - (b.order_index || 0) || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
@@ -52,10 +53,10 @@ export function normalizeEvent(ev) {
   return withoutRehearsalSongs({
     ...ev,
     songs: songRows.map(row => row.song_id),
-    items: visible.map(row => ({ id: row.id, type: row.item_type || 'song', song_id: row.song_id, text: row.note_text, singer_id: row.singer_member_id })),
+    items: visible.map(row => ({ id: row.id, type: row.item_type || 'song', song_id: row.song_id, text: row.note_text, singer_id: !row.singer_member_id && decodeSequence(row.sequence).vocalMode === 'all' ? ALL_VOCALS : row.singer_member_id })),
     members: (ev.event_members || []).filter(Boolean).map(row => row.member_id),
     confirmations: Object.fromEntries((ev.event_members || []).filter(Boolean).map(row => [row.member_id, row.confirmed])),
-    singerBySong: Object.fromEntries(songRows.map(row => [row.song_id, row.singer_member_id])),
+    singerBySong: Object.fromEntries(songRows.map(row => [row.song_id, !row.singer_member_id && decodeSequence(row.sequence).vocalMode === 'all' ? ALL_VOCALS : row.singer_member_id])),
     sequenceBySong: Object.fromEntries(songRows.map(row => [row.song_id, decodeSequence(row.sequence).text])),
     keyBySong: Object.fromEntries(songRows.map(row => [row.song_id, decodeSequence(row.sequence).key]).filter(([, key]) => key)),
     ...preferences,

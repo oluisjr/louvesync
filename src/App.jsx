@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useId, memo, useCallback, Component } from 'react';
-import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setSequenceForSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, deleteEvent as dbDelEvent, rejectDeleteEvent, setEventItems, setSingerForSong, saveVocalKey, setSetlistConfirmation, authenticateMember } from './lib/supabase';
+import { fetchMembers, fetchSongs, fetchEvents, upsertSong, deleteSong as dbDelSong, setPresence, setInstrumentForEvent, setSequenceForSong, rejectDeleteSong, supabase, upsertMember, deleteMember, upsertEvent, deleteEvent as dbDelEvent, rejectDeleteEvent, setEventItems, setSingerForSong, saveVocalKey, setSetlistConfirmation, authenticateMember } from './lib/supabase';
 import {  searchSongCandidates, fetchCifraClubContent } from './lib/scraper';
 import { createPortal } from 'react-dom';
 import { printCifra } from './lib/native.js';
@@ -14,6 +14,8 @@ import MentionInput from './components/MentionInput.jsx';
 import ChangeRequestsScreen from './components/ChangeRequestsScreen.jsx';
 import ChangeRequestDialog from './components/ChangeRequestDialog.jsx';
 import { performanceKey, renderChordText } from './lib/chords.js';
+import { ALL_VOCALS, isIndividualVocal } from './lib/event-vocals.js';
+import { chooseInstrument } from './lib/event-instruments.js';
 import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
 import MaestroScreen from './components/MaestroScreen.jsx';
@@ -1541,9 +1543,9 @@ const Cifra = memo(({dark,song,event,tr,setTr,mode,setMode,metronome,setStageMod
       </div>
       {tr!==0&&<p className="ui-helper">Tom atual: {curKey} · {tr>0?'+':''}{tr} semitom</p>}
       <div className="ui-vocal-key">
-        <label className="ui-field">Tom por vocal<select aria-label="Vocal para o tom" value={vocalId} onChange={e=>{setVocalChoice({assigned:assignedVocal,id:e.target.value});const key=song.vocal_keys?.[e.target.value]||sKey;setTr(keyDistance(sKey,key));}}><option value="">Tom original</option>{members.filter(m=>(m.instrument||'').match(/vocal|voz/i)).map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label>
+        <label className="ui-field">Tom por vocal<select aria-label="Vocal para o tom" value={vocalId} onChange={e=>{setVocalChoice({assigned:assignedVocal,id:e.target.value});const key=song.vocal_keys?.[e.target.value]||sKey;setTr(keyDistance(sKey,key));}}><option value="">Tom original</option>{assignedVocal===ALL_VOCALS&&<option value={ALL_VOCALS}>TODOS</option>}{members.filter(m=>(m.instrument||'').match(/vocal|voz/i)).map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label>
         <p className="ui-helper">A cifra acompanha o tom salvo do vocal selecionado, incluindo acordes com baixo e modulações.</p>
-        {vocalId&&(canManageMinistry(profile)||(vocalId===profile?.id&&event?.singerBySong?.[song.id]===profile.id&&event?.members?.includes(profile.id)))&&<button className="ui-button ui-button-soft ui-button-wide" style={{marginTop:10}} onClick={()=>onSaveVocalKey(song.id,vocalId,curKey)}><Icon name="check" size={15}/>{canManageMinistry(profile)?'Salvar tom deste vocal':'Solicitar tom deste evento'}</button>}{!canManageMinistry(profile)&&<p className="ui-helper">A transposição é local. Para mudar o tom usado pela equipe, envie uma solicitação no evento em que você é o vocal principal.</p>}
+        {isIndividualVocal(vocalId)&&(canManageMinistry(profile)||(vocalId===profile?.id&&event?.singerBySong?.[song.id]===profile.id&&event?.members?.includes(profile.id)))&&<button className="ui-button ui-button-soft ui-button-wide" style={{marginTop:10}} onClick={()=>onSaveVocalKey(song.id,vocalId,curKey)}><Icon name="check" size={15}/>{canManageMinistry(profile)?'Salvar tom deste vocal':'Solicitar tom deste evento'}</button>}{!canManageMinistry(profile)&&<p className="ui-helper">A transposição é local. Para mudar o tom usado pela equipe, envie uma solicitação no evento em que você é o vocal principal.</p>}
       </div>
       {(isDirty||bpmDirty) && <div style={{display:'flex',gap:8,marginTop:12}}><button disabled={saving} onClick={handleSaveMetadata} className="bp" style={{flex:1,padding:'10px 14px',fontSize:'var(--fs-xs)',fontWeight:800}}>✓ Salvar</button><button onClick={()=>{setEditKey(String(song?.key||'')); setEditBpm(parseInt(song?.bpm)||80); setIsDirty(false);}} style={{flex:1,padding:'10px 14px',borderRadius:'var(--r-md)',border:`1.5px solid ${dark?'rgba(168,85,247,.2)':'rgba(79,70,229,.25)'}`,background:'transparent',color:tc,fontSize:'var(--fs-xs)',fontWeight:800,cursor:'pointer'}}>✕ Cancelar</button></div>}
     </div>
@@ -2008,7 +2010,7 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
 /* ─── EVENT EDITOR ──────────────────────────────────────────── */
 const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSave,onClose})=>{
 
-  const [form,setForm]=useState({date:editEvent?.date||initialDate||'',time:editEvent?.time||'19:00',type:editEvent?.type||'culto',label:editEvent?.label||'',theme:editEvent?.theme||'',notes:editEvent?.notes||'',mention_member_ids:editEvent?.mention_member_ids||[],selMembers:editEvent?.members||[],selSongs:editEvent?.songs||[],requestedSongs:editEvent?.requested_songs||[],santaCeiaSong:editEvent?.santa_ceia_song||null,singerBySong:editEvent?.singerBySong||{}});
+  const [form,setForm]=useState({date:editEvent?.date||initialDate||'',time:editEvent?.time||'19:00',type:editEvent?.type||'culto',label:editEvent?.label||'',theme:editEvent?.theme||'',notes:editEvent?.notes||'',mention_member_ids:editEvent?.mention_member_ids||[],selMembers:editEvent?.members||[],selSongs:editEvent?.songs||[],requestedSongs:editEvent?.requested_songs||[],santaCeiaSong:editEvent?.santa_ceia_song||null,singerBySong:editEvent?.singerBySong||{},instrument_assignments:editEvent?.instrument_assignments||{}});
   const [tab,setTab]=useState('details');
   const tabId=useId();
   const [memberSearch,setMemberSearch]=useState('');
@@ -2115,7 +2117,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
            membersToUse = availableMembers(members,dStr).map(m=>m.id);
        }
 
-       sbsToUse=Object.fromEntries(Object.entries(sbsToUse).filter(([,id])=>membersToUse.includes(id)));
+       sbsToUse=Object.fromEntries(Object.entries(sbsToUse).filter(([,id])=>id===ALL_VOCALS||membersToUse.includes(id)));
        const evId = editEvent ? editEvent.id : crypto.randomUUID();
        const itemsToUse = songsToUse.map((songId, idx) => ({
          id: `song_${songId}_${idx}`,
@@ -2125,7 +2127,7 @@ const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSav
          text: ''
        }));
        (editEvent?.items||[]).forEach((item,index)=>{if(item.type!=='song')itemsToUse.splice(Math.min(index,itemsToUse.length),0,item);});
-       const newEv = withoutRehearsalSongs({id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,notes:form.notes,mention_member_ids:form.mention_member_ids,songs:songsToUse,members:membersToUse,confirmations:editEvent?editEvent.confirmations:{},singerBySong:sbsToUse,sequenceBySong:editEvent?editEvent.sequenceBySong:{},keyBySong:editEvent?.keyBySong||{},setlist_confirmation:editEvent?.setlist_confirmation||null,requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong,items:itemsToUse});
+       const newEv = withoutRehearsalSongs({id:evId,date:dStr,time:form.time,type:form.type,label:form.label,theme:form.theme||null,notes:form.notes,mention_member_ids:form.mention_member_ids,songs:songsToUse,members:membersToUse,confirmations:editEvent?editEvent.confirmations:{},singerBySong:sbsToUse,instrument_assignments:form.instrument_assignments,sequenceBySong:editEvent?editEvent.sequenceBySong:{},keyBySong:editEvent?.keyBySong||{},setlist_confirmation:editEvent?.setlist_confirmation||null,requested_songs:form.requestedSongs,santa_ceia_song:form.santaCeiaSong,items:itemsToUse});
        evs.push(newEv);
 
        // Criar ensaio de sábado automaticamente se for domingo (apenas na criação)
@@ -2602,14 +2604,23 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
       await offlineAction('singer',{eventId,songId,memberId},()=>setSingerForSong(eventId,songId,memberId),{pendingOffline:true});
       setEvents(evs=>evs.map(e=>e.id===eventId?{...e,singerBySong:{...e.singerBySong,[songId]:memberId}}:e));
       await broadcastUpdate({type:'data_changed'});notifyChanges();
-    }catch(error){setSyncError(`Vocal não salvo: ${error.message}`);}
+    }catch(error){setSyncError(`Vocal não salvo: ${error.message}`);throw error;}
+  };
+  const handleSetInstrument=async(eventId,instrumentId,memberId)=>{
+    if(!canManageMinistry(profile))throw new Error('Somente a liderança pode definir os instrumentistas.');
+    const event=events.find(item=>item.id===eventId);
+    if(!event)throw new Error('Evento não encontrado. Atualize a escala.');
+    const choice=chooseInstrument(event,allMembers,instrumentId,memberId);
+    await offlineAction('instrument',choice,()=>setInstrumentForEvent(choice),{pendingOffline:true});
+    setEvents(previous=>previous.map(item=>item.id===eventId?{...item,members:choice.roster,instrument_assignments:choice.assignments,confirmations:Object.fromEntries(choice.roster.map(id=>[id,item.confirmations?.[id]??null]))}:item));
+    await broadcastUpdate({type:'data_changed'});notifyChanges();
   };
   const handleUpdateSongOptions=async(songId,newKey,updateOfficial,newBpm,newTs,singerId,eventId)=>{
     if(!canManageMinistry(profile))return;
     try{
       await offlineAction('song_options',{songId,eventId,key:newKey,bpm:newBpm,time_signature:newTs,singerId,updateOfficial},async()=>{if(supabase){
         await setSequenceForSong(eventId,songId,undefined,newKey);
-        if(updateOfficial&&singerId)await saveVocalKey(songId,singerId,newKey);
+        if(updateOfficial&&isIndividualVocal(singerId))await saveVocalKey(songId,singerId,newKey);
         const changes={};
         if(newBpm)changes.bpm=Number(newBpm);
         if(newTs)changes.time_signature=newTs;
@@ -2617,7 +2628,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
       }
       },{pendingOffline:true});
       setEvents(evs=>evs.map(e=>e.id===eventId?{...e,keyBySong:{...e.keyBySong,[songId]:newKey}}:e));
-      setSongs(list=>list.map(song=>song.id===songId?{...song,...(newBpm?{bpm:Number(newBpm)}:{}),...(newTs?{time_signature:newTs}:{}),...(updateOfficial&&singerId?{vocal_keys:{...song.vocal_keys,[singerId]:newKey}}:{})}:song));
+      setSongs(list=>list.map(song=>song.id===songId?{...song,...(newBpm?{bpm:Number(newBpm)}:{}),...(newTs?{time_signature:newTs}:{}),...(updateOfficial&&isIndividualVocal(singerId)?{vocal_keys:{...song.vocal_keys,[singerId]:newKey}}:{})}:song));
       await broadcastUpdate({type:'data_changed'});notifyChanges();
     }catch(error){setSyncError(`Ajustes não salvos: ${error.message}`);throw error;}
   };
@@ -2817,7 +2828,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
             {tab==='mural'&&!inCifra&&<CommunityMural target={muralTarget} profile={profile} dark={dark} members={allMembers} activity={activity}/>}
             {tab==='ensaio'&&!inCifra&&<Ensaio connectionStatus={connectionStatus} dark={dark} events={events} songs={songs} members={allMembers} profile={profile}/>}
             {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
-            {tab==='escala'&&!inCifra&&<ScheduleScreen onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} view={scheduleView} onViewChange={setScheduleView} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} Avatar={Ava} onConfirm={handleConfirm} onOpenEvent={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
+            {tab==='escala'&&!inCifra&&<ScheduleScreen onSetInstrument={handleSetInstrument} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} view={scheduleView} onViewChange={setScheduleView} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} Avatar={Ava} onConfirm={handleConfirm} onOpenEvent={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
             {attendanceLeader&&tab==='presencas'&&!inCifra&&<AttendanceScreen key={attendanceEventId||'overview'} dark={dark} credentials={activity.credentials} events={events} online={isOnline} initialEventId={attendanceEventId} onDirtyChange={attendanceDirtyChanged} onLeave={leaveAttendance}/>}
             {tab==='membros'&&!inCifra&&<Membros profile={profile} dark={dark} members={allMembers} events={events} selRole={selRole} setSelRole={setSelRole}/>}
             {tab==='ia'&&!inCifra&&<MaestroScreen dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
@@ -2837,7 +2848,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
       {/* OVERLAYS */}
       {addOpen&&<AddSong credentials={activity.credentials} requestApproval={!canManageMinistry(profile)} dark={dark} initialData={typeof addOpen === 'object' ? addOpen : null} onSave={handleSaveSong} onClose={()=>setAddOpen(false)}/>}
       {profile?.is_admin&&createEvOpen&&!addOpen&&<CreateEvent dark={dark} members={allMembers} songs={songs} events={events} initialDate={createEvDate} editEvent={editEvState} onSave={handleSaveEvent} onClose={()=>{setCreateEvOpen(false);setCreateEvDate(null);setEditEvState(null);}}/>}
-      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EventDetails categories={CAT} onChangeSaved={handleChangesSaved} onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={openEventEditor} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
+      {evSheet&&!inCifra&&!addOpen&&!createEvOpen&&<EventDetails onSetInstrument={handleSetInstrument} categories={CAT} onChangeSaved={handleChangesSaved} onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} key={evSheet.id} ev={evSheet} dark={dark} songs={songs} members={allMembers} profile={profile} activity={activity} onClose={()=>setEvSheet(null)} onSelectSong={(s, evParam, activeKey)=>{selectSong(s,evSheet,activeKey);setEvSheet(null);}} onConfirm={handleConfirm} onEditEv={openEventEditor} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} spawnConfetti={spawnConfetti} onReqDelEv={handleRequestDeleteEvent}/>}
       {notifsOpen&&!addOpen&&!createEvOpen&&<NotificationInbox dark={dark} controller={notifications} onClose={()=>setNotifsOpen(false)} onOpen={handleOpenNotification}/>}
       {changeDraft&&<ChangeRequestDialog dark={dark} draft={changeDraft} songs={songs} credentials={activity.credentials} onClose={()=>{changeDraft.reject?.(new Error('Solicitação cancelada.'));setChangeDraft(null);}} onSaved={async request=>{const draft=changeDraft;setChangeDraft(null);draft.resolve?.(draft.song);if(draft.resolve)setAddOpen(false);setChangeNotice('Solicitação enviada. A música vigente será mantida até a aprovação da liderança.');await handleChangesSaved();return request;}}/>}
       {confirmState&&<ConfirmDialog dark={dark} {...confirmState}/>}

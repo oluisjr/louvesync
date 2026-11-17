@@ -1,0 +1,10 @@
+Use case: stylized-concept
+Asset type: transparent 3D hero artwork, church rehearsal page in the Louve app.
+Input images: Image 1 (existing home worship stage) and Image 2 (existing event art) are STYLE AND MATERIAL REFERENCES ONLY, not edit targets. Preserve their premium handcrafted tactile 3D language and realistic music-instrument details, but create a new composition and different colors.
+Primary request: a wide miniature church rehearsal stage on a low oval walnut/medium-warm-oak wooden plinth, with refined studio craftsmanship.
+Subject and composition: a rich reddish BURGUNDY acoustic guitar on a proper black guitar stand at left; an ivory keyboard with accurate black-and-white keys on a black X stand at right; a slender silver microphone on a round metal foot near the center foreground; one compact dark charcoal stage monitor. Behind these, tall rich NAVY BLUE rounded acoustic panels with several vertical TERRACOTTA wood slats and a SMALL warm gold cross. Clear hierarchy, balanced uncluttered arrangement. Full instrument bodies, all stands, acoustic panels, cross and entire oval base visible.
+Style/medium: refined handcrafted miniature 3D, tactile painted metal, realistic satin woodgrain, accurate instrument proportions and hardware, modest rounded bevels, adult premium product rendering. Deep navy, burgundy, terracotta, ivory, warm wood, restrained brass. Different construction and color than the cream/aqua reference stage.
+Composition/framing: landscape 3:2 composition; three-quarter frontal view slightly from above. Single unified stage, ample transparent padding on every side, no clipping.
+Lighting: premium soft studio key light with gentle realistic contact shadows at the base; natural material texture, no excessive bloom.
+Background: truly transparent alpha, isolated cutout, no backdrop, floor plane, environment, solid color rectangle or vignette.
+Constraints: no headphones, no people, no text, no labels, no UI, no logo, no watermarks, no collage. Do not reproduce the cream/aqua reference-stage palette; do not make toy instruments, cartoon characters or glossy plastic blobs.

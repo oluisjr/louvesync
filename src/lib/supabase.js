@@ -1,4 +1,4 @@
-import { updateEventItems, updateSetlistConfirmation, upsertEventRecord } from './event-storage.js';
+import { updateEventItems, updateSetlistConfirmation, updateSongSinger, updateInstrumentRoster, upsertEventRecord } from './event-storage.js';
 import { createClient } from '@supabase/supabase-js';
 import { decodeSequence, encodeSequence } from './domain.js';
 import { deleteAdminContent } from './admin-delete-client.js';
@@ -191,13 +191,11 @@ export async function setEventItems(eventId, items, memberIds, preferences) {
 }
 
 export async function setSingerForSong(eventId, songId, singerMemberId) {
-  if (!supabase) return null;
-  const { error } = await supabase
-    .from('event_songs')
-    .update({ singer_member_id: singerMemberId })
-    .eq('event_id', eventId)
-    .eq('song_id', songId);
-  if (error) throw error;
+  return updateSongSinger(supabase, eventId, songId, singerMemberId);
+}
+
+export async function setInstrumentForEvent(choice) {
+  return updateInstrumentRoster(supabase, choice);
 }
 
 export async function setSequenceForSong(eventId, songId, text, key) {
@@ -205,7 +203,7 @@ export async function setSequenceForSong(eventId, songId, text, key) {
   const { data, error: readError } = await supabase.from('event_songs').select('sequence').eq('event_id', eventId).eq('song_id', songId).maybeSingle();
   if (readError) throw readError;
   const previous = decodeSequence(data?.sequence);
-  const { error } = await supabase.from('event_songs').update({ sequence: encodeSequence(text ?? previous.text, key === undefined ? previous.key : key) }).eq('event_id', eventId).eq('song_id', songId);
+  const { error } = await supabase.from('event_songs').update({ sequence: encodeSequence(text ?? previous.text, key === undefined ? previous.key : key, previous.vocalMode) }).eq('event_id', eventId).eq('song_id', songId);
   if (error) throw error;
 }
 

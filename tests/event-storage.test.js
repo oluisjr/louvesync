@@ -1,10 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createClient } from '@supabase/supabase-js';
-import { encodeSequence, normalizeEvent } from '../src/lib/domain.js';
+import { decodeSequence, encodeSequence, normalizeEvent } from '../src/lib/domain.js';
+import { ALL_VOCALS } from '../src/lib/event-vocals.js';
+import { performanceKey } from '../src/lib/chords.js';
+import { canRequestOwnKey } from '../src/lib/change-requests.js';
+import { setlistExportRows } from '../src/lib/setlist-export.js';
+import { replayJob } from '../src/lib/offline-replay.js';
 import { decodeEventPreferences, encodeEventPreferences } from '../src/lib/event-preferences.js';
 import { isSetlistConfirmed, setlistSnapshot } from '../src/lib/setlist-confirmation.js';
-import { upsertEventRecord, updateEventItems, updateSetlistConfirmation } from '../src/lib/event-storage.js';
+import { upsertEventRecord, updateEventItems, updateSetlistConfirmation, updateSongSinger, updateInstrumentRoster } from '../src/lib/event-storage.js';
 
 test('real PostgREST client saves an event against a schema without optional UI columns', async () => {
   const allowed = new Set(['id', 'date', 'time', 'type', 'label', 'theme']);
@@ -85,6 +90,55 @@ function database() {
 function storedEvent(db) {
   return normalizeEvent({ ...db.tables.events[0], event_songs: db.tables.event_songs, event_members: db.tables.event_members });
 }
+
+test('TODOS is an explicit collective assignment that survives editing without becoming a member ID', async () => {
+  const db = database(), before = storedEvent(db);
+  await updateSongSinger(db.client, 'event', 'song-a', ALL_VOCALS);
+  const stored = db.tables.event_songs[0], event = storedEvent(db);
+  assert.equal(stored.singer_member_id, null);
+  assert.deepEqual(decodeSequence(stored.sequence), { text: 'Intro, refrão', key: 'Eb', vocalMode: 'all' });
+  assert.equal(event.singerBySong['song-a'], ALL_VOCALS);
+  assert.equal(event.items[0].singer_id, ALL_VOCALS);
+  assert.notEqual(setlistSnapshot(before, db.tables.songs), setlistSnapshot(event, db.tables.songs));
+  assert.equal(canRequestOwnKey({ id: 'member' }, event, 'song-a'), false);
+  assert.equal(setlistExportRows(event, db.tables.songs, [])[0].vocalist, 'TODOS');
+  await updateEventItems(db.client, 'event', event.items, event.members);
+  assert.equal(storedEvent(db).singerBySong['song-a'], ALL_VOCALS);
+  assert.equal(db.tables.event_members.length, 1);
+  await updateSongSinger(db.client, 'event', 'song-a', 'member');
+  assert.equal(storedEvent(db).singerBySong['song-a'], 'member');
+  assert.deepEqual(decodeSequence(db.tables.event_songs[0].sequence), { text: 'Intro, refrão', key: 'Eb' });
+  await updateSongSinger(db.client, 'event', 'song-a', null);
+  assert.equal(storedEvent(db).singerBySong['song-a'], null);
+});
+
+test('offline collective and key edits replay without a fake vocalist key and preserve the arrangement', async () => {
+  const db = database(), context = { client: db.client, actor: { memberId: 'member' } };
+  await replayJob({ type: 'singer', actorId: 'member', data: { eventId: 'event', songId: 'song-a', memberId: ALL_VOCALS } }, context);
+  await replayJob({ type: 'song_options', actorId: 'member', data: { eventId: 'event', songId: 'song-a', singerId: ALL_VOCALS, updateOfficial: true, key: 'F#' } }, context);
+  const event = storedEvent(db);
+  assert.equal(event.singerBySong['song-a'], ALL_VOCALS);
+  assert.equal(event.keyBySong['song-a'], 'F#');
+  assert.equal(event.sequenceBySong['song-a'], 'Intro, refrão');
+  assert.deepEqual(db.tables.songs[0].vocal_keys, {});
+  assert.equal(performanceKey({ ...db.tables.songs[0], vocal_keys: { [ALL_VOCALS]: 'D' } }, { ...event, keyBySong: {} }), 'C');
+  assert.equal(setlistExportRows(event, db.tables.songs, [])[0].key, 'F#');
+});
+
+test('instrument selection changes only the roster and hidden choices, preserving confirmations, music and later setlist approval', async()=>{
+  const db=database(),original=structuredClone(db.tables.event_songs);
+  await updateInstrumentRoster(db.client,{eventId:'event',instrumentId:'guitar',memberId:'new-guitar',previousMembers:['member'],roster:['member','new-guitar']});
+  assert.deepEqual(db.tables.event_songs.slice(0,3),original);
+  assert.deepEqual(db.tables.event_members,[{event_id:'event',member_id:'member',confirmed:true},{event_id:'event',member_id:'new-guitar',confirmed:null}]);
+  assert.deepEqual(storedEvent(db).instrument_assignments,{guitar:'new-guitar'});
+  await updateSetlistConfirmation(db.client,'event',setlistSnapshot(storedEvent(db),db.tables.songs),'member',true);
+  assert.deepEqual(storedEvent(db).instrument_assignments,{guitar:'new-guitar'});
+  await updateInstrumentRoster(db.client,{eventId:'event',instrumentId:'guitar',memberId:'other-guitar',previousMembers:['member','new-guitar'],roster:['member','other-guitar']});
+  assert.equal(db.tables.event_members.find(row=>row.member_id==='member').confirmed,true);
+  assert.equal(db.tables.event_members.some(row=>row.member_id==='new-guitar'),false);
+  assert.deepEqual(storedEvent(db).instrument_assignments,{guitar:'other-guitar'});
+  await assert.rejects(updateInstrumentRoster(db.client,{eventId:'event',instrumentId:'guitar',memberId:'missing',previousMembers:['member'],roster:['member','missing']}),/equipe mudou/);
+});
 
 test('confirming and withdrawing a setlist only writes hidden metadata and retains requested songs and attendance', async () => {
   const db = database();

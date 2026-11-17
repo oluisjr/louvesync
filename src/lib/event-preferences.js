@@ -8,10 +8,12 @@ export function normalizeSetlistConfirmation(value) {
 }
 
 export function eventPreferences(value = {}) {
+  const assignments=Object.fromEntries(Object.entries(value.instrument_assignments && typeof value.instrument_assignments==='object' && !Array.isArray(value.instrument_assignments)?value.instrument_assignments:{}).filter(([key,id])=>/^[a-z][a-z_]{1,24}$/.test(key) && (id===null || (typeof id==='string' && !!id && id.length<=128))));
   return {
     requested_songs: [...new Set((Array.isArray(value.requested_songs) ? value.requested_songs : []).filter(id => typeof id === 'string' && id))],
     santa_ceia_song: typeof value.santa_ceia_song === 'string' && value.santa_ceia_song ? value.santa_ceia_song : null,
     setlist_confirmation: normalizeSetlistConfirmation(value.setlist_confirmation),
+    ...(Object.keys(assignments).length?{instrument_assignments:assignments}:{}),
   };
 }
 

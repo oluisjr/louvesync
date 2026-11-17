@@ -1,0 +1,19 @@
+.event-vocal-choice{margin-top:10px;border-top:1px solid var(--ev-line,var(--ui-line,#ad8bc43d));padding-top:9px;font-size:11px;color:var(--ev-muted,var(--ui-muted));min-width:0}
+.event-vocal-choice-row{display:flex;align-items:center;gap:6px;min-width:0;min-height:36px}
+.event-vocal-choice-row>svg{flex:0 0 15px;color:var(--ev-accent,var(--ui-accent))}
+.event-vocal-choice-row>span{flex-shrink:0}
+.event-vocal-choice-row>select,.event-vocal-choice-row>strong{margin-left:auto;min-width:0;max-width:58%;color:var(--ev-text,var(--ui-text));font:inherit;font-weight:800;text-align:right}
+.event-vocal-choice-row>select{flex:1;min-height:36px;padding:6px 8px;border:1px solid var(--ev-line,var(--ui-line,#ad8bc43d));border-radius:9px;background:var(--ev-soft,var(--ui-accent-soft,#a672c51a));cursor:pointer}
+.event-vocal-choice-row>select:focus-visible{outline:2px solid var(--ev-accent,var(--ui-accent));outline-offset:2px}
+.event-vocal-choice-row>select:disabled{opacity:.65;cursor:wait}
+.event-vocal-choice select option{background:var(--ev-bg,var(--ui-panel,#fff));color:var(--ev-text,var(--ui-text,#211a31))}
+.event-vocal-choice>p{margin:4px 0;font-size:10px;line-height:1.5}
+.event-vocal-collective{color:var(--ev-accent,var(--ui-accent))}
+
+.event-instrument-choices{margin:12px 0;padding:9px 11px;border:1px solid var(--ev-line,var(--schedule-line));border-radius:13px;background:var(--ev-soft,var(--schedule-soft));color:var(--ev-text,var(--schedule-ink));font-size:11px;--ui-text:var(--ev-text,var(--schedule-ink));--ui-muted:var(--ev-muted,var(--schedule-muted))}
+.event-instrument-choices summary{display:flex;align-items:center;gap:7px;min-height:28px;list-style:none;cursor:pointer;font-weight:900;color:var(--ev-accent,var(--schedule-accent))}
+.event-instrument-choices summary::-webkit-details-marker{display:none}
+.event-instrument-choices summary>span{flex:1}
+.event-instrument-choices>p{font-size:10px;line-height:1.6;color:var(--ev-muted,var(--schedule-muted));margin:8px 0}
+.event-instrument-choices .event-vocal-choice-row{border-top:1px solid var(--ev-line,var(--schedule-line));padding-top:6px;margin-top:5px;min-height:43px}
+.event-instrument-choices select{background:var(--ev-panel,var(--schedule-panel));border-color:var(--ev-line,var(--schedule-line));color:var(--ev-text,var(--schedule-ink))}

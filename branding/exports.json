@@ -1,23 +1,39 @@
 {
   "sources": {
-    "black": [
-      "branding/source/icon-dark.jpg",
-      "788x788+233+225"
-    ],
-    "white": [
-      "branding/source/icon-light.jpg",
-      "744x744+255+237"
-    ],
-    "color": [
-      "branding/source/icon-reference.jpg",
-      "852x852+200+178"
-    ]
+    "black": {
+      "file": "branding/source/icon-dark.jpg",
+      "crop": [
+        250,
+        228,
+        760,
+        760
+      ]
+    },
+    "white": {
+      "file": "branding/source/icon-light.jpg",
+      "crop": [
+        273,
+        252,
+        709,
+        709
+      ]
+    },
+    "color": {
+      "file": "branding/source/icon-reference.jpg",
+      "crop": [
+        216,
+        188,
+        823,
+        836
+      ]
+    }
   },
   "output": "public/brand/v2",
   "operations": [
-    "crop outer margins",
+    "crop presentation margins",
+    "clip transparent rounded corners",
     "resize",
     "encode PNG/ICO"
   ],
-  "artwork": "Original rounded tiles and original letter colors; no recoloring or generated artwork."
+  "artwork": "Original supplied tile and folded mark, with no white presentation fringe. Maskable export has an edge-to-edge brand background."
 }

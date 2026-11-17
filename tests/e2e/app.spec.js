@@ -8,6 +8,8 @@ import { createChangesHandler } from '../../api/changes.js';
 import { createAttendanceHandler } from '../../api/attendance.js';
 import { strFromU8, unzipSync } from 'fflate';
 import { encodeSequence, normalizeEvent } from '../../src/lib/domain.js';
+import { ALL_VOCALS } from '../../src/lib/event-vocals.js';
+import { singerRecord } from '../../src/lib/event-storage.js';
 import { decodeEventPreferences, encodeEventPreferences } from '../../src/lib/event-preferences.js';
 import { isSetlistConfirmed, setlistSnapshot } from '../../src/lib/setlist-confirmation.js';
 import { BIBLE_EDITION, bibleCacheKey } from '../../src/lib/bible-edition.js';
@@ -97,7 +99,7 @@ for(const profile of [admin,member])test(`rehearsal events open the studio and u
     const homeCard=page.locator('.gL1').filter({has:page.getByText('Ensaio da equipe',{exact:true})});
     await expect(homeCard).not.toContainText('Teste adoracao');
     await homeCard.getByRole('button',{name:'Abrir Ensaio',exact:true}).click();
-    await expect(page.getByRole('heading',{name:'Estúdio',exact:true})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Ensaio',exact:true})).toBeVisible();
     await expect(page.getByRole('button',{name:'Escolher evento do ensaio',exact:true})).toContainText('Culto de Teste');
     await expect(page.getByRole('region',{name:'Músicas do ensaio',exact:true}).getByRole('button')).toHaveCount(3);
     await page.getByRole('button',{name:'Escolher evento do ensaio',exact:true}).click();
@@ -114,7 +116,7 @@ for(const profile of [admin,member])test(`rehearsal events open the studio and u
     await expect(card.getByRole('button',{name:'Ver detalhes →',exact:true})).toHaveCount(0);
     await expect(card.getByRole('button',{name:'Editar evento Ensaio da equipe',exact:true})).toHaveCount(profile.is_admin?1:0);
     await card.getByRole('button',{name:'Abrir Ensaio →',exact:true}).click();
-    await expect(page.getByRole('heading',{name:'Estúdio',exact:true})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Ensaio',exact:true})).toBeVisible();
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
@@ -735,9 +737,10 @@ async function fixture(browser) {
         return {error:state.audioUploadError?{message:state.audioUploadError}:null};
       }
       if (action === 'upsertSong') { const index = state.songs.findIndex(song => song.id === args[0].id); if(index<0)state.songs.push(args[0]);else state.songs[index]=args[0];return args[0]; }
-      if (action === 'setSequenceForSong') { const row=state.events.find(event=>event.id===args[0]).event_songs.find(row=>row.song_id===args[1]);const previous=row.sequence?.startsWith('louvesync:v1:')?JSON.parse(row.sequence.slice(13)):{text:row.sequence||'',key:null};row.sequence=encodeSequence(args[2]===undefined?previous.text:args[2],args[3]===undefined?previous.key:args[3]);return; }
+      if (action === 'setSequenceForSong') { const row=state.events.find(event=>event.id===args[0]).event_songs.find(row=>row.song_id===args[1]);const previous=row.sequence?.startsWith('louvesync:v1:')?JSON.parse(row.sequence.slice(13)):{text:row.sequence||'',key:null};row.sequence=encodeSequence(args[2]===undefined?previous.text:args[2],args[3]===undefined?previous.key:args[3],previous.vocalMode);return; }
       if (action === 'saveVocalKey') { const song=state.songs.find(song=>song.id===args[0]);song.vocal_keys[args[1]]=args[2];return song.vocal_keys; }
-      if (action === 'setSingerForSong') { const event=state.events.find(event=>event.id===args[0]);event.event_songs.filter(row=>row.song_id===args[1]).forEach(row=>{row.singer_member_id=args[2];});return; }
+      if(action==='setInstrumentForEvent'){const choice=args[0],event=state.events.find(item=>item.id===choice.eventId);event.event_members=choice.roster.map(member_id=>event.event_members.find(row=>row.member_id===member_id)||{member_id,confirmed:null});const old=event.event_songs.find(decodeEventPreferences);const preferences={...(old?decodeEventPreferences(old):{requested_songs:[],santa_ceia_song:null,setlist_confirmation:null}),instrument_assignments:choice.assignments};if(old)old.note_text=encodeEventPreferences(preferences);else event.event_songs.push({id:999,item_type:'note',song_id:null,note_text:encodeEventPreferences(preferences),order_index:999});return choice.assignments;}
+      if (action === 'setSingerForSong') { const event=state.events.find(event=>event.id===args[0]);event.event_songs.filter(row=>row.song_id===args[1]).forEach(row=>{Object.assign(row,singerRecord(args[2],row.sequence));});return; }
       if (action === 'upsertEvent') {
         const unknown=Object.keys(args[0]).find(key=>!['id','date','time','type','label','theme','notes','mention_member_ids'].includes(key));
         if(unknown)throw new Error("Could not find the '"+unknown+"' column of 'events' in the schema cache");
@@ -1585,6 +1588,109 @@ async function openSetlistCard(page, label = 'Culto de Teste') {
   return card;
 }
 
+test('TODOS and event keys are editable in the initial card, survive reload and remain read-only for members', async ({browser}) => {
+  const app=await fixture(browser);
+  app.state.events[0].event_songs[0].singer_member_id=admin.id;
+  app.state.songs[0].vocal_keys={[admin.id]:'B'};
+  try {
+    const leader=await app.open(admin),teammate=await app.open(member);
+    let card=await openSetlistCard(leader),teamCard=await openSetlistCard(teammate);
+    await expect(card.getByRole('combobox',{name:'Tom na escala de Teste adoracao',exact:true})).toHaveValue('B');
+    await card.getByRole('combobox',{name:'Vocal principal de Teste adoracao',exact:true}).selectOption(ALL_VOCALS);
+    await expect(card.getByText('Todos cantam · sem vocal principal',{exact:true})).toBeVisible();
+    await expect(card.getByRole('combobox',{name:'Tom na escala de Teste adoracao',exact:true})).toHaveValue('C');
+    await expect(teamCard.getByText('TODOS',{exact:true})).toBeVisible();
+    await expect(teamCard.getByRole('combobox')).toHaveCount(0);
+    await card.getByRole('combobox',{name:'Tom na escala de Teste adoracao',exact:true}).selectOption('D');
+    await expect.poll(()=>normalizeEvent(app.state.events[0]).keyBySong['song-0']).toBe('D');
+    await card.getByRole('button',{name:'Confirmar setlist',exact:true}).click();
+    await expect(card.locator('.setlist-badge')).toHaveText('Setlist definido');
+    await app.reload(leader);card=await openSetlistCard(leader);
+    await expect(card.getByRole('combobox',{name:'Vocal principal de Teste adoracao',exact:true})).toHaveValue(ALL_VOCALS);
+    await expect(card.getByRole('combobox',{name:'Tom na escala de Teste adoracao',exact:true})).toHaveValue('D');
+    await card.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
+    const sheet=leader.getByRole('dialog',{name:'Culto de Teste',exact:true});
+    await expect(sheet.getByRole('combobox',{name:'Vocal principal de Teste adoracao',exact:true})).toHaveValue(ALL_VOCALS);
+    await sheet.getByRole('combobox',{name:'Vocal principal de Teste adoracao',exact:true}).selectOption(member.id);
+    await expect(sheet.locator('.setlist-badge')).toHaveText('Setlist não confirmado');
+    expect(app.state.songs[0].vocal_keys).toEqual({[admin.id]:'B'});
+    expect(app.state.members).toHaveLength(2);
+    expect(app.failures).toEqual([]);
+  } finally {await app.close();}
+});
+
+test('leadership selects instrumentalists in the event card and syncs an offline seat without changing other confirmations',async({browser})=>{
+  test.setTimeout(60000);
+  const app=await fixture(browser);
+  app.state.members.push(...[
+    {...member,id:'guitar-a',name:'Aragão',instrument:'Violão'},
+    {...member,id:'guitar-b',name:'Darci',instrument:'Violão'},
+    {...member,id:'drum-a',name:'Samuel',instrument:'Bateria'},
+    {...member,id:'drum-b',name:'Outro baterista',instrument:'Bateria'},
+  ]);
+  app.state.events[0].event_members.push({member_id:'guitar-a',confirmed:false},{member_id:'guitar-b',confirmed:true},{member_id:'drum-a',confirmed:true});
+  try{
+    const page=await app.open(admin),teammate=await app.open(member);
+    let card=await openSetlistCard(page),teamCard=await openSetlistCard(teammate);
+    await card.locator('.event-instrument-choices > summary').click();
+    await card.getByRole('combobox',{name:'Violão de Culto de Teste',exact:true}).selectOption('guitar-b');
+    await expect.poll(()=>app.state.events[0].event_members.some(row=>row.member_id==='guitar-a')).toBe(false);
+    expect(app.state.events[0].event_members.find(row=>row.member_id==='guitar-b').confirmed).toBe(true);
+    await page.context().setOffline(true);
+    await expect(page.getByLabel('Sincronização offline')).toContainText('Você está offline');
+    await card.getByRole('combobox',{name:'Bateria de Culto de Teste',exact:true}).selectOption('drum-b');
+    await expect(card.getByRole('combobox',{name:'Bateria de Culto de Teste',exact:true})).toHaveValue('drum-b');
+    expect(app.state.events[0].event_members.some(row=>row.member_id==='drum-b')).toBe(false);
+    await page.context().setOffline(false);
+    await expect.poll(()=>app.state.events[0].event_members.some(row=>row.member_id==='drum-b')).toBe(true);
+    await expect.poll(()=>normalizeEvent(app.state.events[0]).instrument_assignments?.drums).toBe('drum-b');
+    expect(app.state.events[0].event_members.find(row=>row.member_id==='guitar-b').confirmed).toBe(true);
+    expect(app.state.events[0].event_members.find(row=>row.member_id==='drum-b').confirmed).toBeNull();
+    await teamCard.locator('.event-instrument-choices > summary').click();
+    await expect(teamCard.locator('.event-instrument-choices select')).toHaveCount(0);
+    await expect(teamCard.locator('.event-instrument-choices')).toContainText('Outro baterista');
+    await app.reload(page);card=await openSetlistCard(page);
+    await card.locator('.event-instrument-choices > summary').click();
+    await expect(card.getByRole('combobox',{name:'Violão de Culto de Teste',exact:true})).toHaveValue('guitar-b');
+    await expect(card.getByRole('combobox',{name:'Bateria de Culto de Teste',exact:true})).toHaveValue('drum-b');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
+for(const theme of ['light','dark'])test(`3D rehearsal and training layouts load distinct art and fit mobile in ${theme}`,async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open(admin,undefined,{theme});
+    await navigate(page,'Ensaio');
+    const studio=page.locator('.rehearsal-studio');
+    await expect(studio.getByRole('heading',{name:'Ensaio',exact:true})).toBeVisible();
+    await expect.poll(()=>studio.locator('.studio-stage-art img').evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);
+    await page.getByRole('button',{name:'Teste adoracao',exact:true}).click();
+    for(const width of [390,320]){
+      await page.setViewportSize({width,height:844});
+      expect(await studio.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+      await page.locator('[data-main-scroll]').evaluate(el=>{el.scrollTop=0;});
+      await page.screenshot({path:test.info().outputPath(`ensaio-3d-${theme}-${width}.png`),scale:'css'});
+    }
+    await navigate(page,'Treinar');
+    const training=page.locator('.practical-training'),arts=new Set();
+    for(const label of ['Teclado','Voz','Violão','Ritmo']){
+      await training.getByRole('button',{name:label,exact:true}).click();
+      await expect.poll(()=>training.locator('.training-hero-art img').evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);
+      arts.add(await training.locator('.training-hero-art img').getAttribute('src'));
+    }
+    expect(arts.size).toBe(4);
+    await training.getByRole('button',{name:'Teclado',exact:true}).click();
+    for(const width of [390,320]){
+      await page.setViewportSize({width,height:844});
+      expect(await training.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+      await page.locator('[data-main-scroll]').evaluate(el=>{el.scrollTop=0;});
+      await page.screenshot({path:test.info().outputPath(`treinar-3d-${theme}-${width}.png`),scale:'css'});
+    }
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
+});
+
 test('setlist approval persists across devices and reloads without confirming attendance, and admins can withdraw it', async ({ browser }) => {
   const app = await fixture(browser); let finishSave;
   try {
@@ -2346,7 +2452,7 @@ for(const theme of ['light','dark'])test(`compact studio preserves notes, plays 
     const page=await app.open(admin,undefined,{theme});
     await page.setViewportSize({width:320,height:740});
     await navigate(page,'Ensaio');
-    await expect(page.getByRole('heading',{name:'Estúdio',exact:true})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Ensaio',exact:true})).toBeVisible();
     await expect(page.locator('.ls')).toHaveClass(/home-theme/);
     await expect(page.locator('.app-nav [aria-current="page"]')).toHaveCount(1);
     await expect(page.locator('.app-nav [aria-current="page"]')).toHaveAccessibleName('Mais');

@@ -1,4 +1,5 @@
 import { keyDistance, transposeKey } from './domain.js';
+import { isIndividualVocal } from './event-vocals.js';
 
 const letters = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 const pitches = [0, 2, 4, 5, 7, 9, 11];
@@ -64,5 +65,6 @@ export function renderChordText(text, baseKey = 'C', steps = 0) {
 }
 
 export function performanceKey(song, event) {
-  return event?.keyBySong?.[song?.id] || song?.vocal_keys?.[event?.singerBySong?.[song?.id]] || song?.key || 'C';
+  const singerId = event?.singerBySong?.[song?.id];
+  return event?.keyBySong?.[song?.id] || (isIndividualVocal(singerId) && song?.vocal_keys?.[singerId]) || song?.key || 'C';
 }

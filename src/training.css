@@ -1,59 +1,63 @@
-.practical-training {
-  --ui-text:#162c42; --ui-muted:#496477; --ui-accent:#007fa8; --ui-accent-soft:#ceeff8; --ui-panel:#edfaff; --ui-field:#e3f4f9; --ui-line:#b5e2ed; --ui-row:#f6fdff;
-  --training-card:rgba(255,255,255,.7); --training-edge:#d7f1f9; --training-scrim:#e9f9fcf5; --training-art:url('/images/home/devotional-ribbons.webp');
-  padding-top:18px;
-}
-.practical-training[data-theme="dark"] {
-  --ui-text:#f5f2ff; --ui-muted:#ded0ed; --ui-accent:#ca9fff; --ui-accent-soft:#493066; --ui-panel:#271d3c; --ui-field:#211733; --ui-line:#8064a3; --ui-row:#3b2a58;
-  --training-card:rgba(52,36,79,.84); --training-edge:#8960ae; --training-scrim:#34244ff2; --training-art:url('/images/home/devotional-ribbons-dark.webp');
-}
-.training-heading { display:flex; gap:10px; align-items:flex-start; margin-bottom:20px; color:var(--ui-text); }
-.training-heading > svg { margin-top:3px; flex-shrink:0; }
-.training-heading h2 { font-size:24px; font-weight:900; letter-spacing:-.5px; line-height:1.2; margin:0; }
-.training-heading p { margin:4px 0 0; color:var(--ui-muted); font-size:13px; }
-.training-tracks { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; margin-bottom:16px; }
-.training-track { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:7px; min-height:70px; min-width:0; padding:10px 4px; border:1px solid var(--training-edge); border-radius:18px; background:var(--training-card); color:var(--ui-text); font:800 12px/1.3 'Nunito',sans-serif; cursor:pointer; }
-.practical-training .training-track[aria-pressed="true"] { color:var(--ui-accent); border-color:var(--ui-accent); background:var(--ui-accent-soft)!important; outline:none; }
-.training-card { margin:0 0 13px; border:1px solid var(--training-edge); border-radius:20px; background:var(--training-card); padding:17px; box-shadow:0 5px 16px #245f7e09; }
-.practical-training[data-theme="dark"] .training-card { box-shadow:0 5px 16px #14072526; }
-.training-hero { background-image:linear-gradient(90deg,var(--training-scrim),transparent),url('/images/training/practice.webp'); background-size:cover; background-position:center right; }
-.practical-training[data-theme="dark"] .training-hero { background-image:linear-gradient(90deg,var(--training-scrim),transparent),url('/images/training/practice-dark.webp'); }
-.training-hero .ui-eyebrow { display:flex; align-items:center; gap:5px; font-size:11px; }
-.training-hero h3 { font-size:21px; font-weight:900; line-height:1.25; margin:8px 0 5px; color:var(--ui-text); max-width:85%; }
-.training-hero > p { font-size:12px; margin:0 0 15px; max-width:80%; color:var(--ui-muted); }
-.training-session-actions { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
-.training-session-actions .ui-button { font-size:12px; min-height:40px; padding:9px 12px; }
-.training-progress { margin-top:14px; }
-.training-progress > div { display:flex; justify-content:space-between; gap:8px; font-size:10px; color:var(--ui-muted); }
-.training-progress progress { appearance:none; display:block; width:100%; height:5px; margin-top:6px; border:0; border-radius:10px; overflow:hidden; background:var(--ui-accent-soft); accent-color:var(--ui-accent); }
-.training-progress progress::-webkit-progress-bar { background:var(--ui-accent-soft); }
-.training-progress progress::-webkit-progress-value { background:var(--ui-accent); border-radius:10px; }
-.training-progress progress::-moz-progress-bar { background:var(--ui-accent); border-radius:10px; }
-.training-exercises > h3 { font-size:19px; font-weight:900; margin:17px 0 10px; }
-.training-exercises ol { list-style:none; margin:0; padding:0; }
-.training-step { display:flex; align-items:flex-start; gap:9px; padding:12px; border-radius:15px; margin-bottom:8px; }
-.training-step[aria-current="step"] { border-color:var(--ui-accent); }
-.training-step-number { display:grid; place-items:center; flex:0 0 31px; width:31px; height:31px; border-radius:50%; background:var(--ui-accent-soft); color:var(--ui-accent); font-size:18px; font-weight:900; }
-.training-step > div { flex:1; min-width:0; }
-.training-step h4 { margin:0 0 3px; font-size:12px; line-height:1.35; font-weight:900; }
-.training-step p { margin:0; color:var(--ui-muted); font-size:11px; line-height:1.45; }
-.training-duration { display:flex; align-items:center; gap:3px; flex:0 0 auto; font-size:10px; color:var(--ui-accent); white-space:nowrap; padding-left:7px; border-left:1px solid var(--ui-line); }
-.training-metronome > h3, .training-tip > h3 { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:900; letter-spacing:.07em; text-transform:uppercase; color:var(--ui-accent); margin:0 0 10px; }
-.training-metronome-controls { display:flex; gap:8px; align-items:center; }
-.training-metronome-controls > div:first-child { flex:1; min-width:0; }
-.training-metronome-controls output { display:block; color:var(--ui-text); font-weight:900; font-size:24px; line-height:1.2; }
-.training-metronome-controls > div > span { display:block; font-size:11px; color:var(--ui-muted); margin-top:3px; }
-.training-metronome-controls .ui-icon-button { border-radius:50%; }
-.training-play { display:grid; place-items:center; width:47px; height:47px; flex:0 0 47px; padding:0; background:var(--ui-accent); color:var(--ui-panel); border:1px solid var(--training-edge); border-radius:50%; cursor:pointer; }
-.training-beats { display:flex; gap:5px; margin-top:12px; }
-.training-beats span { width:6px; height:6px; border-radius:50%; background:var(--ui-accent-soft); border:1px solid var(--ui-accent); }
-.training-beats span[data-active="true"] { background:var(--ui-accent); }
-.training-metronome .ui-message { margin-top:12px; margin-bottom:0; }
-.training-tip { background-image:linear-gradient(90deg,var(--training-scrim),transparent),var(--training-art); background-position:right center; background-size:cover; }
-.training-tip > h3 { color:var(--app-warning); }
-.training-tip p { font-size:12px; line-height:1.6; font-style:italic; color:var(--ui-muted); margin:0; }
-.training-resources { margin:20px 0 12px; }
-.training-resources summary { display:flex; align-items:center; justify-content:space-between; padding:13px; border:1px solid var(--training-edge); background:var(--training-card); border-radius:14px; color:var(--ui-text); font-size:13px; font-weight:800; cursor:pointer; }
-.training-resources > .ui-helper { margin:12px 0; }
-.training-resources > div { margin-top:16px; }
-@media (max-width:359px) { .training-step { padding:10px; gap:7px; } .training-step-number { width:26px; height:26px; flex-basis:26px; } .training-duration { padding-left:5px; font-size:9px; gap:2px; } .training-metronome-controls { gap:5px; } .training-metronome-controls output { font-size:21px; } .training-track { font-size:11px; } }
+.practical-training{--ui-text:#202d43;--ui-muted:#586778;--ui-accent:#7850b0;--ui-accent-soft:#ece1f8;--ui-panel:#fff;--ui-field:#faf6ff;--ui-line:#d9cde7;--ui-row:#f9f6fd;--training-card:rgba(255,255,255,.84);--training-edge:#dcd5e8;padding:22px 16px 12px;background:radial-gradient(ellipse at 100% 6%,#d9c6f766,transparent 55%),linear-gradient(145deg,#f0fafb,#f5f1fb 65%,#edf8fa)}
+.practical-training[data-theme="dark"]{--ui-text:#fbf5ff;--ui-muted:#d0bbdf;--ui-accent:#dbafff;--ui-accent-soft:#52346a;--ui-panel:#2b203a;--ui-field:#21172e;--ui-line:#79568f;--ui-row:#342642;--training-card:rgba(57,40,75,.82);--training-edge:#79538f;background:radial-gradient(ellipse at 100% 18%,#74399a44,transparent 45%),linear-gradient(145deg,#251a38,#322044 65%,#241b33)}
+.training-heading{margin-bottom:20px;color:var(--ui-text)}
+.training-heading .ui-eyebrow{font-size:10px;color:var(--ui-accent)}
+.training-heading h2{font-size:32px;font-weight:900;letter-spacing:-.8px;line-height:1.2;margin:4px 0}
+.training-heading p{font-size:14px;color:var(--ui-muted);margin:0}
+.training-tracks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:16px}
+.training-track{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:90px;padding:5px 2px 9px;border:1px solid var(--training-edge);border-radius:17px;background:var(--training-card);color:var(--ui-text);font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.training-track img{width:100%;height:53px;object-fit:contain;filter:drop-shadow(0 4px 4px #190c3020)}
+.practical-training .training-track[aria-pressed="true"]{outline:2px solid var(--ui-accent);outline-offset:-1px;background:var(--ui-accent-soft)!important;box-shadow:0 0 16px #aa6fe536,inset 0 1px 0 #ffffff40}
+.training-card{border:1px solid var(--training-edge);border-radius:23px;padding:16px;background:var(--training-card);box-shadow:0 6px 22px #210b3610,inset 0 1px 0 #ffffff20}
+.training-hero{overflow:hidden;position:relative;background:radial-gradient(ellipse at 90% 60%,#ad7edb26,transparent 70%),var(--training-card)}
+.training-hero-main{display:grid;grid-template-columns:1.12fr 1fr;align-items:center;min-height:180px;gap:0}
+.training-hero-copy{position:relative;z-index:1;pointer-events:none;min-width:0}
+.training-hero .ui-eyebrow{font-size:9px;line-height:1.5;color:var(--ui-accent);display:block}
+.training-hero h3{font-size:25px;font-weight:900;line-height:1.2;letter-spacing:-.5px;margin:9px 0 10px;color:var(--ui-text)}
+.training-hero-copy p{font-size:12px;line-height:1.6;margin:0 0 8px;color:var(--ui-muted);max-width:92%}
+.training-hero-art{width:125%;margin-left:-8%;justify-self:center;align-self:stretch;min-height:175px;border-radius:20px}
+.training-hero-art img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 8px 9px #1b0c3328)}
+.training-session-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;position:relative;margin-top:10px}
+.training-session-actions .ui-button{font-size:12px;min-height:42px;padding:10px 15px;border-radius:12px}
+.training-session-actions .ui-button-soft{background:linear-gradient(125deg,#a068dc,#7632c7);color:#fff;border:1px solid #c6a0ec;box-shadow:inset 0 1px 0 #ffffff40,0 4px 14px #54129b22}
+.training-progress{margin-top:14px}
+.training-progress>div{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:var(--ui-muted)}
+.training-progress progress{appearance:none;display:block;width:100%;height:6px;margin-top:8px;border:0;border-radius:10px;overflow:hidden;background:var(--ui-accent-soft);accent-color:var(--ui-accent)}
+.training-progress progress::-webkit-progress-bar{background:var(--ui-accent-soft)}
+.training-progress progress::-webkit-progress-value{background:var(--ui-accent);border-radius:10px}
+.training-progress progress::-moz-progress-bar{background:var(--ui-accent);border-radius:10px}
+.training-exercises>h3{font-size:23px;font-weight:900;letter-spacing:-.4px;margin:22px 0 12px}
+.training-exercises ol{list-style:none;margin:0;padding:0}
+.training-step{display:flex;align-items:flex-start;gap:10px;padding:14px 12px;border-radius:18px;margin-bottom:9px}
+.training-step[aria-current="step"]{border-color:var(--ui-accent);box-shadow:0 0 0 1px var(--ui-accent)}
+.training-step-number{display:grid;place-items:center;flex:0 0 29px;width:29px;height:29px;border-radius:50%;background:var(--ui-accent-soft);color:var(--ui-accent);font-size:15px;font-weight:900}
+.training-step>div{flex:1;min-width:0}
+.training-step h4{margin:0 0 5px;font-size:13px;line-height:1.4;font-weight:900}
+.training-step p{margin:0;color:var(--ui-muted);font-size:11px;line-height:1.6}
+.training-duration{display:flex;align-items:center;gap:3px;flex:0 0 auto;font-size:10px;color:var(--ui-accent);white-space:nowrap}
+.training-metronome{display:grid;grid-template-columns:minmax(80px,.85fr) minmax(0,1.3fr);gap:12px;align-items:center;margin-top:16px}
+.training-metronome-art{width:100%;max-height:180px;align-self:stretch;border-radius:16px}
+.training-metronome-art img{width:100%;height:100%;max-height:180px;object-fit:contain;filter:drop-shadow(0 5px 5px #190c3020)}
+.training-metronome-body{min-width:0;border-left:1px solid var(--ui-line);padding-left:14px}
+.training-metronome h3{font-size:13px;font-weight:900;color:var(--ui-accent);margin:0 0 3px}
+.training-metronome output{display:block;color:var(--ui-text);font-weight:900;font-size:28px;line-height:1.2}
+.training-metronome-body>span{display:block;font-size:11px;color:var(--ui-muted);margin-top:3px}
+.training-metronome-controls{display:flex;gap:9px;align-items:center;margin-top:12px}
+.training-metronome-controls .ui-icon-button{border-radius:50%;width:33px;min-width:33px;height:33px;font-size:22px;padding:0;color:var(--ui-accent);border:1px solid var(--training-edge)}
+.training-play{display:grid;place-items:center;width:46px;height:46px;flex:0 0 46px;padding:0;background:linear-gradient(140deg,#ba7eed,#833dc9);color:#fff;border:1px solid #d7b2f5;border-radius:50%;cursor:pointer;box-shadow:inset 0 1px 0 #ffffff66}
+.training-beats{display:flex;gap:8px;margin-top:13px}
+.training-beats span{width:8px;height:8px;border-radius:50%;background:var(--ui-accent-soft);border:1px solid var(--training-edge)}
+.training-beats span[data-active="true"]{background:var(--ui-accent);box-shadow:0 0 8px var(--ui-accent)}
+.training-metronome .ui-message{grid-column:1/-1;margin:5px 0 0}
+.training-tip{margin-top:14px;background:linear-gradient(110deg,var(--training-card),#cbb3df1a),url('/images/home/devotional-ribbons.webp') center right/cover}
+.practical-training[data-theme="dark"] .training-tip{background-image:linear-gradient(110deg,#30203eeb,#30203eba),url('/images/home/devotional-ribbons-dark.webp')}
+.training-tip h3{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--ui-accent);margin:0 0 8px;font-weight:900}
+.training-tip p{font-size:12px;line-height:1.7;color:var(--ui-muted);margin:0}
+.training-resources{margin:18px 0 12px}
+.training-resources summary{display:flex;align-items:center;justify-content:space-between;min-height:46px;padding:12px;border:1px solid var(--training-edge);background:var(--training-card);border-radius:14px;color:var(--ui-text);font-size:13px;font-weight:800;cursor:pointer;list-style:none}
+.training-resources summary::-webkit-details-marker{display:none}
+.training-resources>.ui-helper{margin:12px 0}
+.training-resources>div{margin-top:16px}
+.practical-training button:focus-visible,.practical-training summary:focus-visible{outline:3px solid var(--ui-accent);outline-offset:3px}
+@media(max-width:359px){.practical-training{padding-inline:12px}.training-track{font-size:11px;min-height:80px}.training-track img{height:44px}.training-hero{padding:13px}.training-hero h3{font-size:23px}.training-hero-copy p{font-size:11px}.training-step{gap:7px;padding:12px 9px}.training-step-number{width:25px;height:25px;flex-basis:25px;font-size:13px}.training-duration{font-size:9px}.training-metronome{gap:7px;padding:12px}.training-metronome-body{padding-left:10px}.training-metronome-controls{gap:6px}.training-metronome output{font-size:25px}}
+@media(min-width:600px){.training-hero-main{min-height:240px}.training-hero h3{font-size:34px;max-width:270px}.training-hero-copy p{max-width:270px;font-size:14px}.training-track img{height:75px}.training-hero-art{max-height:300px;max-width:420px}.training-metronome{grid-template-columns:130px minmax(0,1fr)}}

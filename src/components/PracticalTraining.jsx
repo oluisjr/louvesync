@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Icon } from './Interface.jsx';
+import InteractiveArtwork from './InteractiveArtwork.jsx';
 import { useMetronome } from '../hooks/useMetronome.js';
 import '../training.css';
 
@@ -58,19 +59,19 @@ export default function PracticalTraining({ dark, profile, children }) {
   const reset=()=>{setSession({elapsed:0,startedAt:null});metronome.stop();};
   const changeTrack=id=>{setTrackId(id);reset();};
   return <div className="ui-scope ui-page practical-training" data-theme={dark?'dark':'light'} data-update-blocking={running||metronome.active||metronome.starting}>
-    <header className="training-heading"><Icon name="music" size={25}/><div><h2>Treino</h2><p>Pequenos passos, mais segurança no louvor</p></div></header>
-    <div className="training-tracks" role="group" aria-label="Escolher prática">{tracks.map(item=><button key={item.id} className="training-track" type="button" aria-pressed={item.id===trackId} onClick={()=>changeTrack(item.id)}><Icon name={item.icon} size={22}/>{item.label}</button>)}</div>
+    <header className="training-heading"><div><span className="ui-eyebrow">Prática pessoal</span><h2>Treinar</h2><p>Seu momento de evoluir</p></div></header>
+    <div className="training-tracks" role="group" aria-label="Escolher prática">{tracks.map(item=><button key={item.id} className="training-track" type="button" aria-pressed={item.id===trackId} onClick={()=>changeTrack(item.id)}><img src={`/images/training/practice-${item.id}.webp`} alt="" width="96" height="64" decoding="async"/>{item.label}</button>)}</div>
     <section className="training-card training-hero" aria-label="Sua prática de hoje">
-      <span className="ui-eyebrow"><Icon name="music" size={15}/> Sua prática de hoje</span>
-      <h3>10 minutos para evoluir</h3><p>{track.description}</p>
+      <div className="training-hero-main"><div className="training-hero-copy"><span className="ui-eyebrow">Sua prática de hoje</span><h3>10 minutos para evoluir</h3><p>{track.description}</p></div><InteractiveArtwork key={trackId} className="training-hero-art" src={`/images/training/practice-${trackId}.webp`} alt={`Conjunto 3D para praticar ${track.label.toLowerCase()}`} label={`Mover ilustração de ${track.label.toLowerCase()}`} width="768" height="512" eager/></div>
       <div className="training-session-actions"><button type="button" className="ui-button ui-button-soft" onClick={toggleSession}><Icon name={running?'pause':'play'} size={17}/>{running?'Pausar prática':complete?'Praticar novamente':elapsed?'Continuar prática':'Começar prática'}</button>{elapsed>0&&<button type="button" className="ui-button ui-button-quiet" onClick={reset}>Reiniciar</button>}</div>
       {(elapsed>0||running)&&<div className="training-progress"><div><span role="status">{complete?'Prática concluída':running?'Prática em andamento':'Prática pausada'}</span><output aria-label="Tempo de prática">{formatTime(elapsed)} / 10:00</output></div><progress max={totalSeconds} value={elapsed} aria-label="Progresso da prática"/></div>}
     </section>
     <section className="training-exercises" aria-labelledby="training-exercises-title"><h3 id="training-exercises-title">Pratique agora</h3><ol>{track.steps.map((step,index)=><li key={step.title} className="training-card training-step" aria-current={activeStep===index&&(elapsed>0||running)?'step':undefined}><span className="training-step-number" aria-hidden="true">{index+1}</span><div><h4>{step.title}</h4><p>{step.text}</p></div><span className="training-duration"><Icon name="timer" size={14}/>{step.seconds/60} min</span></li>)}</ol></section>
     <section className="training-card training-metronome" aria-labelledby="training-metronome-title">
-      <h3 id="training-metronome-title"><Icon name="sound" size={18}/> Metrônomo</h3>
-      <div className="training-metronome-controls"><div><output aria-label="Andamento do metrônomo">{metronome.bpm} BPM</output><span>Compasso {metronome.signature}</span></div><button type="button" className="ui-icon-button" aria-label="Diminuir andamento" disabled={metronome.bpm<=20} onClick={()=>metronome.setBpm(metronome.bpm-5)}>−</button><button type="button" className="ui-icon-button" aria-label="Aumentar andamento" disabled={metronome.bpm>=300} onClick={()=>metronome.setBpm(metronome.bpm+5)}>+</button><button type="button" className="training-play" aria-label={metronome.starting?'Ativando áudio…':metronome.active?'Parar metrônomo':'Ativar metrônomo'} aria-pressed={metronome.active} disabled={metronome.starting} onClick={metronome.toggle}><Icon name={metronome.active?'pause':'play'} size={24}/></button></div>
-      <div className="training-beats" aria-label="Pulsos do metrônomo">{Array.from({length:metronome.beats},(_,index)=><span key={index} data-active={metronome.active&&metronome.beat===index}/>)}</div>
+      <InteractiveArtwork className="training-metronome-art" src="/images/training/practice-metronome.webp" alt="Metrônomo 3D verde com base de madeira" label="Mover ilustração do metrônomo" width="300" height="300"/>
+      <div className="training-metronome-body"><h3 id="training-metronome-title">Metrônomo</h3><output aria-label="Andamento do metrônomo">{metronome.bpm} BPM</output><span>Compasso {metronome.signature}</span>
+      <div className="training-metronome-controls"><button type="button" className="ui-icon-button" aria-label="Diminuir andamento" disabled={metronome.bpm<=20} onClick={()=>metronome.setBpm(metronome.bpm-5)}>−</button><button type="button" className="training-play" aria-label={metronome.starting?'Ativando áudio…':metronome.active?'Parar metrônomo':'Ativar metrônomo'} aria-pressed={metronome.active} disabled={metronome.starting} onClick={metronome.toggle}><Icon name={metronome.active?'pause':'play'} size={24}/></button><button type="button" className="ui-icon-button" aria-label="Aumentar andamento" disabled={metronome.bpm>=300} onClick={()=>metronome.setBpm(metronome.bpm+5)}>+</button></div>
+      <div className="training-beats" aria-label="Pulsos do metrônomo">{Array.from({length:metronome.beats},(_,index)=><span key={index} data-active={metronome.active&&metronome.beat===index}/>)}</div></div>
       {metronome.error&&<p className="ui-message ui-error" role="alert">{metronome.error}</p>}
     </section>
     <aside className="training-card training-tip"><h3><Icon name="sparkles" size={17}/> Dica para o repertório</h3><p>{track.tip}</p></aside>

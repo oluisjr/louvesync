@@ -1,4 +1,5 @@
-import { updateEventItems, updateSetlistConfirmation, upsertEventRecord } from './event-storage.js';
+import { updateEventItems, updateSetlistConfirmation, updateSongSinger, updateInstrumentRoster, upsertEventRecord } from './event-storage.js';
+import { isIndividualVocal } from './event-vocals.js';
 import { saveSongRecord } from './song-storage.js';
 import { saveMemberRecord } from './member-storage.js';
 import { publishAnnouncement } from './announcement-storage.js';
@@ -7,7 +8,7 @@ import { encodeSequence, decodeSequence, eventPayload, normalizeEvent } from './
 import { withoutRehearsalSongs } from './rehearsal-events.js';
 import { communityRequest } from './community-client.js';
 import { attendanceRequest } from './attendance-client.js';
-import { changesRequest } from './change-requests.js';
+import { changesRequest, canManageMinistry } from './change-requests.js';
 import { deleteAdminContent } from './admin-delete-client.js';
 import { notificationRequest } from './notifications-client.js';
 import { updateJobs, cacheWrite, cacheRead } from './offline-store.js';
@@ -107,16 +108,20 @@ export async function replayJob(job, { client, actor, connection, profile, activ
   else if (job.type === 'rehearsal_session') await checked(client.from('rehearsal_sessions').upsert(data));
   else if (job.type === 'equipment') await checked(client.from('equipment').upsert(data));
   else if (job.type === 'delete_equipment' || job.type === 'delete_take') await checked(client.from(job.type === 'delete_take' ? 'rehearsal_takes' : 'equipment').delete().eq('id', data.id));
-  else if (job.type === 'singer') await checked(client.from('event_songs').update({ singer_member_id: data.memberId }).eq('event_id', data.eventId).eq('song_id', data.songId));
+  else if (job.type === 'singer') await updateSongSinger(client, data.eventId, data.songId, data.memberId);
+  else if (job.type === 'instrument') {
+    if(!canManageMinistry(profile))throw Object.assign(new Error('A liderança precisa revisar esta escala pendente.'),{status:403});
+    await updateInstrumentRoster(client, data);
+  }
   else if (job.type === 'vocal_key') {
     const saved = await checked(client.from('songs').select('vocal_keys').eq('id', data.songId).single());
     await checked(client.from('songs').update({ vocal_keys: { ...saved.vocal_keys, [data.singerId]: data.key } }).eq('id', data.songId));
   } else if (job.type === 'sequence' || job.type === 'song_options') {
     const previous = await checked(client.from('event_songs').select('sequence').eq('event_id', data.eventId).eq('song_id', data.songId).maybeSingle());
     const sequence = decodeSequence(previous?.sequence);
-    await checked(client.from('event_songs').update({ sequence: encodeSequence(data.text ?? sequence.text, data.key === undefined ? sequence.key : data.key) }).eq('event_id', data.eventId).eq('song_id', data.songId));
+    await checked(client.from('event_songs').update({ sequence: encodeSequence(data.text ?? sequence.text, data.key === undefined ? sequence.key : data.key, sequence.vocalMode) }).eq('event_id', data.eventId).eq('song_id', data.songId));
     if (data.bpm || data.time_signature) await checked(client.from('songs').update({ ...(data.bpm ? { bpm: Number(data.bpm) } : {}), ...(data.time_signature ? { time_signature: data.time_signature } : {}) }).eq('id', data.songId));
-    if (data.updateOfficial && data.singerId) await replayJob({ ...job, type: 'vocal_key', data }, { client, actor, connection, profile, active });
+    if (data.updateOfficial && isIndividualVocal(data.singerId)) await replayJob({ ...job, type: 'vocal_key', data }, { client, actor, connection, profile, active });
   } else if (job.type === 'setlist') return updateSetlistConfirmation(client, data.eventId, data.snapshot, actor.memberId, data.confirmed);
   else if(job.type==='featured_song'){
     await checked(client.from('songs').update({featured_week:false,featured_note:null}).eq('featured_week',true));

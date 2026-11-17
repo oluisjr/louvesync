@@ -1,3 +1,4 @@
+import { isIndividualVocal } from './event-vocals.js';
 const put = (list, row) => list.some(item => item.id === row.id) ? list.map(item => item.id === row.id ? { ...item, ...row, _pendingOffline: true } : item) : [...list, { ...row, _pendingOffline: true }];
 export function overlayWorkspace(songs, events, jobs) {
   let catalog = songs, agenda = events;
@@ -6,6 +7,7 @@ export function overlayWorkspace(songs, events, jobs) {
     if (job.type === 'save_song') catalog = put(catalog, data);
     if (job.type === 'create_event') for (const event of Array.isArray(data) ? data : [data]) agenda = put(agenda, event);
     if (job.type === 'confirm') agenda = agenda.map(event => event.id === data.eventId ? { ...event, confirmations: { ...event.confirmations, [data.memberId]: data.confirmed }, _pendingOffline: true } : event);
+    if (job.type === 'instrument') agenda = agenda.map(event=>event.id===data.eventId?{...event,members:data.roster,instrument_assignments:data.assignments,confirmations:Object.fromEntries(data.roster.map(id=>[id,event.confirmations?.[id]??null])),_pendingOffline:true}:event);
     if (job.type === 'delete_content') { if (data.targetType === 'song') catalog = catalog.filter(song => song.id !== data.targetId); else agenda = agenda.filter(event => event.id !== data.targetId); }
     if (['singer', 'sequence', 'song_options', 'setlist'].includes(job.type)) agenda = agenda.map(event => event.id !== data.eventId ? event : { ...event, _pendingOffline: true,
       ...(job.type === 'singer' ? { singerBySong: { ...event.singerBySong, [data.songId]: data.memberId } } : {}),
@@ -13,7 +15,7 @@ export function overlayWorkspace(songs, events, jobs) {
       ...(job.type === 'song_options' ? { keyBySong: { ...event.keyBySong, [data.songId]: data.key } } : {}),
       ...(job.type === 'setlist' ? { _pendingSetlist: true } : {}),
     });
-    if (job.type === 'vocal_key' || (job.type === 'song_options' && data.updateOfficial)) catalog = catalog.map(song => song.id === data.songId ? { ...song, vocal_keys: { ...song.vocal_keys, [data.singerId]: data.key }, _pendingOffline: true } : song);
+    if ((job.type === 'vocal_key' || (job.type === 'song_options' && data.updateOfficial)) && isIndividualVocal(data.singerId)) catalog = catalog.map(song => song.id === data.songId ? { ...song, vocal_keys: { ...song.vocal_keys, [data.singerId]: data.key }, _pendingOffline: true } : song);
     if (job.type === 'song_options') catalog = catalog.map(song => song.id === data.songId ? { ...song, ...(data.bpm ? { bpm: data.bpm } : {}), ...(data.time_signature ? { time_signature: data.time_signature } : {}) } : song);
   }
   return { songs: catalog, events: agenda };
