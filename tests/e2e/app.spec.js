@@ -236,6 +236,11 @@ test('members can consult the 3D inventory without equipment mutation controls',
   }finally{await app.close();}
 });
 
+async function openMemberManagement(page) {
+  await navigate(page,'Admin');
+  await page.getByRole('button',{name:'Membros e acessos',exact:true}).click();
+}
+
 async function navigate(page, name) {
   if (['Início','Escala','Mural','Bíblia'].includes(name)) {
     await page.getByRole('button',{name,exact:true}).click();
@@ -1640,7 +1645,7 @@ test('leadership selects instrumentalists in the event card and syncs an offline
     await expect.poll(()=>app.state.events[0].event_members.some(row=>row.member_id==='guitar-a')).toBe(false);
     expect(app.state.events[0].event_members.find(row=>row.member_id==='guitar-b').confirmed).toBe(true);
     await page.context().setOffline(true);
-    await expect(page.getByLabel('Sincronização offline')).toContainText('Você está offline');
+    await expect(page.getByLabel('Sincronização offline')).toContainText('Sem conexão');
     await card.getByRole('combobox',{name:'Bateria de Culto de Teste',exact:true}).selectOption('drum-b');
     await expect(card.getByRole('combobox',{name:'Bateria de Culto de Teste',exact:true})).toHaveValue('drum-b');
     expect(app.state.events[0].event_members.some(row=>row.member_id==='drum-b')).toBe(false);
@@ -3018,7 +3023,7 @@ for(const viewport of [{name:'mobile',width:320,height:740},{name:'desktop-dark'
       const page=await app.open();
       await page.setViewportSize({width:viewport.width,height:viewport.height});
       if(viewport.name==='desktop-dark')await page.getByRole('button',{name:'Tema',exact:true}).click();
-      await navigate(page,'Admin');
+      await openMemberManagement(page);
       const open=page.getByRole('button',{name:'Adicionar membro',exact:true});
       await open.click();
       const dialog=page.getByRole('dialog',{name:'Novo membro',exact:true});
@@ -3193,7 +3198,7 @@ test('member catalog edits wait for leadership and session caches contain no oth
 test('administrators can reset their own PIN without losing the current session or exposing it in profiles',async({browser})=>{
   const app=await fixture(browser);app.state.members=app.state.members.map(person=>({...person,pin:'SYNTHETIC_'+person.id}));
   try{
-    const page=await app.open(admin,undefined,{activity:true});await navigate(page,'Admin');
+    const page=await app.open(admin,undefined,{activity:true});await openMemberManagement(page);
     await page.getByRole('button',{name:'Editar Admin Teste',exact:true}).click();
     const editor=page.getByRole('dialog',{name:'Editar membro',exact:true});await expect(editor.getByLabel('Novo PIN (opcional)',{exact:true})).toHaveValue('');
     await editor.getByLabel('Novo PIN (opcional)',{exact:true}).fill('RESET_SYNTHETIC_ADMIN_PIN');await editor.getByRole('button',{name:'Salvar alterações',exact:true}).click();await expect(editor).toHaveCount(0);
@@ -3209,7 +3214,7 @@ test('member screen access and unavailable weekdays survive saves, another devic
   const app=await fixture(browser);
   try{
     const leader=await app.open(admin),teammate=await app.open(member);
-    await navigate(leader,'Admin');await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();
+    await openMemberManagement(leader);await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();
     const editor=leader.getByRole('dialog',{name:'Editar membro',exact:true});
     await expect(editor.getByRole('checkbox',{name:'Maestro',exact:true})).toBeChecked();
     await editor.getByRole('checkbox',{name:'Maestro',exact:true}).uncheck();await editor.getByRole('checkbox',{name:'Patrimônio',exact:true}).uncheck();
@@ -3218,8 +3223,11 @@ test('member screen access and unavailable weekdays survive saves, another devic
     const saved=app.state.members.find(person=>person.id===member.id);expect(saved.unavailable_days).toEqual([0,6]);expect(saved.permissions).not.toContain('ia');
     await navigate(teammate,'Músicas');await teammate.getByRole('button',{name:'Mais',exact:true}).click();
     await expect(teammate.getByRole('region',{name:'Mais',exact:true}).getByRole('button',{name:'Maestro',exact:true})).toHaveCount(0);await expect(teammate.getByRole('region',{name:'Mais',exact:true}).getByRole('button',{name:'Patrimônio',exact:true})).toHaveCount(0);
-    await teammate.reload();await teammate.getByRole('button',{name:'Mais',exact:true}).click();await expect(teammate.getByRole('region',{name:'Mais',exact:true}).getByRole('button',{name:'Maestro',exact:true})).toHaveCount(0);
-    await leader.reload();await navigate(leader,'Admin');await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();
+    await teammate.reload();await app.login(teammate,member);await teammate.getByRole('button',{name:'Mais',exact:true}).click();
+    const menu=teammate.getByRole('region',{name:'Mais',exact:true});
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('button',{name:'Maestro',exact:true})).toHaveCount(0);
+    await app.reload(leader);await openMemberManagement(leader);await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();
     const reopened=leader.getByRole('dialog',{name:'Editar membro',exact:true});await expect(reopened.getByRole('checkbox',{name:'Indisponível: Dom',exact:true})).toBeChecked();await expect(reopened.getByRole('checkbox',{name:'Maestro',exact:true})).not.toBeChecked();
     expect(app.failures).toEqual([]);
   }finally{await app.close();}
@@ -3315,13 +3323,76 @@ test('visitors and church members share the ministry calendar without private de
 test('church membership selected by an admin redirects another device and cannot grant itself ministry management',async({browser})=>{
   const app=await fixture(browser);
   try{
-    const leader=await app.open(admin,undefined,{community:true}),teammate=await app.open(member);await navigate(leader,'Admin');await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();const editor=leader.getByRole('dialog',{name:'Editar membro',exact:true});await editor.getByLabel('Tipo de acesso',{exact:true}).selectOption('church_member');await expect(editor.getByRole('checkbox',{name:'Administrador',exact:true})).toHaveCount(0);await expect(editor.getByRole('checkbox',{name:'Ativo na escala',exact:true})).toHaveCount(0);await editor.getByRole('button',{name:'Salvar alterações',exact:true}).click();await expect(editor).toHaveCount(0);
+    const leader=await app.open(admin,undefined,{community:true}),teammate=await app.open(member);await openMemberManagement(leader);await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();const editor=leader.getByRole('dialog',{name:'Editar membro',exact:true});await editor.getByLabel('Tipo de acesso',{exact:true}).selectOption('church_member');await expect(editor.getByRole('checkbox',{name:'Administrador',exact:true})).toHaveCount(0);await expect(editor.getByRole('checkbox',{name:'Ativo na escala',exact:true})).toHaveCount(0);await editor.getByRole('button',{name:'Salvar alterações',exact:true}).click();await expect(editor).toHaveCount(0);
     await expect(teammate.getByRole('navigation',{name:'Navegação da comunidade'})).toBeVisible();await expect(teammate.getByRole('button',{name:'Escala',exact:true})).toHaveCount(0);await teammate.reload();await expect(teammate.locator('.church-audience')).toHaveText('Visitante');await app.login(teammate);await expect(teammate.locator('.church-audience')).toHaveText('Membro');
     const blocked=await teammate.evaluate(async actor=>{const response=await fetch('/api/community',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'admin_list',memberId:actor.id,pin:actor.pin,is_admin:true})});return response.status;},{...app.state.members.find(person=>person.id===member.id),pin:app.state.members.find(person=>person.id===member.id).pin||'TEST_PIN_'+member.id});expect(blocked).toBe(403);
     expect((await app.communityQuery('select access_type,schedule_enabled,is_admin,role from members where id=$1',[member.id])).rows[0]).toMatchObject({access_type:'church_member',schedule_enabled:false,is_admin:false,role:'Membro'});
     await leader.getByRole('button',{name:'Editar Membro Teste',exact:true}).click();await editor.getByLabel('Tipo de acesso',{exact:true}).selectOption('ministry');await editor.getByLabel('Função ou instrumento',{exact:true}).fill('Vocal');await editor.getByRole('button',{name:'Salvar alterações',exact:true}).click();await expect(editor).toHaveCount(0);await teammate.evaluate(()=>window.dispatchEvent(new Event('online')));await expect(teammate.getByRole('button',{name:'Escala',exact:true})).toBeVisible();expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
+
+for (const [theme,width] of [['dark',390],['light',320]]) {
+  test(`ministry redesign keeps resources, member filters and admin shortcuts usable in ${theme}`,async({browser})=>{
+    const app=await fixture(browser);
+    app.state.members.push(
+      {...member,id:'guitar-player',name:'José Teste',instrument:'Violão'},
+      {...member,id:'church-test',name:'Cadastro Comunidade',access_type:'church_member'}
+    );
+    try {
+      const page=await app.open(admin,undefined,{theme,device:{viewport:{width,height:844}}});
+      const capture=async name=>{
+        expect(await page.locator('[data-main-scroll]').evaluate(scroll=>scroll.scrollWidth<=scroll.clientWidth)).toBe(true);
+        expect(await page.locator('.ministry-page img').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0))).toBe(true);
+        await page.screenshot({path:test.info().outputPath(`${name}-${theme}.png`),scale:'css'});
+      };
+      await navigate(page,'Devocional');
+      await expect(page.getByRole('heading',{name:'Devocional',exact:true})).toBeVisible();
+      await expect(page.locator('.devotional-feature img')).toBeVisible();
+      await page.locator('.devotional-page img').evaluateAll(images=>Promise.all(images.map(image=>image.decode())));
+      await capture('devocional');
+      await page.getByRole('button',{name:'Leituras',exact:true}).click();
+      await expect(page.getByRole('button',{name:/O coração do ministro/})).toHaveCount(0);
+      await page.context().setOffline(true);
+      const banner=page.getByLabel('Sincronização offline');
+      await expect(banner).toContainText('Sem conexão');
+      await expect(page.getByRole('button',{name:'Tentar novamente',exact:true})).toHaveCount(1);
+      await expect(page.getByTitle('Atualizar App')).toHaveCount(0);
+      await expect(page.locator('.app-header + .offline-status')).toBeVisible();
+      await page.screenshot({path:test.info().outputPath(`offline-${theme}.png`),scale:'css'});
+      await page.getByRole('button',{name:'Ler reflexão',exact:true}).click();
+      const reading=page.getByRole('dialog',{name:'Comunidade: onde a graça opera'});
+      await expect(reading).toContainText('A fé cristã é essencialmente social');
+      await reading.getByRole('button',{name:'Fechar recurso',exact:true}).click();
+      await page.getByRole('button',{name:'Vídeos',exact:true}).click();
+      await page.getByRole('button',{name:/A essência da adoração/}).click();
+      await expect(page.getByRole('dialog')).toContainText('O vídeo precisa de internet para carregar.');
+      await page.getByRole('button',{name:'Fechar recurso',exact:true}).click();
+      await page.context().setOffline(false);
+      await expect(banner).toBeHidden();
+
+      await navigate(page,'Membros');
+      await expect(page.getByRole('heading',{name:'Membros',exact:true})).toBeVisible();
+      await page.locator('.members-feature img').evaluate(image=>image.decode());
+      await capture('membros');
+      await expect(page.getByText('Cadastro Comunidade',{exact:true})).toHaveCount(0);
+      await page.getByRole('button',{name:'Cordas',exact:true}).click();
+      await page.getByRole('searchbox',{name:'Buscar por nome ou instrumento'}).fill('violao');
+      await expect(page.getByText('José Teste',{exact:true})).toBeVisible();
+      await expect(page.getByText('Membro Teste',{exact:true})).toHaveCount(0);
+
+      await navigate(page,'Admin');
+      await expect(page.getByRole('heading',{name:'Painel Admin',exact:true})).toBeVisible();
+      await page.locator('.admin-heading img').evaluate(image=>image.decode());
+      await capture('admin');
+      await page.getByRole('button',{name:/^Solicitações de exclusão/}).click();
+      await expect(page.getByText('Nenhuma solicitação de exclusão pendente.',{exact:true})).toBeVisible();
+      await page.getByRole('button',{name:'Painel Admin',exact:true}).click();
+      await page.getByRole('button',{name:'Membros e acessos',exact:true}).click();
+      await expect(page.getByRole('button',{name:'Editar Cadastro Comunidade',exact:true})).toBeVisible();
+      expect(app.failures).toEqual([]);
+    } finally { await app.close(); }
+  });
+}
 
 test('named prayer stays private through moderation and visitors navigate the agenda by week',async({browser})=>{
   const app=await fixture(browser);
@@ -3347,9 +3418,9 @@ test('named prayer stays private through moderation and visitors navigate the ag
     await expect(form.getByRole('status')).toContainText('Pedido recebido');
     const leader=await app.open(admin);
     await navigate(leader,'Admin');
-    await leader.getByRole('button',{name:'Comunidade da igreja',exact:true}).click();
+    await leader.getByRole('button',{name:/^Pedidos de oração/}).click();
     const adminPage=leader.getByRole('region',{name:'Gestão da comunidade',exact:true});
-    await adminPage.getByRole('button',{name:'Pedidos de oração',exact:true}).click();
+    await expect(adminPage.getByRole('button',{name:'Pedidos de oração',exact:true})).toHaveAttribute('aria-pressed','true');
     await expect(adminPage).toContainText('Visitante Teste');
     await expect(adminPage.getByRole('checkbox')).toHaveCount(0);
     await adminPage.getByLabel('Andamento',{exact:true}).selectOption('praying');
@@ -3382,7 +3453,7 @@ test('offline schedule edits remain local through refresh and upload only after 
   await page.getByRole('button',{name:'Editar evento Culto de Teste',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Editar evento',exact:true});
   await page.context().setOffline(true);
-  await expect(page.getByLabel('Sincronização offline')).toContainText('Você está offline');
+  await expect(page.getByLabel('Sincronização offline')).toContainText('Sem conexão');
   await dialog.getByRole('textbox',{name:'Mensagem para a equipe',exact:true}).fill('Orientação preparada offline.');
   await dialog.getByRole('button',{name:'Salvar Alterações',exact:true}).click();await expect(dialog).toHaveCount(0);
   expect(app.state.events[0].notes||'').not.toContain('Orientação preparada offline.');

@@ -21,7 +21,10 @@ import { withSongChart } from './lib/song-charts.js';
 import MemberEditor from './components/MemberEditor.jsx';
 import MaestroScreen from './components/MaestroScreen.jsx';
 import ChurchAdmin from './components/ChurchAdmin.jsx';
-import { canSeeScreen, effectiveScreens, isChurchMember, normalizeMember, availableMembers, availabilityReason, rosterConflicts } from './lib/member-settings.js';
+import AdminOverview from './components/AdminOverview.jsx';
+import DevotionalScreen from './components/DevotionalScreen.jsx';
+import MembersScreen from './components/MembersScreen.jsx';
+import { accountActive, canSeeScreen, effectiveScreens, isChurchMember, normalizeMember, availableMembers, availabilityReason, rosterConflicts } from './lib/member-settings.js';
 import { maestroRequest } from './lib/maestro-client.js';
 import EquipmentEditor from './components/EquipmentEditor.jsx';
 import EquipmentInventory from './components/EquipmentInventory.jsx';
@@ -259,10 +262,6 @@ function patchEvent(ev){
     sequenceBySong: ev.sequenceBySong || {},
   });
 }
-function readableTextColor(color,dark){
-  const tints=dark?{'#4F46E5':'#BD97FF','#7B3FF2':'#CA9FFF','#00C9A7':'#2EE0B6','#FF6B35':'#FFAA68','#EC4899':'#FF83C1','#E11D48':'#FF8BA4','#06B6D4':'#47D7F0','#10B981':'#37E3A3','#EF4444':'#FF8BA4','#F59E0B':'#FFC250','#94A3B8':'#D7C7EA'}:{'#00C9A7':'#007A63','#FF6B35':'#B64315','#EC4899':'#B61969','#E11D48':'#BE123C','#06B6D4':'#08758B','#10B981':'#007A59','#EF4444':'#C92D4A','#F59E0B':'#9B6100','#94A3B8':'#514064'};
-  return typeof color==='string'?(tints[color.toUpperCase()]||color):color;
-}
 function vib(){if(navigator.vibrate)navigator.vibrate(10);}
 
 function generateDynamicSetlist(eventDate, eventType, allSongs, recentEvents=[], requestedSongs=[], santaCeiaSong=null){
@@ -366,7 +365,6 @@ const Bdg = ({cat})=>{
 const Loader = ()=><div style={{width:20,height:20,borderRadius:'50%',border:'2.5px solid rgba(123,63,242,.2)',borderTopColor:'#7B3FF2',animation:'spin .7s linear infinite'}}/>;
 const Skeleton = ({dark, h=60, count=3}) => <div style={{display:'flex', flexDirection:'column', gap:10, padding:16}}>{Array.from({length:count}).map((_,i) => <div key={i} style={{height:h, borderRadius:'var(--r-md)', background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)', animation:'pulse 1.5s infinite ease-in-out', animationDelay:`${i*0.15}s`}}/>)}</div>;
 const Sec = ({t})=><div style={{fontSize:'var(--fs-xs)',fontWeight:900,color:'#FF6B35',letterSpacing:'.14em',textTransform:'uppercase',margin:'18px 0 6px',display:'flex',alignItems:'center',gap:6}}><div style={{width:16,height:1.5,background:'#FF6B35',opacity:.5}}/>{t}<div style={{flex:1,height:1.5,background:'#FF6B35',opacity:.5}}/></div>;
-const EmptyState = ({icon,title,sub,cta,onCta})=><div style={{textAlign:'center',padding:'48px 20px',display:'flex',flexDirection:'column',alignItems:'center',gap:12}}><div style={{fontSize:40,opacity:.35}}>{icon}</div><div style={{fontWeight:800,fontSize:'var(--fs-lg)',opacity:.5}}>{title}</div>{sub&&<div style={{fontSize:'var(--fs-sm)',opacity:.35,maxWidth:220}}>{sub}</div>}{cta&&<button onClick={onCta} style={{marginTop:4,padding:'10px 22px',borderRadius:'var(--r-full)',border:'none',background:'#4F46E5',color:'#fff',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer'}}>{cta}</button>}</div>;
 const ConfirmDialog = ({dark, title, msg, onConfirm, onCancel, isAlert}) => (
   <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:20, backdropFilter:'blur(8px)'}}>
     <div className={`aUp ${dark?'gL2':'gL0'}`} style={{width:'100%', maxWidth:340, padding:24, borderRadius:'var(--r-xl)', background:dark?'rgba(15,23,42,.95)':'rgba(255,255,255,.95)'}}>
@@ -430,33 +428,6 @@ const ContentCarousel = memo(({content, dark}) => {
         </>}
       </div>
     ))}
-  </div>;
-});
-
-/* ─── DEVOCIONAL ────────────────────────────────────────────── */
-const Devocional = memo(({dark})=>{
-  const tc=dark?'#F5F2FF':'#0F172A';
-  const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
-
-  const content = [
-    { type: 'podcast', title: 'O coração do Ministro', theme: 'Liderança', desc: 'Podcast JesusCopy - Refletindo sobre a verdadeira adoração e os perigos de buscar os holofotes.', spotifyId: '5bU5h2C3N4957pE5FjUa7P', embedType: 'show' },
-    { type: 'text', title: 'Comunidade: Onde a Graça Opera', theme: 'Comunhão', author: 'Baseado em John Wesley', text: 'A fé cristã é essencialmente social. Quando nos reunimos para ensaiar, estamos praticando a disciplina do amor mútuo. As discordâncias no tom da música ou no volume da bateria são oportunidades para exercer a paciência e suportar uns aos outros em amor. A adoração perfeita não vem de notas executadas sem erro, mas de corações unidos em uma única voz.'},
-    { type: 'video', title: 'A Essência da Adoração', theme: 'Devocional', desc: 'Ministração Nívea Soares', ytId: 'WNnFmy-cqzg' },
-    { type: 'text', title: 'O Altar Não É Palco', theme: 'Postura', author: 'C.S. Lewis', text: 'O louvor não existe para nos entreter, mas para completar a nossa alegria em Deus. Quando estamos no altar, devemos ser como janelas: as pessoas não devem olhar PARA nós, mas sim ATRAVÉS de nós, para verem a Cristo.'},
-    { type: 'video', title: 'Como fluir no louvor', theme: 'Devocional', desc: 'Dicas práticas de adoração', ytId: 'BEkStuKw5Ow' }
-  ];
-
-  return <div className="app-page">
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
-      <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoBook s={20}/>Devocional</div>
-    </div>
-
-    <div className={`${gc} aUp`} style={{...CS, background:'linear-gradient(135deg,rgba(79,70,229,.1),rgba(236,72,153,.05))',border:'1px solid rgba(79,70,229,.15)'}}>
-      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'var(--app-link, #4F46E5)',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Cuidado Pastoral</div>
-      <div style={{fontSize:'var(--fs-base)',fontWeight:600,color:tc,lineHeight:1.6}}>Recursos selecionados para a sua edificação espiritual antes de ministrar aos outros.</div>
-    </div>
-
-    <ContentCarousel content={content} dark={dark}/>
   </div>;
 });
 
@@ -866,7 +837,7 @@ const PatrimonioScreen = memo(({members, profile, dark, embedded = false}) => {
 });
 
 /* ─── PAINEL ADMIN ──────────────────────────────────────────── */
-const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setConfirmState, setMembers, activity, onUpdateOwnPin, onNavTo})=>{
+const PainelAdmin = memo(({dark, events, setEvents, members, profile, songs, setSongs, setConfirmState, setMembers, activity, onUpdateOwnPin, onNavTo})=>{
   const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
   const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
 
@@ -920,251 +891,179 @@ const PainelAdmin = memo(({dark, events, members, profile, songs, setSongs, setC
   };
 
   const handleRejectDelete = async (songId) => {
-    setSongs(s=>s.map(x=>x.id===songId?{...x, delete_requested_by:null}:x));
-    rejectDeleteSong(songId).catch(console.error);
+    try {
+      await rejectDeleteSong(songId);
+      setSongs(previous => previous.map(song => song.id === songId ? {...song, delete_requested_by: null} : song));
+      await broadcastUpdate({type:'data_changed'});
+    } catch (error) { alert(`Não foi possível recusar: ${error.message}`); }
   };
 
-  const [adminTab, setAdminTab] = useState('geral'); // 'geral'|'dashboard'|'patrimonio'
+  const [adminTab, setAdminTab] = useState('geral');
+  const adminHeading = useRef(null);
+  const visitedSection = useRef(false);
+  const [featSong, setFeatSong] = useState('');
+  const [featNote, setFeatNote] = useState('');
+  const [savingFeatured, setSavingFeatured] = useState(false);
+  const [featuredNotice, setFeaturedNotice] = useState('');
 
-  const [featSong, setFeatSong] = useState(songs?.find(s=>s.featured_week)?.id || '');
-  const [featNote, setFeatNote] = useState(songs?.find(s=>s.featured_week)?.featured_note || '');
+  useEffect(() => {
+    if (adminTab === 'geral' && !visitedSection.current) return;
+    visitedSection.current = true;
+    adminHeading.current?.closest('[data-main-scroll]')?.scrollTo({top:0});
+    adminHeading.current?.focus({preventScroll:true});
+  }, [adminTab]);
+
+  const openAdminTab = next => {
+    if (next === 'musica') {
+      const featured = songs.find(song => song.featured_week);
+      setFeatSong(featured?.id || '');
+      setFeatNote(featured?.featured_note || '');
+      setFeaturedNotice('');
+    }
+    setAdminTab(next);
+  };
 
   const saveFeaturedSong = async () => {
+    setFeaturedNotice('');
+    setSavingFeatured(true);
     try {
-      setSongs(prev => prev.map(s => s.id === featSong ? {...s, featured_week: true, featured_note: featNote} : {...s, featured_week: false, featured_note: null}));
-      const saved=await offlineAction('featured_song',{id:featSong,note:featNote},async()=>{if (supabase) {
-        const {error}=await supabase.from('songs').update({ featured_week: false, featured_note: null }).eq('featured_week', true);if(error)throw error;
+      const saved = await offlineAction('featured_song', {id:featSong,note:featNote}, async () => {
+        if (!supabase) return;
+        const {error} = await supabase.from('songs').update({featured_week:false,featured_note:null}).eq('featured_week',true);
+        if (error) throw error;
         if (featSong) {
-          await supabase.from('songs').update({ featured_week: true, featured_note: featNote }).eq('id', featSong);
+          const {error: updateError} = await supabase.from('songs').update({featured_week:true,featured_note:featNote}).eq('id',featSong);
+          if (updateError) throw updateError;
         }
-      }
-      },{pendingOffline:true});
-      alert(saved?.pendingOffline?'Música da semana salva no aparelho. Aguardando sincronização.':'✅ Música da Semana atualizada com sucesso!');
-    } catch(e) {
-      console.error(e);
-      alert('Erro ao salvar Música da Semana.');
-    }
+      }, {pendingOffline:true});
+      setSongs(previous => previous.map(song => song.id === featSong ? {...song,featured_week:true,featured_note:featNote} : {...song,featured_week:false,featured_note:null}));
+      setFeaturedNotice(saved?.pendingOffline ? 'Salvo neste aparelho. Aguardando sincronização.' : 'Música da semana atualizada.');
+    } catch (error) { setFeaturedNotice(`Não foi possível salvar: ${error.message}`); }
+    finally { setSavingFeatured(false); }
   };
 
-  if(!profile?.is_admin) return <div style={{padding:40,textAlign:'center',color:t2}}>Acesso Restrito</div>;
+  if (!profile?.is_admin) return <p>Acesso restrito</p>;
 
-  // KPIs
-  const pastEvents = events.filter(e => e.date < new Date().toLocaleDateString('sv-SE'));
-  const avgAttendance = pastEvents.length ? Math.round(pastEvents.reduce((acc, ev) => {
-     const confirmed = Object.values(ev.confirmations).filter(v => v === true).length;
-     const total = ev.members.length || 1;
-     return acc + (confirmed / total * 100);
-  }, 0) / pastEvents.length) : 0;
+  const adminSections = {
+    membros: 'Membros e acessos',
+    patrimonio: 'Patrimônio',
+    comunidade: 'Comunidade da igreja',
+    oracoes: 'Pedidos de oração',
+    exclusoes: 'Solicitações de exclusão',
+    musica: 'Música da semana',
+    dashboard: 'Estatísticas',
+  };
+  const eventDeletes = events.filter(event => event.delete_requested_by);
+  const today = localDate();
+  const pastEvents = events.filter(event => event.date < today);
+  const songsThisMonth = adminTab === 'dashboard'
+    ? songs.filter(song => song.created_at && localDate(new Date(song.created_at)).slice(0, 7) === today.slice(0, 7))
+    : [];
+  const active = members.filter(member => accountActive(member) && !isChurchMember(member)).length;
+  const addMember = () => setEditMember({
+    id: crypto.randomUUID(), name: '', pin: '', role: 'Membro', instrument: '', is_admin: false,
+    status: 'ativo', permissions: null, unavailableDays: [], scheduleEnabled: true, color: '#4F46E5', avatar: 'NM',
+  });
 
-  return <div className="app-page">
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}} className="aUp">
-      <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}}><IcoPeople s={20}/>Painel Admin</div>
-    </div>
+  const approveEvent = event => setConfirmState({
+    title: 'Aprovar Exclusão',
+    msg: `Aprovar e EXCLUIR definitivamente o evento "${event.label}"?`,
+    onConfirm: async () => {
+      try {
+        await dbDelEvent(event.id, activity.credentials);
+        setEvents(previous => previous.filter(item => item.id !== event.id));
+        await broadcastUpdate({type:'data_changed'});
+      } catch (error) { alert(`Não foi possível excluir: ${error.message}`); }
+      setConfirmState(null);
+    },
+    onCancel: () => setConfirmState(null),
+  });
+  const rejectEvent = async id => {
+    try {
+      await rejectDeleteEvent(id);
+      setEvents(previous => previous.map(event => event.id === id ? {...event, delete_requested_by: null} : event));
+      await broadcastUpdate({type:'data_changed'});
+    } catch (error) { alert(`Não foi possível recusar: ${error.message}`); }
+  };
+  const deletions = [
+    ...pendingDeletes.map(song => ({ ...song, name: song.title, type: 'Música', approve: handleApproveDelete, reject: handleRejectDelete })),
+    ...eventDeletes.map(event => ({ ...event, name: event.label, type: 'Evento', approve: () => approveEvent(event), reject: rejectEvent })),
+  ];
 
-    <ActivityMonitor activity={activity} members={members} dark={dark}/>
-    {/* Admin tabs */}
-    <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:16}} className="aUp">
-      {[['geral','⚙️ Geral'],['dashboard','📊 Dashboard'],['patrimonio','🏛️ Patrimônio'],['comunidade','Comunidade da igreja']].map(([k,l])=>
-        <button key={k} onClick={()=>setAdminTab(k)} style={{padding:'7px 14px',borderRadius:100,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:700,background:adminTab===k?'#4F46E5':'rgba(79,70,229,.08)',color:adminTab===k?'#fff':'var(--app-link, #4F46E5)'}}>{l}</button>
-      )}
-    </div>
-
-    {adminTab === 'comunidade' && <ChurchAdmin dark={dark} credentials={activity.credentials} onOpenSchedule={()=>onNavTo('escala')}/>}
-    {adminTab === 'geral' && <>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}} className="aUp">
-        <div className={gc} style={{padding:16,borderRadius:'var(--r-lg)',textAlign:'center'}}>
-           <div style={{fontSize:28,fontWeight:900,color:'#10B981'}}>{avgAttendance}%</div>
-           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,textTransform:'uppercase'}}>Engajamento Médio</div>
-        </div>
-        <div className={gc} style={{padding:16,borderRadius:'var(--r-lg)',textAlign:'center'}}>
-           <div style={{fontSize:28,fontWeight:900,color:'var(--app-link, #4F46E5)'}}>{pastEvents.length}</div>
-           <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:700,textTransform:'uppercase'}}>Ministrações</div>
-        </div>
-      </div>
-
-    {pendingDeletes.length > 0 && <div className={`${gc} aUp`} style={{...CS, border:'1px solid rgba(239,68,68,.2)'}}>
-       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'var(--app-danger, #EF4444)',marginBottom:10,textTransform:'uppercase'}}>Solicitações de Exclusão (Músicas)</div>
-       <div style={{display:'flex',flexDirection:'column',gap:10}}>
-         {pendingDeletes.map(s => {
-            const reqBy = members.find(m => m.id === s.delete_requested_by)?.name || 'Usuário';
-            return <div key={s.id} style={{padding:12, background:'rgba(239,68,68,.05)', borderRadius:'var(--r-md)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-               <div>
-                  <div style={{fontWeight:800,color:tc}}>{s.title}</div>
-                  <div style={{fontSize:'var(--fs-xs)',color:t2}}>Pedida por: {reqBy}</div>
-               </div>
-               <div style={{display:'flex',gap:6}}>
-                  <button onClick={()=>handleRejectDelete(s.id)} style={{padding:'6px 12px',borderRadius:100,border:'1px solid rgba(239,68,68,.3)',background:'transparent',color:'var(--app-danger, #EF4444)',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Recusar</button>
-                  <button onClick={()=>handleApproveDelete(s.id)} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#EF4444',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Aprovar (Excluir)</button>
-               </div>
-            </div>
-         })}
-       </div>
-    </div>}
-
-    {events?.filter(e => e.delete_requested_by).length > 0 && <div className={`${gc} aUp`} style={{...CS, border:'1px solid rgba(239,68,68,.2)'}}>
-       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:'var(--app-danger, #EF4444)',marginBottom:10,textTransform:'uppercase'}}>Solicitações de Exclusão (Eventos)</div>
-       <div style={{display:'flex',flexDirection:'column',gap:10}}>
-         {events.filter(e => e.delete_requested_by).map(ev => {
-            const reqBy = members.find(m => m.id === ev.delete_requested_by)?.name || 'Usuário';
-            return <div key={ev.id} style={{padding:12, background:'rgba(239,68,68,.05)', borderRadius:'var(--r-md)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-               <div>
-                  <div style={{fontWeight:800,color:tc}}>{ev.label}</div>
-                  <div style={{fontSize:'var(--fs-xs)',color:t2}}>Data: {ev.date} · {ev.time}</div>
-                  <div style={{fontSize:'var(--fs-xs)',color:t2}}>Pedida por: {reqBy}</div>
-               </div>
-               <div style={{display:'flex',gap:6}}>
-                  <button onClick={()=>{
-                     rejectDeleteEvent(ev.id).catch(console.error);
-                  }} style={{padding:'6px 12px',borderRadius:100,border:'1px solid rgba(239,68,68,.3)',background:'transparent',color:'var(--app-danger, #EF4444)',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Recusar</button>
-                  <button onClick={()=>{
-                     setConfirmState({
-                       title: 'Aprovar Exclusão',
-                       msg: `Aprovar e EXCLUIR definitivamente o evento "${ev.label}"?`,
-                       onConfirm: async () => {
-                         try{await dbDelEvent(ev.id,activity.credentials);await broadcastUpdate({type:'data_changed'});}catch(error){alert(`Não foi possível excluir: ${error.message}`);}
-                         setConfirmState(null);
-                       },
-                       onCancel: () => setConfirmState(null)
-                     });
-                  }} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#EF4444',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Aprovar (Excluir)</button>
-               </div>
-            </div>
-         })}
-       </div>
-    </div>}
-
-    <div className={`${gc} aUp`} style={CS}>
-       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12}}>Comprometimento (Últimos Eventos)</div>
-       {members.filter(m=>m.status==='ativo').slice(0,5).map(m=>{
-          const myEvs = pastEvents.filter(e => (e.members||[]).includes(m.id));
-          const presences = myEvs.filter(e => (e.confirmations||{})[m.id] === true).length;
-          const rate = myEvs.length ? Math.round(presences/myEvs.length*100) : 0;
-          return <div key={m.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'6px 0',borderBottom:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
-             <div style={{display:'flex',alignItems:'center',gap:10}}>
-               <Ava m={m} size={28}/>
-               <span style={{fontSize:'var(--fs-sm)',fontWeight:700,color:tc}}>{m.name.split(' ')[0]}</span>
-             </div>
-             <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:rate>70?'#10B981':rate>40?'#F59E0B':'var(--app-danger, #EF4444)'}}>{rate}%</div>
+  return <div className="app-page ministry-page admin-page" data-theme={dark ? 'dark' : 'light'}>
+    {adminTab === 'geral' ? <>
+      <AdminOverview active={active} eventCount={events.length} deletionCount={deletions.length} open={openAdminTab} headingRef={adminHeading}
+        openAttendance={canManageAttendance(profile) && canSeeScreen(profile,'presencas') ? () => onNavTo('presencas') : null}/>
+      <ActivityMonitor activity={activity} members={members} dark={dark}/>
+    </> : <>
+      <header className="ministry-heading admin-subheading">
+        <button type="button" className="admin-back" onClick={() => openAdminTab('geral')}><Icon name="left" size={17}/>Painel Admin</button>
+        <h1 tabIndex={-1} ref={adminHeading}>{adminSections[adminTab]}</h1>
+      </header>
+      {(adminTab === 'comunidade' || adminTab === 'oracoes') &&
+        <ChurchAdmin key={adminTab} dark={dark} credentials={activity.credentials} initialTab={adminTab === 'oracoes' ? 'prayers' : 'events'} onOpenSchedule={() => onNavTo('escala')}/>}
+      {adminTab === 'exclusoes' && (deletions.length ? <ul className="ministry-list admin-deletions">
+        {deletions.map(item => <li key={item.type + item.id}>
+          <div className="ministry-row-copy">
+            <strong>{item.name}</strong>
+            <small>{item.type}{item.date && ` · ${item.date} · ${item.time}`}</small>
+            <small>Pedido de {members.find(member => member.id === item.delete_requested_by)?.name || 'usuário'}</small>
           </div>
-       })}
-    </div>
-
-    <div className={`${gc} aUp`} style={CS}>
-       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-         <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc}}>Gerenciar Membros</div>
-         <button aria-label="Adicionar membro" onClick={()=>setEditMember({id:crypto.randomUUID(), name:'', pin:'', role:'Membro', instrument:'', is_admin:false, status:'ativo', permissions:null, unavailableDays:[], scheduleEnabled:true, color: '#4F46E5', avatar: 'NM'})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'#10B981',color:'#fff',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>+ Novo membro</button>
-       </div>
-       {members.map(m => (
-         <div key={m.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'6px 0',borderBottom:`1px solid ${dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}`}}>
-             <div style={{display:'flex',alignItems:'center',gap:10}}>
-               <Ava m={m} size={28}/>
-               <div style={{display:'flex',flexDirection:'column'}}>
-                 <span style={{fontSize:'var(--fs-sm)',fontWeight:700,color:tc}}>{m.name}</span>
-                 <span style={{fontSize:'var(--fs-xs)',color:t2}}>{m.instrument} {m.is_admin ? '(Admin)' : ''}</span>
-               </div>
-             </div>
-             <button aria-label={'Editar '+m.name} onClick={()=>setEditMember({...m})} style={{padding:'6px 12px',borderRadius:100,border:'none',background:'rgba(79,70,229,.1)',color:'var(--app-link, #4F46E5)',fontWeight:700,fontSize:'var(--fs-xs)',cursor:'pointer'}}>Editar</button>
-         </div>
-       ))}
-    </div>
-
-    <div className={`${gc} aUp`} style={CS}>
-       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12}}>Músicas Adicionadas (Mês Atual)</div>
-       <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-          {Object.entries(CAT).map(([id, c]) => {
-             const cnt = songs.filter(s => {
-               if(s.cat !== id) return false;
-               if(!s.created_at) return false;
-               const createdMonth = new Date(s.created_at).getMonth();
-               const currentMonth = new Date().getMonth();
-               return createdMonth === currentMonth;
-             }).length;
-             return <div key={id} style={{background:`rgba(${id==='adoracao'?'79,70,229':id==='jubilo'?'16,185,129':id==='hinario'?'245,158,11':'236,72,153'},.1)`, border:`1px solid rgba(${id==='adoracao'?'79,70,229':id==='jubilo'?'16,185,129':id==='hinario'?'245,158,11':'236,72,153'},.2)`, borderRadius:'var(--r-md)', padding:'10px 14px', flex:'1 1 40%', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-                <span style={{fontSize:'var(--fs-xs)',fontWeight:700,color:readableTextColor(c.color,dark),textTransform:'uppercase'}}>{c.label}</span>
-                <span style={{fontSize:20,fontWeight:900,color:tc}}>{cnt}</span>
-             </div>
-          })}
-       </div>
-    </div>
-
-    {/* ── Música da Semana (Foco de Estudo) ── */}
-    <div className={`${gc} aUp`} style={CS}>
-       <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
-         📌 Configurar Música da Semana (Estudo)
-       </div>
-       <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:10,lineHeight:1.4}}>
-         Escolha a música que receberá a marcação especial de estudo na tela de Início de todos os membros.
-       </div>
-       <div className="gIn" style={{marginBottom:10}}>
-         <select
-           className="fi"
-           value={featSong}
-           onChange={e=>setFeatSong(e.target.value)}
-           style={{color:tc,padding:'10px',background:'transparent',border:'none',outline:'none',fontSize:'var(--fs-sm)'}}
-         >
-           <option value="">-- Selecione uma música --</option>
-           {songs.map(s => <option key={s.id} value={s.id}>{s.title} ({s.artist})</option>)}
-         </select>
-       </div>
-       <div className="gIn" style={{marginBottom:14}}>
-         <input
-           className="fi"
-           value={featNote}
-           onChange={e=>setFeatNote(e.target.value)}
-           placeholder="Observação para estudo (ex: Foco nas transições)"
-           style={{color:tc}}
-         />
-       </div>
-       <button className="bp" onClick={saveFeaturedSong} style={{padding:'10px',fontSize:'var(--fs-sm)',width:'100%',fontWeight:800}}>
-         Salvar Música da Semana
-       </button>
-    </div>
-
-    {editMember && <MemberEditor dark={dark} member={editMember} isNew={!members.some(member=>member.id===editMember.id)} canDelete={members.some(member=>member.id===editMember.id)&&editMember.id!==profile.id} onSave={saveMember} onClose={()=>setEditMember(null)} onDelete={()=>{setEditMember(null);delMember(editMember.id);}}/>}
-
-    {/* ── QR Code de Convite ── */}
-    <div className={`${gc} aUp`} style={CS}>
-      <div style={{fontSize:'var(--fs-sm)',fontWeight:800,color:tc,marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
-        <IcoShare s={14}/>QR Code — Convite para o App
-      </div>
-      <div style={{display:'flex',gap:12,alignItems:'center'}}>
-        <img
-          src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin)}&color=4F46E5&bgcolor=F8FAFC`}
-          alt="QR Code do app"
-          style={{borderRadius:'var(--r-md)',width:100,height:100,flexShrink:0}}
-        />
-        <div>
-          <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:6,lineHeight:1.5}}>Mostre este QR Code para novos membros escanearem com a câmera do celular. Eles chegarão direto na tela de login do app.</div>
-          <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:'var(--app-link, #4F46E5)',background:'rgba(79,70,229,.08)',padding:'5px 10px',borderRadius:'var(--r-sm)',wordBreak:'break-all'}}>{window.location.origin}</div>
+          <div className="admin-row-actions">
+            <button type="button" className="admin-action" onClick={() => item.reject(item.id)}>Recusar</button>
+            <button type="button" className="admin-action" data-tone="danger" onClick={() => item.approve(item.id)}>Aprovar exclusão</button>
+          </div>
+        </li>)}
+      </ul> : <p className="ministry-empty"><Icon name="check"/>Nenhuma solicitação de exclusão pendente.</p>)}
+      {adminTab === 'membros' && <>
+        <div className="admin-row-actions admin-member-tools">
+          <button type="button" className="admin-action" aria-label="Adicionar membro" onClick={addMember}><Icon name="plus" size={17}/>Novo membro</button>
         </div>
-      </div>
-    </div>
+        <ul className="ministry-list">
+          {members.map(member => <li className="ministry-row" key={member.id}>
+            <Ava m={member} size={38}/>
+            <span className="ministry-row-copy"><strong>{member.name}</strong><small>{isChurchMember(member) ? 'Membro da igreja' : member.instrument || member.role}{member.is_admin ? ' · Admin' : ''}</small></span>
+            <button type="button" className="admin-action" aria-label={'Editar '+member.name} onClick={() => setEditMember({...member})}>Editar</button>
+          </li>)}
+        </ul>
+        <details className="ministry-details">
+          <summary>QR Code de convite</summary>
+          <div className="admin-invite">
+            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin)}&color=4F46E5&bgcolor=F8FAFC`} alt="QR Code do app" width="100" height="100" loading="lazy"/>
+            <div><p>Use a câmera do celular para abrir o Louve.</p><a href={window.location.origin}>{window.location.origin}</a></div>
+          </div>
+        </details>
+      </>}
+      {adminTab === 'musica' && <form className="ministry-list admin-featured ui-scope" data-theme={dark?'dark':'light'} onSubmit={event => {event.preventDefault();void saveFeaturedSong();}}>
+        <label className="ui-field">Música em destaque
+          <select value={featSong} onChange={event => setFeatSong(event.target.value)}>
+            <option value="">Sem destaque</option>
+            {songs.map(song => <option key={song.id} value={song.id}>{song.title} ({song.artist})</option>)}
+          </select>
+        </label>
+        <label className="ui-field">Orientação de estudo
+          <input value={featNote} onChange={event => setFeatNote(event.target.value)} placeholder="Ex.: Foco nas transições"/>
+        </label>
+        <button type="submit" className="admin-action" disabled={savingFeatured}><Icon name="save" size={17}/>{savingFeatured ? 'Salvando…' : 'Salvar música da semana'}</button>
+        {featuredNotice && <p className="admin-featured-notice" role="status">{featuredNotice}</p>}
+      </form>}
+      {adminTab === 'dashboard' && <>
+        <AdminDashboard pastEvents={pastEvents} members={members} songs={songs} dark={dark} tc={tc} t2={t2} gc={gc} CS={CS}/>
+        <details className="ministry-details">
+          <summary>Músicas adicionadas neste mês</summary>
+          <dl>{Object.entries(CAT).map(([id, category]) =>
+            <div key={id}><dt>{category.label}</dt><dd>{songsThisMonth.filter(song => song.cat === id).length}</dd></div>
+          )}</dl>
+        </details>
+      </>}
+      {adminTab === 'patrimonio' && <PatrimonioScreen embedded members={members} profile={profile} dark={dark}/>}
     </>}
-
-    {adminTab === 'dashboard' && (
-      <AdminDashboard
-        pastEvents={pastEvents}
-        members={members}
-        songs={songs}
-        dark={dark}
-        tc={tc}
-        t2={t2}
-        gc={gc}
-        CS={CS}
-      />
-    )}
-
-    {adminTab === 'patrimonio' && (
-      <PatrimonioScreen
-        embedded
-        members={members}
-        profile={profile}
-        dark={dark}
-      />
-    )}
+    {editMember && <MemberEditor dark={dark} member={editMember}
+      isNew={!members.some(member => member.id === editMember.id)}
+      canDelete={members.some(member => member.id === editMember.id) && editMember.id !== profile.id}
+      onSave={saveMember} onClose={() => setEditMember(null)} onDelete={() => {setEditMember(null);delMember(editMember.id);}}/>}
   </div>;
 });
-
 
 /* ─── LOGIN SCREEN ──────────────────────────────────────────── */
 const LoginScreen = memo(({members,loading,onLogin,dark,setDark,onVisitor})=>{
@@ -1529,66 +1428,6 @@ const Stage = memo(({song,tr,mode,stageFs,setStageFs,dark,onClose,chordColor,set
       </div>
     )}
     <div ref={lyricsRef} style={{flex:1,overflowY:'auto',padding:'16px 18px',paddingBottom:'calc(48px + var(--app-safe-bottom))',scrollBehavior:'smooth'}}><LyricView text={song.lyrics||''} baseKey={song.key} st={tr} mode={mode} dark={true} fs={stageFs} chordColor={chordColor} fontFam={fontFam}/></div>
-  </div>;
-});
-
-/* ─── MEMBROS ─── */
-const Membros = memo(({profile,dark,members,events,selRole,setSelRole})=>{
-  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
-  const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:17,marginBottom:12};
-  const roles=[...new Set(members.map(m=>m.instrument))].filter(Boolean);
-  const filtered=selRole==='Todos'?members:members.filter(m=>m.instrument===selRole);
-
-  return <div className="app-page">
-    <div style={{fontSize:'var(--fs-xl)',fontWeight:900,color:tc,marginBottom:14,letterSpacing:'-.02em',display:'flex',alignItems:'center',gap:8}} className="aUp"><IcoPeople s={20}/>Membros</div>
-    <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:14,paddingBottom:2}} className="aUp">
-      {['Todos',...roles].map(r=><button key={r} onClick={()=>setSelRole(r)} style={{flexShrink:0,padding:'7px 14px',borderRadius:100,border:'none',cursor:'pointer',background:selRole===r?'#4F46E5':dark?'rgba(255,255,255,.08)':'rgba(79,70,229,.07)',color:selRole===r?'#fff':tc,fontSize:'var(--fs-sm)',fontWeight:700,transition:'all .2s'}}>{r}</button>)}
-    </div>
-    {filtered.length===0&&<EmptyState icon={<IcoPeople s={32}/>} title="Nenhum membro nesse filtro"/>}
-
-    {/* Member list — 1 column */}
-    <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:18}}>
-      {filtered.map((m,i)=>{
-        const cCount=events.filter(e=>(e.members||[]).includes(m.id)&&e.type==='culto').length;
-        return <div key={m.id} className={`${gc} aUp`} style={{borderRadius:'var(--r-xl)',padding:'14px 16px',animationDelay:`${i*.04}s`,opacity:m.status==='licença'?.7:1,display:'flex',alignItems:'center',gap:14}}>
-          <div style={{position:'relative',flexShrink:0}}>
-            <Ava m={m} size={52} ring/>
-            <div style={{position:'absolute',bottom:0,right:0,width:13,height:13,borderRadius:'50%',background:m.status==='ativo'?'#10B981':'#94A3B8',border:'2px solid white'}}/>
-          </div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-              <div style={{fontSize:'var(--fs-base)',fontWeight:800,color:tc,lineHeight:1.4}}>
-                {m.name} <br/> <span style={{fontWeight:400, fontSize:'var(--fs-sm)'}}>{m.instrument}</span>
-              </div>
-              {m.is_admin&&<span style={{fontSize:8,background:'rgba(79,70,229,.12)',color:'var(--app-link, #4F46E5)',padding:'1px 6px',borderRadius:100,fontWeight:800,alignSelf:'flex-start'}}>ADMIN</span>}
-              {m.status==='licença'&&<span style={{fontSize:'var(--fs-xs)',color:'#94A3B8',background:'rgba(148,163,184,.1)',padding:'1px 8px',borderRadius:100,fontWeight:700,alignSelf:'flex-start'}}>Em licença</span>}
-            </div>
-          </div>
-          {profile?.is_admin&&<div style={{display:'flex',gap:8,flexShrink:0}}>
-            <div style={{textAlign:'center'}}>
-              <div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:'var(--app-link, #4F46E5)',lineHeight:1}}>{m.confirmRate||cCount*10||'—'}{m.confirmRate?'%':''}</div>
-              <div style={{fontSize:8,color:t2,fontWeight:700}}>PRES.</div>
-            </div>
-            <div style={{textAlign:'center'}}>
-              <div style={{fontSize:'var(--fs-lg)',fontWeight:900,color:'#10B981',lineHeight:1}}>{cCount}</div>
-              <div style={{fontSize:8,color:t2,fontWeight:700}}>CULTOS</div>
-            </div>
-          </div>}
-        </div>;
-      })}
-    </div>
-
-    {/* Team stats — admin only */}
-    {profile?.is_admin&&<div className={`${gc} aUp`} style={CS}>
-      <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:12}}>Estatísticas da Equipe</div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
-        {[{l:'Membros Ativos',v:members.filter(m=>m.status==='ativo').length,c:'#10B981'},{l:'Instrumentos',v:[...new Set(members.map(m=>m.instrument))].filter(Boolean).length,c:'#F59E0B'},{l:'Total Eventos',v:events.length,c:'#4F46E5'}].map(s=>
-          <div key={s.l} style={{textAlign:'center',padding:'11px 6px',borderRadius:'var(--r-sm)',background:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}>
-            <div style={{fontSize:19,fontWeight:900,color:readableTextColor(s.c,dark),lineHeight:1}}>{s.v}</div>
-            <div style={{fontSize:8,color:t2,marginTop:3,fontWeight:700}}>{s.l}</div>
-          </div>)}
-      </div>
-    </div>}
   </div>;
 });
 
@@ -2068,12 +1907,12 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
   const previousScroll=useRef(0);
   const returnToEvent=useRef(false);
   const [syncError,setSyncError]=useState('');
+  const [refreshError,setRefreshError]=useState('');
   const [setlistSavingId,setSetlistSavingId]=useState(null);
   const setlistWriteRef=useRef(false);
   const [connectionStatus,setConnectionStatus]=useState('offline');
   const [addOpen,setAddOpen]=useState(false);
   const [notifsOpen,setNotifsOpen]=useState(false);
-  const [selRole,setSelRole]=useState('Todos');
   const [confetti,setConfetti]=useState([]);
   const [confirmState,setConfirmState]=useState(null);
   const [installPrompt,setDeferredPrompt]=useState(null);
@@ -2224,7 +2063,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
         if(results[1].status==='fulfilled' && results[1].value!==null)setEvents(overlayWorkspace([],results[1].value.map(normalizeEvent),pendingJobs).events);
         if(results[2].status==='fulfilled' && results[2].value?.length){const safe=results[2].value.map(member=>normalizeMember(publicMember(member)));setAllMembers(safe);writeCache('ls_members',safe);setProfile(previous=>{const fresh=safe.find(member=>member.id===previous?.id);if(!previous||!fresh)return previous;const next={...previous,...fresh};return JSON.stringify(previous)===JSON.stringify(next)?previous:next;});}
         const failure=results.find(result=>result.status==='rejected');
-        if(failure)setSyncError(`Não foi possível atualizar os dados: ${failure.reason.message}`);
+        setRefreshError(failure ? 'Mostrando dados salvos. Tente atualizar novamente.' : '');
       }finally{
         inFlight=false;
         if(!disposed)setDataLoading(false);
@@ -2247,9 +2086,10 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     // all tables enabled for Postgres Realtime, and no migration is performed.
     const resume=()=>{if(document.visibilityState==='visible')loadData();};
     document.addEventListener('visibilitychange',resume);
-    window.addEventListener('online',loadData);window.addEventListener('louvesync:synced',loadData);window.addEventListener('louvesync:connected',loadData);
+    const refreshEvents=['online','louvesync:synced','louvesync:connected','louvesync:refresh'];
+    refreshEvents.forEach(name=>window.addEventListener(name,loadData));
     const poll=setInterval(()=>{if(document.visibilityState==='visible'&&navigator.onLine)loadData();},15000);
-    return ()=>{disposed=true;off();offStatus();if(pg)supabase.removeChannel(pg);disconnectRealtime();clearInterval(poll);document.removeEventListener('visibilitychange',resume);window.removeEventListener('online',loadData);window.removeEventListener('louvesync:synced',loadData);window.removeEventListener('louvesync:connected',loadData);};
+    return ()=>{disposed=true;off();offStatus();if(pg)supabase.removeChannel(pg);disconnectRealtime();clearInterval(poll);document.removeEventListener('visibilitychange',resume);refreshEvents.forEach(name=>window.removeEventListener(name,loadData));};
   },[profile]);
 
   const preparedOffline=useRef(null);
@@ -2556,11 +2396,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
     <div className="app-shell">
       {stageMode&&inCifra&&<Stage metronome={metronome} song={selSong} tr={tr} mode={mode} setMode={setMode} stageFs={stageFs} setStageFs={setStageFs} dark={dark} onClose={()=>setStageMode(false)} chordColor={chordColor} setChordColor={setChordColor} fontFam={fontFam} setFontFam={setFontFam}/>}
       {!stageMode&&<>
-        {/* OFFLINE BANNER */}
-
         {changeNotice&&<div role="status" className="change-success-notice">{changeNotice}<button type="button" aria-label="Fechar confirmação da solicitação" onClick={()=>setChangeNotice('')}>×</button></div>}
-        <OfflineStatus state={{...offline,preparing:preparingOffline}}/>
-        {syncError&&<div role="alert" style={{padding:10,background:'#FEF3C7',color:'#92400E',fontSize:12,flexShrink:0}}>{syncError}<button onClick={()=>{setSyncError('');offline.retry();}} style={{marginLeft:8}}>Tentar novamente</button></div>}
         {/* TOP BAR */}
         <div className="app-header" style={{padding:'11px 16px', paddingTop:'calc(var(--app-safe-top) + 11px)', display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${dark?'rgba(168,85,247,.1)':'rgba(123,63,242,.06)'}`,position:'sticky',top:0,zIndex:30,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -2579,7 +2415,7 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
               <IcoBell s={18}/>{unread>0&&<div className="ndot-ring"/>}
             </button>}
             {!inCifra&&(installPrompt||(/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.matchMedia('(display-mode: standalone)').matches))&&<button className="bSec" onClick={async()=>{if(installPrompt){await installPrompt.prompt();setDeferredPrompt(null);}else alert('No Safari, toque em Compartilhar e depois em Adicionar à Tela de Início.');}}>Instalar</button>}
-            {!inCifra&&<button title="Atualizar App" onClick={handleAppUpdate} style={{position:'relative',width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(16,185,129,.12)',color:'#10B981',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            {!inCifra&&offline.online&&<button title="Atualizar App" onClick={handleAppUpdate} style={{position:'relative',width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(16,185,129,.12)',color:'#10B981',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             </button>}
             {!inCifra&&<button title="Sair" onClick={handleLogout} style={{width:36,height:36,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.05)',color:dark?'#C9C3DD':'#475569',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><IcoLogout s={15}/></button>}
@@ -2587,6 +2423,9 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
           </div>
         </div>
 
+        <OfflineStatus state={{...offline,preparing:preparingOffline}} refreshError={refreshError}
+          actionError={syncError} onDismissError={()=>setSyncError('')}
+          onRefresh={()=>window.dispatchEvent(new Event('louvesync:refresh'))}/>
         {/* MAIN SCROLL */}
         <div className="app-content">
         <div ref={mainScrollRef} className="app-main" data-main-scroll data-song-open={inCifra} inert={moreOpen&&!inCifra} aria-hidden={moreOpen&&!inCifra ? true : undefined}>
@@ -2602,12 +2441,12 @@ export default function LouveSync({onVisitor,onCommunitySession}) {
             {tab==='patrimonio'&&!inCifra&&<PatrimonioScreen members={allMembers} profile={profile} dark={dark}/>}
             {tab==='escala'&&!inCifra&&<ScheduleScreen onSetInstrument={handleSetInstrument} onSetSinger={handleSetSinger} onUpdateSongOptions={handleUpdateSongOptions} onRecordAttendance={openAttendance} setlistOnline={isOnline&&!!supabase} setlistSavingId={setlistSavingId} onSetlistConfirmation={handleSetlistConfirmation} view={scheduleView} onViewChange={setScheduleView} profile={profile} dark={dark} events={events} songs={songs} members={allMembers} Avatar={Ava} onConfirm={handleConfirm} onOpenEvent={openEvent} onEditEvent={openEventEditor} onDeleteEvent={handleRequestDeleteEvent} spawnConfetti={spawnConfetti} onCreateEvent={date=>{if(profile?.is_admin){setCreateEvDate(typeof date==='string'?date:null);setCreateEvOpen(true);}}}/>}
             {attendanceLeader&&tab==='presencas'&&!inCifra&&<AttendanceScreen key={attendanceEventId||'overview'} dark={dark} credentials={activity.credentials} events={events} online={isOnline} initialEventId={attendanceEventId} onDirtyChange={attendanceDirtyChanged} onLeave={leaveAttendance}/>}
-            {tab==='membros'&&!inCifra&&<Membros profile={profile} dark={dark} members={allMembers} events={events} selRole={selRole} setSelRole={setSelRole}/>}
+            {tab==='membros'&&!inCifra&&<MembersScreen profile={profile} dark={dark} members={allMembers} events={events} Avatar={Ava}/>}
             {tab==='ia'&&!inCifra&&<MaestroScreen dark={dark} aiMsgs={aiMsgs} aiIn={aiIn} setAiIn={setAiIn} aiLoad={aiLoad} aiCount={aiCount} onSendAI={sendAI} profile={profile}/>}
-            {tab==='devocional'&&!inCifra&&<Devocional dark={dark} profile={profile}/>}
+            {tab==='devocional'&&!inCifra&&<DevotionalScreen dark={dark} online={offline.online}/>}
             {tab==='treinamento'&&!inCifra&&<Treinamento dark={dark} profile={profile}/>}
             {tab==='biblia'&&!inCifra&&<Biblia dark={dark} profileId={profile?.id}/>}
-            {profile?.is_admin&&tab==='admin'&&!inCifra&&<PainelAdmin onNavTo={navTo} onUpdateOwnPin={handleOwnPinChanged} dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState} setMembers={setAllMembers} activity={activity}/>}
+            {profile?.is_admin&&tab==='admin'&&!inCifra&&<PainelAdmin setEvents={setEvents} onNavTo={navTo} onUpdateOwnPin={handleOwnPinChanged} dark={dark} profile={profile} events={events} members={allMembers} songs={songs} setSongs={setSongs} setConfirmState={setConfirmState} setMembers={setAllMembers} activity={activity}/>}
           </>}
         </div>
           {moreOpen&&!inCifra&&<div className="app-more-scroll"><MoreMenu tabs={TABS} currentTab={tab} onNavigate={navTo} onClose={closeMore} dark={dark}/></div>}

@@ -28,6 +28,7 @@ export function Icon({ name, size = 20, ...props }) {
     timer: <><circle cx="12" cy="14" r="8"/><path d="M12 10v4l2 2M9 2h6m-3 0v4m6-1 2 2"/></>,
     play: <path d="m8 4 12 8-12 8V4Z"/>, pause: <><path d="M8 5v14m8-14v14"/></>,
     reset: <><path d="M3 11a9 9 0 1 1 2.5 8M3 4v7h7"/></>,
+    'wifi-off': <><path d="m3 3 18 18M2 8a16 16 0 0 1 3-2m4-1a16 16 0 0 1 13 3M5 12a11 11 0 0 1 3-2m4-1a11 11 0 0 1 7 3m-11 4a6 6 0 0 1 7 0m-3 4h.01"/></>,
     note: <><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8m-8 4h8m-8 4h4"/></>,
     sound: <><path d="m11 4-6 5H2v6h3l6 5V4Zm5 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></>,
     keyboard: <><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 5v9m5-9v9m5-9v9M6 14v5m6-5v5m6-5v5"/></>,

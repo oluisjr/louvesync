@@ -87,7 +87,7 @@ test('actual production update waits for a prayer draft and the new coherent she
   await page.evaluate(()=>localStorage.setItem('ls_bible_position',JSON.stringify({book:'genesis',chapter:50})));
   await context.setOffline(true);await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('.church-audience')).toHaveText('Visitante');
   await page.getByRole('button',{name:'Bíblia',exact:true}).click();await expect(page.locator('[data-verse="26"]')).toContainText('José');
-  await expect(page.getByLabel('Sincronização offline')).toContainText('Você está offline');expect(errors).toEqual([]);
+  await expect(page.getByLabel('Sincronização offline')).toContainText('Sem conexão');expect(errors).toEqual([]);
  }finally{await context?.close();await host.close();if(directory)await rm(directory,{recursive:true});}
 });
 
@@ -132,6 +132,12 @@ test('production core content works offline without a download choice: schedule,
   await page.getByRole('button',{name:'Somente letra',exact:true}).click();await expect(page.locator('.lyrics-content')).toContainText('Em comunhão vamos');await expect(page.locator('.lyrics-content b')).toHaveCount(0);
   await page.getByRole('button',{name:'Letra e acordes',exact:true}).click();await expect(page.locator('.lyrics-content b').first()).toHaveText('C');
   await page.getByRole('button',{name:'Ativar metrônomo',exact:true}).click();await expect(page.getByRole('button',{name:'Parar metrônomo',exact:true})).toHaveAttribute('aria-pressed','true');await expect.poll(()=>page.locator('.ui-metronome-dot[data-active="true"]').count()).toBe(1);await expect(page.locator('.ui-metronome-status')).toContainText('90 BPM');await page.getByRole('button',{name:'Parar metrônomo',exact:true}).click();
-  await page.getByRole('button',{name:'Voltar',exact:true}).click();await page.getByRole('button',{name:'Bíblia',exact:true}).click();await expect(page.locator('[data-verse="26"]')).toContainText('José');await page.screenshot({path:test.info().outputPath('core-content-offline.png')});expect(errors).toEqual([]);
+  await page.getByRole('button',{name:'Voltar',exact:true}).click();await page.getByRole('button',{name:'Bíblia',exact:true}).click();await expect(page.locator('[data-verse="26"]')).toContainText('José');await page.screenshot({path:test.info().outputPath('core-content-offline.png')});
+  await page.getByRole('button',{name:'Mais',exact:true}).click();
+  await page.getByRole('region',{name:'Mais',exact:true}).getByRole('button',{name:'Devocional',exact:true}).click();
+  expect(await page.locator('.devotional-feature img').evaluate(async image=>{await image.decode();return image.naturalWidth;})).toBeGreaterThan(0);
+  await page.getByRole('button',{name:'Ler reflexão',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Comunidade: onde a graça opera'})).toContainText('corações unidos em uma única voz');
+  expect(errors).toEqual([]);
  }finally{await context?.close();await host.close();if(directory)await rm(directory,{recursive:true});}
 });

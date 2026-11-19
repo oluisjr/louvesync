@@ -46,9 +46,8 @@ export default function ChurchCommunity({profile,credentials,onLogin,onLogout,da
   const navigate=destination=>setPage(destination);
   return <div className={'church-community'+(dark?' dark':'')} data-theme={dark?'dark':'light'} data-update-blocking={!!draft.message||busy}>
     <div className="church-shell"><header className="church-header"><img src="/brand/v2/mark-color.png" alt="" width="40" height="40"/><div><strong>Louve</strong><span>VIDA EM COMUNIDADE</span></div><button type="button" aria-label={dark?'Ativar tema claro':'Ativar tema escuro'} onClick={()=>setDark(!dark)}><Icon name={dark?'sun':'moon'} size={19}/></button><span className="church-audience">{profile?'Membro':'Visitante'}</span>{profile&&<button type="button" aria-label="Sair da minha conta" onClick={onLogout}><Icon name="logout" size={18}/></button>}</header>
+      <OfflineStatus state={offline} refreshError={loadError} onRefresh={()=>setRevision(value=>value+1)}/>
       <main ref={scroll} className="church-scroll" data-main-scroll aria-label="Comunidade da igreja">
-        <OfflineStatus state={offline}/>
-        {loadError&&<div className="church-alert" role="alert">{loadError}<button type="button" onClick={()=>{setLoading(true);setRevision(value=>value+1);}}>Tentar novamente</button></div>}
         {page==='welcome'&&<section aria-label="Boas-vindas">
           <div className="church-welcome-hero"><span className="church-eyebrow">UM LUGAR PARA VOCÊ</span><h1 ref={heading} tabIndex={-1}>{profile?'Bem-vindo, '+profile.name.split(' ')[0]+'.':'Que bom ter você aqui.'}</h1><p>Um lugar para viver a fé em comunidade.</p><span className="church-welcome-note"><Icon name="heart" size={19}/>Você é sempre bem-vindo.</span><img src="/images/community/church.webp" alt="Igreja com portas abertas em arte 3D" width="280" height="345"/></div>
           <div className="church-entry-actions">{profile?<span className="church-member-banner"><Icon name="users" size={19}/>Você faz parte desta comunidade.</span>:<button className="church-login-cta" type="button" onClick={onLogin}><Icon name="lock" size={20}/><span>Fazer login</span><Icon name="right" size={19}/></button>}</div>
