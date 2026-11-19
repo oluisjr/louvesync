@@ -2,7 +2,7 @@ import { availabilityReason, isChurchMember } from './member-settings.js';
 
 const instruments = [
   ['guitar','Violão',/\bviolao\b/], ['electric_guitar','Guitarra',/\bguitarra\b/],
-  ['drums','Bateria',/\bbateria\b/], ['keys','Teclado',/\b(teclado|piano)\b/],
+  ['drums','Bateria',/\b(bateria|baterista|drums|drummer)\b/], ['keys','Teclado',/\b(teclado|piano)\b/],
   ['bass','Baixo',/\b(baixo|contrabaixo)\b/], ['percussion','Percussão',/\b(percussao|cajon)\b/],
   ['sax','Saxofone',/\b(sax|saxofone)\b/], ['flute','Flauta',/\bflauta\b/],
   ['cavaquinho','Cavaquinho',/\b(cavaquinho|cavaco)\b/], ['ukulele','Ukulele',/\bukulele\b/],

@@ -20,7 +20,7 @@ test('public API reads the ministry calendar with an explicit projection and nev
  const calls=[],row={id:'event',label:'Culto de Domingo',date:'2026-11-15',time:'18:00',notes:'PRIVATE_NOTE',event_members:['PRIVATE_PERSON'],event_songs:['PRIVATE_SONG']};
  const db={from(table){const call={table};calls.push(call);const chain={select(columns){call.columns=columns;return chain;},gte(key,value){call.minimum={key,value};return chain;},eq(){return chain;},in(){return chain;},order(){return chain;},limit(){return chain;},abortSignal:async()=>({data:table==='events'?[row]:[],error:null})};return chain;}};
  const handler=createCommunityHandler({connect:()=>({db}),now:()=>Date.parse('2026-11-16T01:00:00Z')}),res=response();await handler(request({action:'public',select:'*',include:'event_members,event_songs'}),res);
- assert.equal(res.code,200);assert.deepEqual(calls.map(call=>call.table),['events','louvesync_prayer_requests']);assert.equal(calls[0].columns,'id,label,date,time');assert.deepEqual(calls[0].minimum,{key:'date',value:'2026-11-15'});
+ assert.equal(res.code,200);assert.deepEqual(calls.map(call=>call.table),['events']);assert.deepEqual(res.body.prayers,[]);assert.equal(calls[0].columns,'id,label,date,time');assert.deepEqual(calls[0].minimum,{key:'date',value:'2026-11-15'});
  assert.deepEqual(res.body.events,[publicScheduleEvent(row)]);assert.ok(!JSON.stringify(res.body).includes('PRIVATE_'));
  assert.equal(communityPayload({action:'save_event',memberId:'admin',pin:'SYNTHETIC_PIN',event:row}),null);
 });
@@ -43,10 +43,13 @@ test('today meetings without an end time remain findable and explicit ended meet
  const now=Date.parse('2026-11-15T19:00:00-03:00'),event={id,published:true,starts_at:'2026-11-15T18:00:00-03:00'};
  assert.deepEqual(communityEvents([event,{...event,id:'ended',ends_at:'2026-11-15T18:30:00-03:00'}],{now}).map(row=>row.id),[id]);
 });
-test('prayer intake validates consent, ignores client moderation and strips the name from anonymous payloads',()=>{
+test('all prayer submissions and reviews stay private even with legacy community payloads',()=>{
  assert.equal(communityPayload({...prayer,message:'curto'}),null);assert.equal(communityPayload({...prayer,website:'spam.example'}),null);
  assert.equal(communityPayload({...prayer,visibility:'public-forced'}),null);
  const safe=communityPayload({...prayer,anonymous:true,published:true,status:'answered',is_admin:true});assert.equal(safe.name,'');assert.equal(safe.published,undefined);assert.equal(safe.status,undefined);
+ assert.equal(communityPayload({...prayer,visibility:'community'}).visibility,'team');
+ assert.equal(communityPayload({...prayer,name:'   '}).anonymous,true);
+ assert.equal(communityPayload({action:'review_prayer',id,status:'praying',published:true,memberId:'admin',pin:'SYNTHETIC_PIN'}).published,false);
  assert.equal(communityPayload({action:'admin_list',is_admin:true}),null);
 });
 test('anonymous intake does not link the member identity and never sends the raw IP to storage',async()=>{

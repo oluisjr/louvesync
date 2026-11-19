@@ -1,0 +1,16 @@
+.song-editor .ui-dialog { max-width: 590px; }
+.song-editor-sections, .song-editor-fields { display: grid; gap: 14px; }
+.song-editor-sections > h3, .song-editor-sections > p { margin: 0; }
+.song-editor .ui-section-body { display: grid; gap: 12px; }
+.song-editor-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.song-editor-tempo { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 10px; }
+.song-editor .ui-field { min-width: 0; margin-top: 0; }
+.song-editor textarea { min-height: 190px; font-family: monospace; resize: vertical; }
+.song-editor-extra { border: 1px solid var(--ui-line); background: var(--ui-surface); border-radius: 16px; padding: 12px; }
+.song-editor-extra summary { padding: 3px; color: var(--ui-accent); font-weight: 800; cursor: pointer; }
+.song-editor-extra[open] > :not(summary) { margin-top: 12px; }
+.song-search-results { display: grid; gap: 8px; }
+.song-search-results button { text-align: start; justify-content: space-between; }
+.song-search-results small { display: block; margin-top: 3px; color: var(--ui-muted); }
+.song-editor .ui-dialog-buttons { flex-wrap: wrap; }
+.song-editor .ui-dialog-buttons .ui-button { min-height: 44px; flex: 1 1 135px; }

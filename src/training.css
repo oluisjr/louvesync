@@ -61,3 +61,11 @@
 .practical-training button:focus-visible,.practical-training summary:focus-visible{outline:3px solid var(--ui-accent);outline-offset:3px}
 @media(max-width:359px){.practical-training{padding-inline:12px}.training-track{font-size:11px;min-height:80px}.training-track img{height:44px}.training-hero{padding:13px}.training-hero h3{font-size:23px}.training-hero-copy p{font-size:11px}.training-step{gap:7px;padding:12px 9px}.training-step-number{width:25px;height:25px;flex-basis:25px;font-size:13px}.training-duration{font-size:9px}.training-metronome{gap:7px;padding:12px}.training-metronome-body{padding-left:10px}.training-metronome-controls{gap:6px}.training-metronome output{font-size:25px}}
 @media(min-width:600px){.training-hero-main{min-height:240px}.training-hero h3{font-size:34px;max-width:270px}.training-hero-copy p{max-width:270px;font-size:14px}.training-track img{height:75px}.training-hero-art{max-height:300px;max-width:420px}.training-metronome{grid-template-columns:130px minmax(0,1fr)}}
+.training-hero::before { content:""; position:absolute; inset:0; pointer-events:none; opacity:0; background:radial-gradient(ellipse at 70% 45%,#b172ef64,transparent 72%); transition:opacity 350ms ease; }
+.training-hero[data-running="true"] { border-color:var(--ui-accent); }
+.training-hero[data-running="true"]::before { opacity:.7; animation:practice-glow 4.5s ease-in-out infinite alternate; }
+.training-progress { position:relative; }
+.training-hero[data-running="true"] .training-session-state { color:var(--ui-accent); font-weight:900; }
+.training-hero[data-running="true"] .training-session-state::before { content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:currentColor; margin-right:6px; }
+@keyframes practice-glow { from { opacity:.35; } to { opacity:.95; } }
+@media(prefers-reduced-motion:reduce) { .training-hero[data-running="true"]::before { animation:none; } }

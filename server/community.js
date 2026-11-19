@@ -25,11 +25,13 @@ export function communityPayload(body) {
   if(body.memberId!=null||body.pin!=null){if(!text(body.memberId,128)||!body.memberId||!text(body.pin,256)||!body.pin)return null;payload.memberId=body.memberId;payload.pin=body.pin;}
   if(body.action==='submit_prayer'){
     if(!uuid.test(body.id)||!text(body.message,2000)||body.message.trim().length<10||!text(body.name||'',100)||!['team','community'].includes(body.visibility)||typeof body.anonymous!=='boolean'||(body.website!=null&&body.website!==''))return null;
-    Object.assign(payload,{id:body.id,message:body.message.trim(),name:body.anonymous?'':(body.name||'').trim(),anonymous:body.anonymous,visibility:body.visibility});
+    const name=(body.name||'').trim();
+    const anonymous=body.anonymous||!name;
+    Object.assign(payload,{id:body.id,message:body.message.trim(),name:anonymous?'':name,anonymous,visibility:'team'});
   }
   if(body.action==='review_prayer'){
     if(!uuid.test(body.id)||!Object.hasOwn(prayerStatuses,body.status)||typeof body.published!=='boolean'||(body.reviewed_at&&!Number.isFinite(Date.parse(body.reviewed_at))))return null;
-    Object.assign(payload,{id:body.id,status:body.status,published:body.published,reviewed_at:body.reviewed_at||null});
+    Object.assign(payload,{id:body.id,status:body.status,published:false,reviewed_at:body.reviewed_at||null});
   }
   if(['admin_list','review_prayer'].includes(body.action)&&!payload.memberId)return null;
   return payload;
@@ -52,11 +54,8 @@ export function createCommunityHandler({environment=process.env,connect=clients,
     try{
       const {db,auth,salt}=connect(environment),signal=AbortSignal.timeout(18000);
       if(payload.action==='public'){
-        const [events,prayers]=await Promise.all([
-          publicSchedule(db,signal,now()),
-          db.from('louvesync_prayer_requests').select('id,display_name,anonymous,message,status,created_at').eq('published',true).eq('visibility','community').in('status',['pending','praying','answered']).order('created_at',{ascending:false}).limit(30).abortSignal(signal)
-        ]);if(prayers.error)throw prayers.error;
-        return res.status(200).json({ok:true,events,prayers:prayers.data});
+        const events=await publicSchedule(db,signal,now());
+        return res.status(200).json({ok:true,events,prayers:[]});
       }
       let result;
       if(payload.action==='submit_prayer'){

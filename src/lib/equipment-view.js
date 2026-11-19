@@ -30,6 +30,7 @@ export function equipmentArtwork(item) {
   if ((/\bflauta\b/.test(name) && !/\bflauta doce\b/.test(name)) || /\bflute\b/.test(name)) return '/images/equipment/flute.webp';
   if (/\b(cavaquinho|cavaco)\b/.test(name)) return '/images/equipment/cavaquinho.webp';
   if (/\b(ukulele|ukelele)\b/.test(name)) return '/images/equipment/ukulele.webp';
-  if (/\b(violao|guitarra|guitar)\b/.test(name)) return variation || /\b(azul|blue)\b/.test(name) ? '/images/equipment/guitar-blue.webp' : '/images/equipment/guitar.webp';
+  if (/\b(violao|acoustic guitar|classical guitar)\b/.test(name)) return variation || /\b(azul|blue)\b/.test(name) ? '/images/equipment/guitar-blue.webp' : '/images/equipment/guitar.webp';
+  if (/\b(guitarra|guitar)\b/.test(name)) return '/images/equipment/electric-guitar.webp';
   return '/images/more/equipment.webp';
 }

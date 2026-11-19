@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { printCifra } from './lib/native.js';
 import { checkForAppUpdate } from './lib/app-updates.js';
 import Bible from './components/Bible.jsx';
+import ChromaticTuner from './components/ChromaticTuner.jsx';
 import Rehearsal from './components/Rehearsal.jsx';
 import { Dialog, Icon, Section, SearchField } from './components/Interface.jsx';
 import { publicMember, readActorSession, setMutationActor } from './lib/member-session.js';
@@ -38,6 +39,7 @@ import NotificationInbox from './components/NotificationInbox.jsx';
 import { useNotifications } from './hooks/useNotifications.js';
 import { notificationDestination } from './lib/notifications-client.js';
 import './home.css';
+import './song-editor.css';
 import MetronomeControls from './components/MetronomeControls.jsx';
 import { useMetronome } from './hooks/useMetronome.js';
 import { useAppDisplay } from './hooks/useAppDisplay.js';
@@ -345,12 +347,10 @@ const IcoPeople  = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill=
 const IcoSpark   = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
 const IcoBell    = ({s=20})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>;
 const IcoChevL   = ({s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>;
-const IcoChevR   = ({s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>;
 const IcoTrash   = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>;
 const IcoGuitar  = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.11 8.89L4 16l-1 3 3-1 7.11-7.11"/><path d="M14 7l3-3 1 1-3 3"/><circle cx="14.5" cy="9.5" r="2.5"/></svg>;
 const IcoMural   = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M7 7h10M7 11h8M7 15h5"/></svg>;
 const IcoMic     = ({s=22})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4"/><path d="M8 23h8"/></svg>;
-const IcoX       = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 const IcoEdit    = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
 const IcoBook    = ({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>;
 const IcoLogout  = ({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;
@@ -481,151 +481,9 @@ const Treinamento = memo(({dark, profile})=>{
 
   return <PracticalTraining dark={dark} profile={profile}>
     <ContentCarousel content={content.map(item=>({...item,theme:item.cat,ytId:item.type==='video'?item.id:undefined,spotifyId:item.type==='podcast'?item.id:undefined}))} dark={dark}/>
-    <Afinador dark={dark}/>
+    <ChromaticTuner/>
   </PracticalTraining>;
 });
-/* ─── AFINADOR CROMÁTICO ────────────────────────────────────── */
-const Afinador = memo(({dark})=>{
-  const  t2=dark?'#C9C3DD':'#475569';
-  const gc='gL1', CS={borderRadius:'var(--r-xl)',padding:20,marginBottom:16};
-  const [active, setActive] = useState(false);
-  const [note, setNote] = useState(null);        // e.g. { name:'A', octave:4, cents:+12 }
-  const audioCtxRef = useRef(null);
-  const analyserRef = useRef(null);
-  const rafRef = useRef(null);
-  const streamRef = useRef(null);
-
-  const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-  const NOTE_PT = {C:'Dó',D:'Ré',E:'Mi',F:'Fá',G:'Sol',A:'Lá',B:'Si','C#':'Dó#','D#':'Ré#','F#':'Fá#','G#':'Sol#','A#':'Lá#'};
-
-  function freqToNote(freq){
-    if(freq<=0) return null;
-    const semitones = 12 * Math.log2(freq/440);
-    const idx = Math.round(semitones) + 57; // A4=69, 69-12=57 offset for 0-indexed
-    const noteIdx = ((idx % 12) + 12) % 12;
-    const octave = Math.floor(idx/12);
-    const cents = Math.round((semitones - Math.round(semitones)) * 100);
-    return { name: NOTE_NAMES[noteIdx], octave, cents };
-  }
-
-  function detectPitch(buf, sampleRate){
-    // RMS volume check to safeguard against background noise
-    let rms = 0;
-    for (let i = 0; i < buf.length; i++) {
-      rms += buf[i] * buf[i];
-    }
-    rms = Math.sqrt(rms / buf.length);
-    if (rms < 0.005) return 0; // Signal too quiet, return 0
-
-    let bestLag = -1;
-    let bestValue = Infinity;
-    const minFreq = 65; // C2 (~65Hz) covers bass guitar and guitar strings
-    const maxFreq = 1000;
-    const minLag = Math.floor(sampleRate / maxFreq);
-    const maxLag = Math.ceil(sampleRate / minFreq);
-
-    // AMDF (Average Magnitude Difference Function)
-    for (let lag = minLag; lag <= maxLag; lag++) {
-      let diff = 0;
-      const n = buf.length - lag;
-      for (let i = 0; i < n; i++) {
-        diff += Math.abs(buf[i] - buf[i + lag]);
-      }
-      diff /= n;
-      if (diff < bestValue) {
-        bestValue = diff;
-        bestLag = lag;
-      }
-    }
-
-    if (bestLag < 0 || bestValue > 0.5) return 0;
-    return sampleRate / bestLag;
-  }
-
-  async function start(){
-    try{
-      const ctx = new (window.AudioContext||window.webkitAudioContext)();
-      audioCtxRef.current = ctx;
-      if (ctx.state === 'suspended') await ctx.resume();
-
-      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-      streamRef.current = stream;
-      const src = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 4096;
-      src.connect(analyser);
-      analyserRef.current = analyser;
-      setActive(true);
-      const buf = new Float32Array(analyser.fftSize);
-      function loop(){
-        analyser.getFloatTimeDomainData(buf);
-        const freq = detectPitch(buf, ctx.sampleRate);
-        setNote(freq > 60 ? freqToNote(freq) : null);
-        rafRef.current = requestAnimationFrame(loop);
-      }
-      loop();
-    } catch(e){
-      alert('Microfone não autorizado. Verifique as permissões do navegador.');
-    }
-  }
-
-  function stop(){
-    cancelAnimationFrame(rafRef.current);
-    streamRef.current?.getTracks().forEach(t=>t.stop());
-    audioCtxRef.current?.close();
-    setActive(false); setNote(null);
-  }
-
-  useEffect(()=>()=>{stop();},[]);
-
-  const cents = note?.cents ?? 0;
-  const inTune = Math.abs(cents) < 6;
-  const needleAngle = Math.max(-45, Math.min(45, cents * 0.9));
-  const color = inTune ? '#10B981' : Math.abs(cents)<20 ? '#F59E0B' : '#EF4444';
-
-  return <div className={`${gc} aUp`} style={CS}>
-    <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:14,display:'flex',alignItems:'center',gap:6}}>
-      🎸 Afinador Cromático
-    </div>
-    {/* Mostrador de agulha */}
-    <div style={{textAlign:'center',marginBottom:16}}>
-      <svg viewBox="-60 -50 120 70" style={{width:'100%',maxWidth:220,display:'block',margin:'0 auto'}}>
-        {/* Arco */}
-        <path d="M -50 0 A 50 50 0 0 1 50 0" fill="none" stroke={dark?'rgba(255,255,255,.1)':'rgba(0,0,0,.1)'} strokeWidth="3"/>
-        {/* Marca central */}
-        <line x1="0" y1="-52" x2="0" y2="-44" stroke={dark?'rgba(255,255,255,.3)':'rgba(0,0,0,.3)'} strokeWidth="1.5"/>
-        {/* Agulha */}
-        <line
-          x1="0" y1="0"
-          x2={Math.sin(needleAngle*Math.PI/180)*48}
-          y2={-Math.cos(needleAngle*Math.PI/180)*48}
-          stroke={color} strokeWidth="2.5" strokeLinecap="round"
-          style={{transition:'all .08s'}}
-        />
-        <circle cx="0" cy="0" r="4" fill={color} style={{transition:'fill .15s'}}/>
-      </svg>
-      {note ? (
-        <div>
-          <div style={{fontSize:48,fontWeight:900,color,fontFamily:"'JetBrains Mono',monospace",lineHeight:1,transition:'color .15s'}}>
-            {NOTE_PT[note.name]||note.name}<span style={{fontSize:18,opacity:.6}}>{note.octave}</span>
-          </div>
-          <div style={{fontSize:'var(--fs-sm)',color:t2,marginTop:4}}>
-            {inTune ? '✅ Afinado!' : cents>0 ? `↑ +${cents}¢ (muito agudo)` : `↓ ${cents}¢ (muito grave)`}
-          </div>
-        </div>
-      ) : (
-        <div style={{fontSize:'var(--fs-sm)',color:t2,fontStyle:'italic'}}>
-          {active ? 'Aguardando sinal de áudio...' : 'Pressione Iniciar para afinar'}
-        </div>
-      )}
-    </div>
-    <button onClick={active?stop:start} style={{width:'100%',padding:'11px',borderRadius:'var(--r-md)',border:'none',background:active?'rgba(239,68,68,.1)':'rgba(16,185,129,.1)',color:active?'var(--app-danger, #EF4444)':'#10B981',fontWeight:700,fontSize:'var(--fs-sm)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-      {active ? '⏹ Parar Afinador' : '🎤 Iniciar Afinador'}
-    </button>
-    {active && <div style={{fontSize:'var(--fs-xs)',color:t2,marginTop:8,textAlign:'center'}}>Usando microfone — mantenha o instrumento próximo</div>}
-  </div>;
-});
-
 /* ─── DASHBOARD ADMIN ───────────────────────────────────────── */
 const AdminDashboard = memo(({pastEvents, members, songs = [], dark, tc, t2, gc, CS}) => {
   const chartPoints = useMemo(() => {
@@ -1737,10 +1595,8 @@ const Membros = memo(({profile,dark,members,events,selRole,setSelRole})=>{
 /* ─── MAESTRO (IA) ──────────────────────────────────────────── */
 /* ─── ADD SONG OVERLAY ──────────────────────────────────────── */
 const AddSong = memo(({dark,onSave,onClose,initialData,requestApproval,credentials})=>{
-  const tc=dark?'#F5F2FF':'#0F172A', t2=dark?'#C9C3DD':'#475569';
-  const gc='gL1';
   const [step,setStep]=useState(initialData ? 3 : 1);
-  const [form,setForm]=useState(initialData ? {...initialData} : {title:'',artist:'',cat:'adoracao',key:'C',bpm:'80',timeSignature:'4/4',lyrics:'',tags:'',rawLyrics:'',sequence:'',media_url:''});
+  const [form,setForm]=useState(initialData ? {...initialData,title:initialData.title||'',lyrics:initialData.lyrics||'',rawLyrics:''} : {title:'',artist:'',cat:'adoracao',key:'C',bpm:'80',timeSignature:'4/4',lyrics:'',tags:'',rawLyrics:'',sequence:'',media_url:''});
   const [candidates,setCandidates]=useState([]);
   const [searchLoading,setSearchLoading]=useState(false);
   const [selLoading,setSelLoading]=useState(false);
@@ -1764,7 +1620,7 @@ const AddSong = memo(({dark,onSave,onClose,initialData,requestApproval,credentia
   }
 
   function tryClose(){
-    if(step===3&&form.lyrics.trim()){
+    if(form.lyrics.trim() !== (initialData?.lyrics || "").trim() || (!initialData && form.title.trim())){
       // To simplify, we keep window.confirm for local draft discard.
       if(!window.confirm('Descartar rascunho?'))return;
     }
@@ -1852,160 +1708,76 @@ MANTENHA OS ACORDES ORIGINAIS EXATAMENTE COMO ESTÃO. Não adicione novos acorde
   }
 
   async function save(){
-    if(!form.title||!form.lyrics)return;
+    if(saving||!form.title.trim()||!form.lyrics.trim())return;
     const songId = form.id || crypto.randomUUID();
     setSaving(true);setSaveError('');
-    try {await onSave({id:songId,title:form.title,artist:form.artist||'Ministério',cat:form.cat,key:form.key,bpm:parseInt(form.bpm)||80,time_signature:form.timeSignature||form.time_signature||'4/4',lyrics:form.lyrics,tags:(Array.isArray(form.tags)?form.tags.join(','):form.tags||'').split(',').map(t=>t.trim()).filter(Boolean),media_url:form.media_url});}catch(error){setSaveError(error.message);}finally{setSaving(false);}
+    try {await onSave({id:songId,title:form.title.trim(),artist:form.artist?.trim()||'Ministério',cat:form.cat,key:form.key,bpm:parseInt(form.bpm)||80,time_signature:form.timeSignature||form.time_signature||'4/4',lyrics:form.lyrics,tags:(Array.isArray(form.tags)?form.tags.join(','):form.tags||'').split(',').map(t=>t.trim()).filter(Boolean),media_url:form.media_url});}catch(error){setSaveError(error.message);}finally{setSaving(false);}
   }
 
   const busy=selLoading||genLoad;
-  const cBtn={width:'100%',background:dark?'rgba(24,32,68,.92)':'rgba(255,255,255,.88)',border:`1.5px solid ${dark?'rgba(99,102,241,.22)':'rgba(79,70,229,.12)'}`,borderRadius:'var(--r-lg)',padding:'13px 14px',cursor:'pointer',textAlign:'left',transition:'all .18s ease',display:'flex',gap:12,alignItems:'center'};
+  const title = initialData ? 'Editar Música' : 'Nova Música';
+  const update = (key,value) => setForm(previous=>({...previous,[key]:value}));
+  const titleValid = Boolean(form.title.trim());
+  const lyricsValid = Boolean(form.lyrics.trim());
+  const canSave = titleValid && lyricsValid;
+  const formBusy = saving || busy || searchLoading;
+  const songFields = <div className="song-editor-fields">
+    <label className="ui-field">Título<input value={form.title} onChange={e=>update('title',e.target.value)} placeholder="Título da música *" required/></label>
+    <label className="ui-field">Artista ou ministério<input value={form.artist || ''} onChange={e=>update('artist',e.target.value)} placeholder="Artista / Ministério"/></label>
+  </div>;
 
-  return <>
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',zIndex:99,backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',animation:'fadeIn .2s'}} onClick={tryClose}/>
-    <div data-update-blocking={true} className="gL2" style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'93dvh',overflowY:'auto',borderRadius:'28px 28px 0 0',zIndex:100,animation:'slideUp .42s cubic-bezier(.22,1,.36,1)'}}>
-      <div style={{display:'flex',justifyContent:'center',padding:'14px 0 0'}}><div style={{width:44,height:4,borderRadius:100,background:'rgba(127,127,127,.22)'}}/></div>
-      <div style={{padding:'16px 20px 52px'}}>
-
-        {/* Header */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-          <div>
-            <div style={{fontSize:18,fontWeight:900,color:tc}}>{initialData ? 'Editar Música' : step===1?'Nova Música':step===2?'Escolher Versão':'Revisar Cifra'}</div>
-            <div style={{display:'flex',gap:5,marginTop:7}}>{[1,2,3].map(s=><div key={s} style={{width:s===step?24:8,height:4,borderRadius:100,transition:'all .3s',background:s<=step?'#4F46E5':'rgba(79,70,229,.15)'}}/>)}</div>
-          </div>
-          <button onClick={tryClose} style={{width:34,height:34,borderRadius:'var(--r-sm)',border:'none',background:'rgba(0,0,0,.07)',color:t2,fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcoX s={14}/></button>
-        </div>
-
-        {/* ── STEP 1: Info da música ── */}
-        {step===1&&<div style={{display:'flex',flexDirection:'column',gap:11}}>
-          <div className="gIn"><input className="fi" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Título da música *" style={{color:tc}}/></div>
-          <div className="gIn"><input className="fi" value={form.artist} onChange={e=>setForm(f=>({...f,artist:e.target.value}))} placeholder="Artista / Ministério" style={{color:tc}}/></div>
-          <div>
-            <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Categoria</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-              {Object.entries(CAT).map(([id,c])=><button key={id} onClick={()=>setForm(f=>({...f,cat:id}))} style={{padding:12,borderRadius:'var(--r-md)',border:`2px solid ${form.cat===id?c.color:'transparent'}`,background:form.cat===id?`${c.color}12`:'rgba(0,0,0,.04)',cursor:'pointer',display:'flex',alignItems:'center',gap:8,transition:'all .18s'}}>
-                <div style={{width:10,height:10,borderRadius:'50%',background:c.color,flexShrink:0}}/>
-                <span style={{fontSize:'var(--fs-sm)',fontWeight:800,color:form.cat===id?c.color:t2}}>{c.label}</span>
-              </button>)}
-            </div>
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-            <div>
-              <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Compasso</div>
-              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{TIME_SIGS.map(ts=><button key={ts} onClick={()=>setForm(f=>({...f,timeSignature:ts}))} style={{padding:'5px 8px',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:800,fontFamily:"'JetBrains Mono',monospace",background:form.timeSignature===ts?'#10B981':'rgba(16,185,129,.08)',color:form.timeSignature===ts?'#fff':"var(--app-positive, #059669)",transition:'all .15s'}}>{ts}</button>)}</div>
-            </div>
-            <div>
-              <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:6}}>Tom Original</div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:6}}>
-                {KEYS.map(k=><button key={k} disabled={requestApproval&&!!initialData} onClick={()=>setForm(f=>({...f,key:k}))} style={{padding:'8px 6px',borderRadius:8,border:'none',cursor:'pointer',fontSize:'var(--fs-xs)',fontWeight:700,fontFamily:"'JetBrains Mono',monospace",background:form.key===k?'#7B3FF2':'rgba(79,70,229,.08)',color:form.key===k?'#fff':'var(--app-link, #4F46E5)',transition:'all .15s'}}>{k}</button>)}
-              </div>
-            </div>
-          </div>
-          <div style={{marginTop:8}}>
-            <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,marginBottom:4}}>BPM</div>
-            <div className="gIn" style={{display:'flex',alignItems:'center'}}>
-              <input className="fi" type="number" value={form.bpm} onChange={e=>setForm(f=>({...f,bpm:e.target.value}))} style={{color:tc,flex:1}} placeholder="80"/>
-              <button onClick={tapTempo} title="Tap Tempo" style={{flexShrink:0,margin:'4px',padding:'6px 10px',borderRadius:'var(--r-sm)',border:'none',cursor:'pointer',background:'rgba(245,158,11,.14)',color:"var(--app-warning, #D97706)",fontSize:'var(--fs-xs)',fontWeight:800,display:'flex',alignItems:'center',gap:4}}><IcoTap s={12}/>TAP</button>
-            </div>
-            <div style={{fontSize:8,color:t2,marginTop:3,textAlign:'right'}}>Toque o ritmo para calcular</div>
-          </div>
-          <div className="gIn"><input className="fi" value={form.tags} onChange={e=>setForm(f=>({...f,tags:e.target.value}))} placeholder="Tags (separadas por vírgula)" style={{color:tc}}/></div>
-          <div className="gIn"><input className="fi" value={form.sequence} onChange={e=>setForm(f=>({...f,sequence:e.target.value}))} placeholder="Seq. Musical (ex: Intro, Verso, Coro...)" style={{color:tc}}/></div>
-          <button className="bp" onClick={goToSearch} disabled={!form.title}><IcoMusic s={15}/>{initialData ? 'Buscar Músicas (Substituir)' : 'Buscar Música'}</button>
-          {initialData && <button className="bSec" onClick={()=>setStep(3)} style={{marginTop:8}}>Avançar para Letra →</button>}
-        </div>}
-
-        {/* ── STEP 2: Resultados de busca ── */}
-        {step===2&&<div style={{display:'flex',flexDirection:'column',gap:11}}>
-
-          {/* Buscando... */}
-          {searchLoading&&<div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12,padding:'32px 0'}}>
-            <Loader/>
-            <div style={{fontWeight:800,color:tc,fontSize:'var(--fs-base)'}}>{form.title}{form.artist?` — ${form.artist}`:''}</div>
-            <div style={{display:'flex',gap:10,fontSize:'var(--fs-xs)',color:t2}}>
-              <span>🎸 CifraClub</span><span>🎵 Vagalume</span><span>📝 Letras</span>
-            </div>
-          </div>}
-
-          {/* Resultados */}
-          {!searchLoading&&candidates.length>0&&<>
-            <div style={{fontSize:'var(--fs-xs)',fontWeight:800,color:t2,textTransform:'uppercase',letterSpacing:'.12em'}}>
-              {candidates.length} resultado{candidates.length!==1?'s':''} — selecione a versão correta
-            </div>
-            {candidates.map(c=>
-              <button key={c.id} onClick={()=>!busy&&selectCandidate(c)} disabled={busy}
-                style={{...cBtn,opacity:busy?.6:1,':hover':{transform:'translateY(-2px)'}}}>
-                <div style={{fontSize:22,flexShrink:0,lineHeight:1}}>{c.icon}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:800,color:tc,fontSize:'var(--fs-base)',marginBottom:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.title}</div>
-                  <div style={{fontSize:'var(--fs-xs)',color:t2,marginBottom:5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.artist}</div>
-                  <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                    <span style={{background:c.hasCifra?'rgba(16,185,129,.12)':'rgba(99,102,241,.1)',color:c.hasCifra?'#10B981':'#818CF8',border:`1px solid ${c.hasCifra?'rgba(16,185,129,.3)':'rgba(99,102,241,.22)'}`,padding:'2px 8px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:700}}>{c.source}</span>
-                    {c.hasCifra&&<span style={{background:'rgba(16,185,129,.1)',color:'#10B981',border:'1px solid rgba(16,185,129,.25)',padding:'2px 8px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:700}}>✓ com acordes</span>}
-                    {!c.hasCifra&&<span style={{background:'rgba(99,102,241,.08)',color:'#818CF8',border:'1px solid rgba(99,102,241,.18)',padding:'2px 8px',borderRadius:100,fontSize:'var(--fs-xs)',fontWeight:700}}>letra</span>}
-                  </div>
-                </div>
-                {busy?<Loader/>:<IcoChevR s={16}/>}
-              </button>
-            )}
-          </>}
-
-          {/* Nenhum resultado */}
-          {!searchLoading&&candidates.length===0&&
-            <div style={{textAlign:'center',padding:'28px 0',display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
-              <div style={{fontSize:36}}>🔍</div>
-              <div style={{fontWeight:800,color:tc}}>Não encontrado online</div>
-              <div style={{fontSize:'var(--fs-xs)',color:t2,maxWidth:230}}>Tente ajustar o nome ou artista, ou cole a letra abaixo</div>
-              <button onClick={goToSearch} className="bSec" style={{marginTop:6}}>Buscar novamente</button>
-            </div>
-          }
-
-          {/* Loading overlay */}
-          {busy&&<div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:12,background:dark?'rgba(79,70,229,.12)':'rgba(79,70,229,.07)',borderRadius:'var(--r-md)'}}>
-            <Loader/><span style={{fontSize:'var(--fs-sm)',fontWeight:700,color:'#818CF8'}}>{selLoading?'Carregando cifra...':'Maestro formatando...'}</span>
-          </div>}
-
-          {/* Manual paste option */}
-          {!searchLoading&&!busy&&<>
-            <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{flex:1,height:1,background:'rgba(0,0,0,.08)'}}/><span style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:600}}>ou</span><div style={{flex:1,height:1,background:'rgba(0,0,0,.08)'}}/></div>
-            <button className="bSec" onClick={()=>setShowPaste(p=>!p)}>{showPaste?'▲ Fechar':'✏️ Colar letra manualmente'}</button>
-            {showPaste&&<>
-              <div className="gIn">
-                <textarea className="fi" value={form.rawLyrics} onChange={e=>setForm(f=>({...f,rawLyrics:e.target.value}))} placeholder="Cole aqui a letra ou cifra copiada do site... Os acordes e a formatação serão preservados." style={{color:tc,minHeight:100,fontSize:'var(--fs-xs)',lineHeight:1.6}}/>
-              </div>
-              {form.rawLyrics.trim().length>20&&<button className="bp" onClick={usePasted}>Usar cifra como está</button>}
-            </>}
-            <button className="bSec" style={{opacity:.7}} onClick={()=>setStep(3)}>⌨️ Digitar diretamente</button>
-            <button onClick={()=>setStep(1)} style={{border:'none',background:'transparent',color:t2,fontSize:'var(--fs-sm)',cursor:'pointer'}}>← Voltar</button>
-          </>}
-        </div>}
-
-        {step===1&&<button className="bSec" onClick={()=>setStep(3)}>⌨️ Digitar cifra manualmente</button>}
-        {/* ── STEP 3: Revisar/editar cifra ── */}
-        {step===3&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
-          <div className="gIn"><input className="fi" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Título da música *" style={{color:tc,fontSize:'var(--fs-xl)',fontWeight:900}}/></div>
-          <div className="gIn" style={{marginTop:-4}}><input className="fi" value={form.artist} onChange={e=>setForm(f=>({...f,artist:e.target.value}))} placeholder="Artista / Ministério" style={{color:tc,fontSize:'var(--fs-base)'}}/></div>
-          <div style={{fontSize:'var(--fs-sm)',color:t2,fontWeight:700}}>Use [G], [Em], [C7] para acordes</div>
-          <div className="gIn" style={{borderRadius:'var(--r-lg)'}}>
-            <textarea className="fi" value={form.lyrics} onChange={e=>setForm(f=>({...f,lyrics:e.target.value}))} placeholder={'Verso:\n[G]Letra com [D]acordes\n\nCoro:\n[C]Continue a[G]qui...'} style={{color:tc,minHeight:200,fontFamily:"'JetBrains Mono',monospace",fontSize:'var(--fs-sm)',lineHeight:1.8}}/>
-          </div>
-          <div style={{fontSize:'var(--fs-sm)',color:t2,fontWeight:700,marginTop:10}}>Áudio de Referência (Opcional)</div>
-          <div className="gIn" style={{borderRadius:'var(--r-lg)',display:'flex',alignItems:'center',padding:'0 12px'}}>
-             <div style={{color:t2}}>🔗</div>
-             <input className="fi" value={form.media_url} onChange={e=>setForm(f=>({...f,media_url:e.target.value}))} placeholder="Link do YouTube ou Spotify" style={{color:tc}}/>
-          </div>
-          {form.lyrics&&<div className={gc} style={{borderRadius:'var(--r-md)',padding:14}}>
-            <div style={{fontSize:'var(--fs-xs)',color:t2,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>Preview</div>
-            <LyricView text={form.lyrics} baseKey={form.key} st={0} mode='chords' dark={dark}/>
-          </div>}
-          {saveError&&<p role="alert">{saveError}</p>}
-          <button className="bp" onClick={save} disabled={saving||!form.lyrics||!form.title}>{initialData ? 'Salvar Alterações' : 'Salvar Música'}</button>
-          <button onClick={()=>setStep(initialData ? 1 : 2)} style={{border:'none',background:'transparent',color:t2,fontSize:'var(--fs-sm)',cursor:'pointer'}}>← Voltar para Detalhes</button>
-        </div>}
-
+  return <Dialog dark={dark} title={title} className="song-editor" eyebrow="Repertório" icon="music" closeLabel="Fechar cadastro de música"
+    onClose={tryClose} busy={formBusy} contentKey={step}
+    footer={<>
+      {saveError && <p className="ui-message ui-error" role="alert">{saveError}</p>}
+      <div className="ui-dialog-buttons">
+        {step===1 ? <>
+          <button type="button" className="ui-button" onClick={()=>setStep(3)}>Digitar cifra manualmente</button>
+          <button type="button" className="ui-button ui-button-primary" onClick={goToSearch} disabled={!titleValid}><Icon name="search" size={16}/>Buscar música</button>
+        </> : <button type="button" className="ui-button" disabled={formBusy} onClick={()=>setStep(1)}><Icon name="left" size={16}/>Voltar para detalhes</button>}
+      {step===3 && <button type="submit" form="song-editor-form" className="ui-button ui-button-primary" disabled={!canSave||saving}><Icon name="check" size={16}/>{saving?'Salvando…':requestApproval?'Enviar para aprovação':initialData?'Salvar Alterações':'Salvar Música'}</button>}
       </div>
-    </div>
-  </>;
+    </>}>
+    {step===1 && <div className="song-editor-sections">
+      <Section icon="music" title="Dados da música">
+        {songFields}
+        <label className="ui-field">Categoria<select value={form.cat} onChange={e=>update('cat',e.target.value)}>{Object.entries(CAT).map(([id,category])=><option value={id} key={id}>{category.label}</option>)}</select></label>
+      </Section>
+      <Section icon="sound" title="Tom e ritmo">
+        <div className="song-editor-grid">
+          <label className="ui-field">Tom original<select value={form.key} disabled={requestApproval&&!!initialData} onChange={e=>update('key',e.target.value)}>{[...new Set([form.key,...KEYS,...KEYS.map(key=>key+'m')].filter(Boolean))].map(key=><option key={key}>{key}</option>)}</select></label>
+          <label className="ui-field">Compasso<select value={form.timeSignature||form.time_signature||'4/4'} onChange={e=>update('timeSignature',e.target.value)}>{TIME_SIGS.map(signature=><option key={signature}>{signature}</option>)}</select></label>
+        </div>
+        <div className="song-editor-tempo">
+          <label className="ui-field">BPM<input type="number" min="20" max="300" value={form.bpm} onChange={e=>update('bpm',e.target.value)}/></label>
+          <button type="button" className="ui-button" onClick={tapTempo}><IcoTap s={16}/>Marcar ritmo</button>
+        </div>
+      </Section>
+      <details className="song-editor-extra"><summary>Tags e sequência musical</summary>
+        <label className="ui-field">Tags<input value={form.tags || ''} onChange={e=>update('tags',e.target.value)} placeholder="Separe por vírgulas"/></label>
+        <label className="ui-field">Sequência musical<input value={form.sequence || ''} onChange={e=>update('sequence',e.target.value)} placeholder="Intro, verso, refrão…"/></label>
+      </details>
+    </div>}
+    {step===2 && <div className="song-editor-sections">
+      <h3>Escolher versão</h3>
+      {searchLoading ? <p role="status">Buscando {form.title}…</p> : candidates.length ? <div className="song-search-results">{candidates.map(candidate=>
+        <button type="button" key={candidate.id} className="ui-button" disabled={busy} onClick={()=>selectCandidate(candidate)}>
+          <span><strong>{candidate.title}</strong><small>{candidate.artist} · {candidate.source}{candidate.hasCifra?' · Com acordes':' · Letra'}</small></span><Icon name="right" size={17}/>
+        </button>)}</div> : <p>Nenhuma versão encontrada. Confira o título ou digite a cifra.</p>}
+      {busy && <p role="status">{selLoading?'Carregando cifra…':'Formatando cifra…'}</p>}
+      {!formBusy && <><button type="button" className="ui-button" onClick={()=>setShowPaste(value=>!value)} aria-expanded={showPaste}>Colar letra ou cifra</button>
+        {showPaste && <><label className="ui-field">Letra ou cifra<textarea value={form.rawLyrics || ''} onChange={e=>update('rawLyrics',e.target.value)} rows={5}/></label><button type="button" className="ui-button ui-button-soft" disabled={!form.rawLyrics?.trim()} onClick={usePasted}>Usar cifra como está</button></>}
+        <button type="button" className="ui-button" onClick={()=>setStep(3)}>Digitar cifra manualmente</button>
+      </>}
+    </div>}
+    {step===3 && <form id="song-editor-form" className="song-editor-sections" onSubmit={event=>{event.preventDefault();void save();}}>
+      {songFields}
+      <label className="ui-field">Letra e cifra<textarea value={form.lyrics} onChange={e=>update('lyrics',e.target.value)} placeholder={'Verso:\n[G]Letra com [D]acordes'} rows={8} required/></label>
+      <p className="ui-helper">Coloque os acordes entre colchetes, como [G], [Em] e [C7].</p>
+      <label className="ui-field">Áudio de referência (opcional)<input type="url" value={form.media_url || ''} onChange={e=>update('media_url',e.target.value)} placeholder="Link do YouTube ou Spotify"/></label>
+      {lyricsValid && <details className="song-editor-extra"><summary>Prévia da cifra</summary><LyricView text={form.lyrics} baseKey={form.key} st={0} mode="chords" dark={dark}/></details>}
+    </form>}
+  </Dialog>;
 });
 /* ─── EVENT EDITOR ──────────────────────────────────────────── */
 const CreateEvent = memo(({dark,members,songs,events,initialDate,editEvent,onSave,onClose})=>{

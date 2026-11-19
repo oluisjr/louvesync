@@ -1210,17 +1210,20 @@ test('admin sees online members across devices, foreground changes, disconnectio
 
 test('event view receipts persist with first/last times and are restricted to admins without confirming attendance',async({browser})=>{
   const app=await fixture(browser);
-  app.state.members=app.state.members.map((member,index)=>({...member,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
+  test.setTimeout(60000);
+  app.state.members=app.state.members.map((person,index)=>({...person,role:index?'Líder de Louvor':person.role,pin:index?'MEMBER_TEST_PIN':'ADMIN_TEST_PIN'}));
   try{
     const first=await app.open(admin,undefined,{activity:true}),second=await app.open(member,undefined,{activity:true});
     for(const page of [first,second]){await page.getByRole('button',{name:'Escala',exact:true}).click();await page.getByRole('button',{name:'Ver detalhes →',exact:true}).click();}
+    await second.getByRole('button',{name:'Mais ações do evento',exact:true}).click();
+    await expect(second.getByRole('dialog',{name:'Culto de Teste',exact:true}).getByRole('button',{name:'Registrar presença',exact:true})).toBeVisible();
     await expect(second.getByRole('button',{name:/Ver visualizações/})).toHaveCount(0);
     await first.getByRole('button',{name:'Mais ações do evento',exact:true}).click();
     await first.getByRole('button',{name:'Ver visualizações de Culto de Teste',exact:true}).click();
     const dialog=first.getByRole('dialog',{name:'Visualizações da escala',exact:true});
     await expect(dialog.locator('.ui-activity-readers').getByText('Membro Teste',{exact:true})).toBeVisible();
     expect(app.state.events[0].event_members.find(m=>m.member_id===member.id).confirmed).toBe(null);
-    await second.reload();
+    await app.reload(second);
     await second.clock.setFixedTime(new Date('2026-10-24T12:05:00-03:00'));
     await second.getByRole('button',{name:'Escala',exact:true}).click();await second.getByRole('button',{name:'Ver detalhes →',exact:true}).click();
     const row=dialog.locator('.ui-activity-readers .ui-activity-person').filter({hasText:'Membro Teste'});
@@ -1626,7 +1629,7 @@ test('leadership selects instrumentalists in the event card and syncs an offline
     {...member,id:'guitar-a',name:'Aragão',instrument:'Violão'},
     {...member,id:'guitar-b',name:'Darci',instrument:'Violão'},
     {...member,id:'drum-a',name:'Samuel',instrument:'Bateria'},
-    {...member,id:'drum-b',name:'Outro baterista',instrument:'Bateria'},
+    {...member,id:'drum-b',name:'Outro baterista',instrument:'Baterista'},
   ]);
   app.state.events[0].event_members.push({member_id:'guitar-a',confirmed:false},{member_id:'guitar-b',confirmed:true},{member_id:'drum-a',confirmed:true});
   try{
@@ -1955,7 +1958,7 @@ test('new-song manual path works immediately and Santa Ceia includes every categ
   const app=await fixture(browser);
   try{
     const page=await app.open();await navigate(page,'Músicas');await page.getByRole('button',{name:'Adicionar',exact:true}).click();
-    await page.getByRole('button',{name:'⌨️ Digitar cifra manualmente',exact:true}).click();await expect(page.locator('textarea')).toBeVisible();
+    await page.getByRole('button',{name:'Digitar cifra manualmente',exact:true}).click();await expect(page.locator('textarea')).toBeVisible();
     await app.reload(page);await page.getByRole('button',{name:'Escala',exact:true}).click();await page.getByRole('button',{name:'Novo',exact:true}).click();
     await page.getByRole('tab',{name:'Setlist',exact:true}).click();
     await page.getByText('Pedidos e Santa Ceia',{exact:true}).click();
@@ -2210,8 +2213,10 @@ test('practical training changes instruments and runs its timer and real metrono
   await training.getByRole('button',{name:'Voz',exact:true}).click();
   await expect(training.getByText('Respire por 4 tempos',{exact:true})).toBeVisible();
   await training.getByRole('button',{name:'Começar prática',exact:true}).click();
+  await expect(training.locator('.training-hero')).toHaveAttribute('data-running','true');
   const start=await page.evaluate(()=>Date.now());await page.clock.setFixedTime(start+3500);
   await training.getByRole('button',{name:'Pausar prática',exact:true}).click();
+  await expect(training.locator('.training-hero')).toHaveAttribute('data-running','false');
   await expect(training.getByLabel('Tempo de prática',{exact:true})).toContainText('0:03');
   await training.getByRole('button',{name:'Reiniciar',exact:true}).click();
   await expect(training.getByRole('button',{name:'Começar prática',exact:true})).toBeVisible();
@@ -2225,6 +2230,41 @@ test('practical training changes instruments and runs its timer and real metrono
   expect(await training.locator('iframe').first().getAttribute('src')).not.toContain('undefined');
   expect(app.failures).toEqual([]);
  }finally{await app.close();}
+});
+
+test('chromatic tuner glides from center to a stable note and releases the audio stream',async({browser})=>{
+  const app=await fixture(browser);
+  try{
+    const page=await app.open(admin);
+    await navigate(page,'Treinar');
+    await page.locator('.training-resources > summary').click();
+    await page.evaluate(()=>{
+      const pointer=document.querySelector('.tuner-needle');
+      window.tunerAngles=[];
+      new MutationObserver(()=>{
+        const angle=Number(pointer.getAttribute('transform')?.match(/rotate\(([-.\d]+)\)/)?.[1]);
+        if(angle>0)window.tunerAngles.push(angle);
+      }).observe(pointer,{attributeFilter:['transform']});
+      navigator.mediaDevices.getUserMedia=async()=>{
+        const context=window.tunerTestAudio=new AudioContext();
+        await context.resume();
+        const destination=context.createMediaStreamDestination(),oscillator=context.createOscillator();
+        oscillator.frequency.value=110*2**(32/1200);
+        oscillator.connect(destination);
+        oscillator.start();
+        window.tunerTestTrack=destination.stream.getAudioTracks()[0];
+        return destination.stream;
+      };
+    });
+    const tuner=page.locator('.chromatic-tuner');
+    await tuner.getByRole('button',{name:'Iniciar afinador'}).click();
+    await expect(tuner.locator('.tuner-reading')).toContainText(/\+3[0-4] cents · Agudo/);
+    await expect.poll(()=>page.evaluate(()=>Math.max(...window.tunerAngles))).toBeGreaterThan(25);
+    expect(await page.evaluate(()=>window.tunerAngles[0])).toBeLessThan(12);
+    await tuner.getByRole('button',{name:'Parar afinador'}).click();
+    expect(await page.evaluate(async()=>{await window.tunerTestAudio.close();return window.tunerTestTrack.readyState;})).toBe('ended');
+    expect(app.failures).toEqual([]);
+  }finally{await app.close();}
 });
 test('notification inbox activates a device, preserves read receipts and opens the correct event',async({browser})=>{
  const app=await fixture(browser),requests=[];
@@ -3232,9 +3272,17 @@ for(const theme of ['light','dark'])test(`church visitors browse public meetings
     const nav=page.getByRole('navigation',{name:'Navegação da comunidade'});
     await nav.getByRole('button',{name:'Agenda',exact:true}).click();await expect(page.getByText('Rascunho reservado',{exact:true})).toHaveCount(0);await expect(page.getByText('Culto da comunidade',{exact:true})).toHaveCount(0);const meeting=page.getByRole('article',{name:'Culto de Teste',exact:true});await expect(meeting).toContainText('18:00');await expect(meeting.getByRole('button')).toHaveCount(0);await expect(page.getByRole('dialog')).toHaveCount(0);
     await nav.getByRole('button',{name:'Oração',exact:true}).click();const prayer=page.getByRole('region',{name:'Pedido de oração',exact:true});
-    await expect(prayer.getByRole('radio',{name:'Somente a liderança responsável',exact:true})).toBeChecked();await prayer.getByLabel('Seu nome (opcional)').fill('Nome que deve ficar privado');await prayer.getByRole('checkbox',{name:'Enviar sem meu nome',exact:true}).check();
-    const message=prayer.getByRole('textbox',{name:'Seu pedido de oração',exact:true});await message.fill('Pedido privado de oração pela minha família.');app.state.prayerFailure=true;await prayer.getByRole('button',{name:'Enviar pedido de oração',exact:true}).click();await expect(prayer.getByRole('alert')).toContainText('preservado');await expect(message).toHaveValue('Pedido privado de oração pela minha família.');
-    app.state.prayerFailure=false;await prayer.getByRole('button',{name:'Enviar pedido de oração',exact:true}).click();await expect(prayer.getByRole('status')).toContainText('Pedido recebido');await expect(message).toHaveValue('');
+    await expect(prayer.getByRole('radio')).toHaveCount(0);await prayer.getByLabel('Seu nome (opcional)').fill('Nome que deve ficar privado');await prayer.getByRole('checkbox',{name:'Enviar sem meu nome',exact:true}).check();
+    const message=prayer.getByRole('textbox',{name:'Seu pedido de oração',exact:true});
+    await message.fill('Pedido privado de oração pela minha família.');
+    const refuseOnce=route=>route.fulfill({status:400,json:{ok:false,error:'Confira o pedido de oração.'}});
+    await page.route('**/api/community',refuseOnce,{times:1});
+    await prayer.getByRole('button',{name:'Enviar pedido de oração',exact:true}).click();
+    await expect(prayer.getByRole('alert')).toContainText('Confira o pedido');
+    await expect(message).toHaveValue('Pedido privado de oração pela minha família.');
+    await prayer.getByRole('button',{name:'Enviar pedido de oração',exact:true}).click();
+    await expect(prayer.getByRole('status')).toContainText('Pedido recebido');
+    await expect(message).toHaveValue('');
     const saved=(await app.communityQuery('select display_name,anonymous,member_id,message,published,status from louvesync_prayer_requests')).rows;expect(saved).toHaveLength(1);expect(saved[0]).toMatchObject({display_name:'',anonymous:true,member_id:null,published:false,status:'pending'});
     for(const width of [390,320]){
       await page.setViewportSize({width,height:844});await page.locator('.church-scroll').evaluate(node=>{node.scrollTop=0;});await page.screenshot({path:test.info().outputPath(`church-prayer-${theme}-${width}.png`),scale:'css'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
@@ -3275,12 +3323,43 @@ test('church membership selected by an admin redirects another device and cannot
   }finally{await app.close();}
 });
 
-test('church prayers shared with consent appear publicly only after admin review and disappear when archived',async({browser})=>{
+test('named prayer stays private through moderation and visitors navigate the agenda by week',async({browser})=>{
   const app=await fixture(browser);
+  app.state.events.push({...structuredClone(initialEvents[0]),id:'next-week',date:'2026-10-31',label:'Encontro da próxima semana',event_songs:[],event_members:[]});
   try{
-    const visitor=await app.open(null,undefined,{community:true});await visitor.getByRole('navigation',{name:'Navegação da comunidade'}).getByRole('button',{name:'Oração',exact:true}).click();const form=visitor.getByRole('region',{name:'Pedido de oração',exact:true});await form.getByLabel('Seu nome (opcional)').fill('Visitante Teste');await form.getByRole('textbox',{name:'Seu pedido de oração',exact:true}).fill('Pedimos oração por nossa comunidade nesta semana.');await form.getByRole('radio',{name:'Compartilhar com a comunidade',exact:true}).check();await form.getByRole('button',{name:'Enviar pedido de oração',exact:true}).click();await expect(form.getByRole('status')).toContainText('Pedido recebido');await expect(visitor.getByRole('heading',{name:'Oramos juntos',exact:true})).toHaveCount(0);
-    const leader=await app.open(admin);await navigate(leader,'Admin');await leader.getByRole('button',{name:'Comunidade da igreja',exact:true}).click();const adminPage=leader.getByRole('region',{name:'Gestão da comunidade',exact:true});await adminPage.getByRole('button',{name:'Pedidos de oração',exact:true}).click();await adminPage.getByRole('checkbox',{name:'Publicar para a comunidade após revisão',exact:true}).check();await adminPage.getByRole('button',{name:'Salvar acompanhamento',exact:true}).click();await expect(adminPage.getByRole('status')).toContainText('Acompanhamento salvo');await visitor.evaluate(()=>window.dispatchEvent(new Event('online')));await expect(visitor.getByRole('heading',{name:'Oramos juntos',exact:true})).toBeVisible();await expect(visitor.getByText('Pedimos oração por nossa comunidade nesta semana.',{exact:true})).toBeVisible();
-    await adminPage.getByLabel('Andamento',{exact:true}).selectOption('archived');await adminPage.getByRole('button',{name:'Salvar acompanhamento',exact:true}).click();await expect.poll(async()=>(await app.communityQuery('select status from louvesync_prayer_requests')).rows[0].status).toBe('archived');await visitor.evaluate(()=>window.dispatchEvent(new Event('online')));await expect(visitor.getByText('Pedimos oração por nossa comunidade nesta semana.',{exact:true})).toHaveCount(0);expect(app.failures).toEqual([]);
+    const visitor=await app.open(null,undefined,{community:true});
+    const navigation=visitor.getByRole('navigation',{name:'Navegação da comunidade'});
+    await navigation.getByRole('button',{name:'Agenda',exact:true}).click();
+    await expect(visitor.getByRole('article',{name:'Culto de Teste',exact:true})).toBeVisible();
+    const later=visitor.getByRole('article',{name:'Encontro da próxima semana',exact:true});
+    await expect(later).toHaveCount(0);
+    await visitor.getByRole('button',{name:'Próxima semana',exact:true}).click();
+    await expect(later).toBeVisible();
+    await expect(visitor.getByRole('article',{name:'Culto de Teste',exact:true})).toHaveCount(0);
+    await visitor.getByRole('button',{name:'Semana anterior',exact:true}).click();
+    await expect(later).toHaveCount(0);
+    await navigation.getByRole('button',{name:'Oração',exact:true}).click();
+    const form=visitor.getByRole('region',{name:'Pedido de oração',exact:true});
+    await form.getByLabel('Seu nome (opcional)').fill('Visitante Teste');
+    await form.getByRole('textbox',{name:'Seu pedido de oração',exact:true}).fill('Pedimos oração por nossa família nesta semana.');
+    await expect(form.getByRole('radio')).toHaveCount(0);
+    await form.getByRole('button',{name:'Enviar pedido de oração',exact:true}).click();
+    await expect(form.getByRole('status')).toContainText('Pedido recebido');
+    const leader=await app.open(admin);
+    await navigate(leader,'Admin');
+    await leader.getByRole('button',{name:'Comunidade da igreja',exact:true}).click();
+    const adminPage=leader.getByRole('region',{name:'Gestão da comunidade',exact:true});
+    await adminPage.getByRole('button',{name:'Pedidos de oração',exact:true}).click();
+    await expect(adminPage).toContainText('Visitante Teste');
+    await expect(adminPage.getByRole('checkbox')).toHaveCount(0);
+    await adminPage.getByLabel('Andamento',{exact:true}).selectOption('praying');
+    await adminPage.getByRole('button',{name:'Salvar acompanhamento',exact:true}).click();
+    await expect(adminPage.getByRole('status')).toContainText('Acompanhamento salvo');
+    const rows=(await app.communityQuery('select display_name, visibility, published, status from louvesync_prayer_requests')).rows;
+    expect(rows).toEqual([{display_name:'Visitante Teste',visibility:'team',published:false,status:'praying'}]);
+    await visitor.evaluate(()=>window.dispatchEvent(new Event('online')));
+    await expect(visitor.getByText('Pedimos oração por nossa família nesta semana.',{exact:true})).toHaveCount(0);
+    expect(app.failures).toEqual([]);
   }finally{await app.close();}
 });
 

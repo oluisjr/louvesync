@@ -1,0 +1,11 @@
+.chromatic-tuner { padding: 18px; margin-bottom: 16px; border-radius: var(--r-xl); }
+.chromatic-tuner h3 { margin: 0 0 12px; font-size: 14px; }
+.tuner-dial { text-align: center; margin-bottom: 14px; }
+.tuner-dial svg { display: block; width: min(100%,220px); margin: auto; color: var(--ui-muted); }
+.tuner-needle { color: var(--ui-accent); transition: color 240ms ease; }
+.chromatic-tuner[data-tone="tuned"] .tuner-needle { color: var(--app-positive,#0b9b76); }
+.chromatic-tuner[data-tone="adjust"] .tuner-needle { color: var(--app-warning,#d99537); }
+.tuner-reading { display: grid; align-content: center; gap: 4px; min-height: 70px; }
+.tuner-reading strong { font-size: 34px; line-height: 1; }
+.tuner-reading small { margin-left: 4px; font-size: 16px; }
+.tuner-reading span { color: var(--ui-muted); font-size: 12px; }
